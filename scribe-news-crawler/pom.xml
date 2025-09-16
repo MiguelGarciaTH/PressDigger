@@ -12,7 +12,7 @@
 
     <parent>
         <artifactId>ScribeRef</artifactId>
-        <groupId>ScribeRef</groupId>
+        <groupId>arquivo</groupId>
         <version>0.0.1-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
@@ -51,17 +51,17 @@
                                 <src>${project.build.directory}/${project.build.finalName}.jar</src>
                                 <mapper>
                                     <type>perm</type>
-                                    <prefix>/opt/25abril/arquivo-crawler</prefix>
+                                    <prefix>/opt/ScribeRef/scribe-news-crawler</prefix>
                                     <user>arquivo</user>
                                     <group>arquivo</group>
                                 </mapper>
                             </data>
                             <data>
                                 <type>file</type>
-                                <src>deb/data/opt/25abril/arquivo-crawler/run.sh</src>
+                                <src>deb/data/opt/ScribeRef/scribe-news-crawler/run.sh</src>
                                 <mapper>
                                     <type>perm</type>
-                                    <prefix>/opt/25abril/arquivo-crawler</prefix>
+                                    <prefix>/opt/ScribeRef/scribe-news-crawler</prefix>
                                     <filemode>755</filemode>
                                     <user>arquivo</user>
                                     <group>arquivo</group>

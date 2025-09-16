@@ -1,0 +1,15 @@
+<configuration scan="true" scanPeriod="30 seconds">
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d %-5level [%15.15thread] %-36logger{36} : %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <root level="info">
+        <appender-ref ref="STDOUT"/>
+    </root>
+
+    <!--
+    <logger name="arquivo.crawler.ArquivoCrawler" level="DEBUG"/>
+    -->
+</configuration>

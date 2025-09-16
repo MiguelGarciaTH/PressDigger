@@ -1,0 +1,14 @@
+SERVER_PORT=8085
+MANAGEMENT_SERVER_PORT=9095
+
+DB_URL="jdbc:postgresql://example.com:5432/postgres?ssl=true&sslfactory=org.postgresql.ssl.NonValidatingFactory"
+DB_USER="example-user"
+DB_PASSWORD="example-password"
+
+KAFKA_BOOTSTRAP_SERVERS=example.com:9093
+# Uncomment following options for SSL connections:
+
+LOGGING_CONFIG=/etc/ScribeRef/logs/scribe-news-crawler.xml
+
+# set JVM options here
+JAVA_TOOL_OPTIONS="-Xss512k -Xmx512m"
