@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @EnableScheduling
-@ConditionalOnProperty(name = "25-abril.arquivo.article-crawler.enable", havingValue = "true")
+@ConditionalOnProperty(name = "scribe-ref.arquivo.scribe-news-crawler.enable", havingValue = "true")
 public class ArquivoCrawler {
 
     private static final Logger LOG = LoggerFactory.getLogger(ArquivoCrawler.class);
