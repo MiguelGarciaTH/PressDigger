@@ -26,6 +26,7 @@
 
 	<modules>
 		<module>scribe-news-crawler</module>
+		<module>scribe-lib</module>
 	</modules>
 
 	<dependencies>
