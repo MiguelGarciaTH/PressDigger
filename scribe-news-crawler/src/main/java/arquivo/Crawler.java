@@ -19,18 +19,3 @@ public class Crawler {
 	}
 
 }
-
-@Configuration
-@Component
-class TopicConfig {
-
-	@Value("${image-crop.topic}")
-	private String topic;
-
-	@Bean
-	public NewTopic createTopic() {
-		return TopicBuilder.name(topic)
-				.partitions(15)
-				.build();
-	}
-}

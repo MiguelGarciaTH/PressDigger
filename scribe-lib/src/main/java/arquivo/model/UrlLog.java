@@ -2,6 +2,7 @@ package arquivo.model;
 
 import jakarta.persistence.*;
 
+@Entity
 public class UrlLog {
 
     @Id
@@ -16,7 +17,7 @@ public class UrlLog {
 
     private int offset;
 
-    public UrlLogp(){
+    public UrlLog(){
 
     }
 
