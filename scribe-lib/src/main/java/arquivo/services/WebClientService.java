@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
+import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -27,11 +28,6 @@ public class WebClientService {
     private int retryCounter = 0;
 
     public WebClientService(RateLimiterRepository rateLimiterRepository) {
-        this();
-        this.rateLimiterService = new RateLimiterService(rateLimiterRepository);
-    }
-
-    public WebClientService() {
         final HttpClient httpClient = HttpClient.create()
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 5000 * 1000)
                 .responseTimeout(Duration.ofSeconds(5000));
@@ -45,7 +41,9 @@ public class WebClientService {
                 .build();
 
         this.objectMapper = new ObjectMapper();
+        this.rateLimiterService = new RateLimiterService(rateLimiterRepository);
     }
+
 
     public JsonNode get(String url, String service) {
         if (retryCounter > 2) {
@@ -53,7 +51,7 @@ public class WebClientService {
             return null;
         }
         try {
-            if(rateLimiterService != null) {
+            if (rateLimiterService != null) {
                 rateLimiterService.increment(service);
             }
 
