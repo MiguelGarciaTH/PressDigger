@@ -2,10 +2,13 @@ package arquivo.crawler;
 
 import arquivo.model.Keyword;
 import arquivo.model.Site;
+import arquivo.repository.ArticleRepository;
 import arquivo.repository.KeywordRepository;
 import arquivo.repository.RateLimiterRepository;
 import arquivo.repository.SiteRepository;
 import arquivo.services.WebClientService;
+import arquivo.utils.UrlNormalizer;
+import arquivo.utils.UrlValidator;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,14 +43,17 @@ public class ArquivoCrawler {
 
     private KeywordRepository keywordRepository;
     private SiteRepository siteRepository;
+    private ArticleRepository articleRepository;
     private WebClientService webClientService;
 
     @Autowired
     public ArquivoCrawler(KeywordRepository keywordRepository,
                           SiteRepository siteRepository,
+                          ArticleRepository articleRepository,
                           RateLimiterRepository rateLimiterRepository) {
         this.keywordRepository = keywordRepository;
         this.siteRepository = siteRepository;
+        this.articleRepository = articleRepository;
         this.webClientService = new WebClientService(rateLimiterRepository);
     }
 
@@ -62,27 +68,43 @@ public class ArquivoCrawler {
             LOG.debug("Request for {}", url.url);
             final List<JsonNode> responseItems = getAllResponseItems(url.url);
             for (var responseItem : responseItems) {
-                System.out.println(responseItem.toPrettyString());
-                System.out.println("--------------------");
+                final String responseItemUrlNormalized = UrlNormalizer.normalize(responseItem.get("linkToArchive").asText());
+                if (UrlValidator.isValid(responseItemUrlNormalized)) {
+                    if (processResponseItem(responseItemUrlNormalized)) {
+                        // TODO should process 
+                    }
+                }
             }
         }
     }
 
+    private boolean processResponseItem(String url) {
+        return !articleRepository.existsByUrlTrimmed(url);
+    }
+
     private List<JsonNode> getAllResponseItems(String url) {
-        final List<JsonNode> responses = new LinkedList<>();
+        final List<JsonNode> items = new LinkedList<>();
         JsonNode response = webClientService.get(url, "arquivo.pt");
-        responses.add(response.get("response_items"));
-        int responseItemsCounter = response.get("response_items").size();
-        if (response.has("next_page")) {
-            do {
-                final String nextPageUrl = java.net.URLDecoder.decode(response.get("next_page").asText(), StandardCharsets.UTF_8);
-                response = webClientService.get(nextPageUrl, "arquivo.pt");
-                responseItemsCounter += response.get("response_items").size();
-                responses.add(response.get("response_items"));
-            } while (response.has("next_page"));
+        JsonNode arrayNode = response.get("response_items");
+        // Add all elements in first page
+        if (arrayNode != null && arrayNode.isArray()) {
+            arrayNode.forEach(items::add);
         }
-        LOG.debug("Collected a total of {} response items for url: {}", responseItemsCounter, url);
-        return responses;
+
+        int counter = arrayNode == null ? 0 : arrayNode.size();
+
+        while (response.has("next_page")) {
+            final String nextPageUrl = java.net.URLDecoder.decode(response.get("next_page").asText(), StandardCharsets.UTF_8);
+            response = webClientService.get(nextPageUrl, "arquivo.pt");
+            arrayNode = response.get("response_items");
+            if (arrayNode != null && arrayNode.isArray()) {
+                arrayNode.forEach(items::add);
+                counter += arrayNode.size();
+            }
+        }
+        LOG.debug("Collected a total of {} response items for url: {}", counter, url);
+
+        return items;
     }
 
     private List<UrlStruct> generateUrls() {
