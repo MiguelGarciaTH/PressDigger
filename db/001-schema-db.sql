@@ -18,6 +18,22 @@ CREATE TABLE IF NOT EXISTS keyword (
     CONSTRAINT keyword_pk PRIMARY KEY (id)
 );
 
+
+CREATE SEQUENCE IF NOT EXISTS article_seq START WITH 1 INCREMENT BY 1;
+
+CREATE TABLE IF NOT EXISTS article (
+    id integer NOT NULL DEFAULT nextval('article_seq'),
+    "date" timestamp without time zone NOT NULL DEFAULT LOCALTIMESTAMP,
+    site_id integer NOT NULL,
+    title text NOT NULL,
+    url text NOT NULL,
+    url_trimmed text NOT NULL, -- for duplication lookup
+    url_image text NOT NULL,
+    url_text text NOT NULL,
+    CONSTRAINT article_pk PRIMARY KEY (id),
+    CONSTRAINT article_fk_site_id FOREIGN KEY (site_id) REFERENCES site(id)
+);
+
 CREATE SEQUENCE IF NOT EXISTS url_log_seq START WITH 1 INCREMENT BY 1;
 
 CREATE TABLE IF NOT EXISTS url_log (
