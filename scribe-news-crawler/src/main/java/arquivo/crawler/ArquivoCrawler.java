@@ -41,10 +41,10 @@ public class ArquivoCrawler {
     private final DateTimeFormatter arquivoFormatter = DateTimeFormatter.ofPattern("uuuuMMddHHmmss");
 
 
-    private KeywordRepository keywordRepository;
-    private SiteRepository siteRepository;
-    private ArticleRepository articleRepository;
-    private WebClientService webClientService;
+    private final KeywordRepository keywordRepository;
+    private final SiteRepository siteRepository;
+    private final ArticleRepository articleRepository;
+    private final WebClientService webClientService;
 
     @Autowired
     public ArquivoCrawler(KeywordRepository keywordRepository,
@@ -59,19 +59,29 @@ public class ArquivoCrawler {
 
     @EventListener(ApplicationReadyEvent.class)
     public void crawl() {
-        final List<UrlStruct> urls = generateUrls();
-        Collections.shuffle(urls);
 
+        // Generate all URL to fetch from arquivo.pt API
+        final List<UrlStruct> urls = generateUrls();
         LOG.info("Number of URLs to hit Arquivo.pt {}", urls.size());
+
+        // Shuffle them, this reduces the number of duplicate processing, since it increases that duplicate results
+        // (arquivo urls) are processed after the first equal url is processed
+        Collections.shuffle(urls);
 
         for (UrlStruct url : urls) {
             LOG.debug("Request for {}", url.url);
             final List<JsonNode> responseItems = getAllResponseItems(url.url);
             for (var responseItem : responseItems) {
-                final String responseItemUrlNormalized = UrlNormalizer.normalize(responseItem.get("linkToArchive").asText());
-                if (UrlValidator.isValid(responseItemUrlNormalized)) {
+
+                // check if the URL is valid, otherwise skip
+                final String arquivoUrl = responseItem.get("linkToArchive").asText();
+                if (UrlValidator.isValid(arquivoUrl)) {
+
+                    // normalizes URLs to check for duplicates
+                    final String responseItemUrlNormalized = UrlNormalizer.normalize(arquivoUrl);
                     if (processResponseItem(responseItemUrlNormalized)) {
-                        // TODO should process 
+                        // TODO should process
+
                     }
                 }
             }
