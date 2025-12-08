@@ -76,7 +76,7 @@ public class ArquivoCrawler {
     @EventListener(ApplicationReadyEvent.class)
     public void crawl() {
 
-        final List<String> urls = getUrls();
+        final List<String> urls = getUrlsToProcess();
         LOG.info("Number of URLs to hit Arquivo.pt {}", urls.size());
 
         for (String url : urls) {
@@ -107,7 +107,7 @@ public class ArquivoCrawler {
             if (UrlValidator.isValid(arquivoUrl)) {
                 // normalizes URLs to check for duplicates
                 final String responseItemUrlNormalized = UrlNormalizer.normalize(arquivoUrl);
-                if (shouldProcessResponseItem(responseItemUrlNormalized) && areAllFieldsSet(responseItem)) {
+                if (isAlreadyProcessed(responseItemUrlNormalized) && isResponseComplete(responseItem)) {
                     publishToKafka(responseItem);
                 }
             }
@@ -129,7 +129,7 @@ public class ArquivoCrawler {
     }
 
 
-    private List<String> getUrls() {
+    private List<String> getUrlsToProcess() {
         // first time, no results
         if (urlRepository.count() == 0) {
             // Generate all URL to fetch from arquivo.pt API
@@ -149,14 +149,14 @@ public class ArquivoCrawler {
                 .toList();
     }
 
-    private boolean areAllFieldsSet(JsonNode node) {
+    private boolean isResponseComplete(JsonNode node) {
         return node.has("title") && !node.get("title").isEmpty() && !node.get("title").isNull()
                 && node.has("linkToArchive") && !node.get("linkToArchive").isEmpty() && !node.get("linkToArchive").isNull()
                 && node.has("linkToExtractedText") && !node.get("linkToExtractedText").isEmpty() && !node.get("linkToExtractedText").isNull()
                 && node.has("linkToScreenshot") && !node.get("linkToScreenshot").isEmpty() && !node.get("linkToScreenshot").isNull();
     }
 
-    private boolean shouldProcessResponseItem(String url) {
+    private boolean isAlreadyProcessed(String url) {
         return !articleRepository.existsByUrlTrimmed(url);
     }
 
