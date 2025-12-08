@@ -4,6 +4,7 @@ import arquivo.model.Keyword;
 import arquivo.model.Site;
 import arquivo.model.Url;
 import arquivo.repository.*;
+import arquivo.services.MetricService;
 import arquivo.services.WebClientService;
 import arquivo.utils.UrlNormalizer;
 import arquivo.utils.UrlValidator;
@@ -36,6 +37,7 @@ import java.util.List;
 public class ArquivoCrawler {
 
     private static final Logger LOG = LoggerFactory.getLogger(ArquivoCrawler.class);
+    public static final int SHOW_STATS_INTERVAL_MINS = 1;
 
     private final String arquivoBaseUrl = "https://arquivo.pt/textsearch?q=\"%s\"&prettyPrint=false&siteSearch=%s&from=%s&to=%s&maxItems=500&type=html&fields=title,linkToArchive,linkToExtractedText,linkToScreenshot";
 
@@ -56,6 +58,9 @@ public class ArquivoCrawler {
     private final ArticleRepository articleRepository;
     private final UrlRepository urlRepository;
     private final WebClientService webClientService;
+    private final MetricService metricService;
+
+    private long responseItemsCollectedTotal, responseItemsSentToKafkaTotal, responseItemsIncompleteTotal;
 
     @Autowired
     public ArquivoCrawler(KeywordRepository keywordRepository,
@@ -63,21 +68,31 @@ public class ArquivoCrawler {
                           ArticleRepository articleRepository,
                           UrlRepository urlRepository,
                           RateLimiterRepository rateLimiterRepository,
+                          MetricService metricService,
                           KafkaTemplate<String, String> kafkaTemplate) {
         this.keywordRepository = keywordRepository;
         this.siteRepository = siteRepository;
         this.articleRepository = articleRepository;
         this.urlRepository = urlRepository;
+        this.metricService = metricService;
         this.kafkaTemplate = kafkaTemplate;
         this.webClientService = new WebClientService(rateLimiterRepository);
         this.objectMapper = new ObjectMapper();
+
+        responseItemsCollectedTotal = metricService.loadValue("arquivo_crawler_response_items_collected_total");
+        responseItemsSentToKafkaTotal = metricService.loadValue("arquivo_crawler_response_items_sent_to_kafka_total");
+        responseItemsIncompleteTotal = metricService.loadValue("arquivo_crawler_response_items_incomplete_total");
+
     }
 
     @EventListener(ApplicationReadyEvent.class)
     public void crawl() {
+        final LocalDateTime start = LocalDateTime.now(ZoneOffset.UTC);
+        LocalDateTime nextProgressLog = start.plusMinutes(SHOW_STATS_INTERVAL_MINS);
 
         final List<String> urls = getUrlsToProcess();
         LOG.info("Number of URLs to hit Arquivo.pt {}", urls.size());
+
 
         for (String url : urls) {
             LOG.debug("Request for {}", url);
@@ -89,14 +104,35 @@ public class ArquivoCrawler {
                 response = getResponseItems(nextPageUrl);
             }
 
+            // just to show the progress every SHOW_STATS_INTERVAL_MINS minutes
+            LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+            if (now.isAfter(nextProgressLog)) {
+                printStats();
+                while (!now.isBefore(nextProgressLog)) {
+                    nextProgressLog = nextProgressLog.plusMinutes(SHOW_STATS_INTERVAL_MINS);
+                }
+            }
         }
+
+        final LocalDateTime finished = LocalDateTime.now(ZoneOffset.UTC);
+        LOG.info("Finished crawling: {} results founds in {} mins", responseItemsCollectedTotal, ChronoUnit.MINUTES.between(start, finished));
+        printStats();
+    }
+
+    private void printStats() {
+        LOG.info("Total response items collected: {}", responseItemsCollectedTotal);
+        LOG.info("Total response items sent to Kafka: {}", responseItemsSentToKafkaTotal);
+        LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal);
     }
 
     private JsonNode getResponseItems(String url) {
         JsonNode response = webClientService.get(url, "arquivo.pt");
         JsonNode responseItems = response.get("response_items");
+        responseItemsCollectedTotal += responseItems.size();
         processResponseItems(responseItems);
         urlRepository.setProcessed(url);
+        metricService.setValue("arquivo_crawler_response_items_collected_total", responseItemsCollectedTotal);
+        metricService.setValue("arquivo_crawler_response_items_sent_to_kafka_total", responseItemsSentToKafkaTotal);
         return response;
     }
 
@@ -107,14 +143,21 @@ public class ArquivoCrawler {
             if (UrlValidator.isValid(arquivoUrl)) {
                 // normalizes URLs to check for duplicates
                 final String responseItemUrlNormalized = UrlNormalizer.normalize(arquivoUrl);
-                if (isAlreadyProcessed(responseItemUrlNormalized) && isResponseComplete(responseItem)) {
-                    publishToKafka(responseItem);
+                if (isAlreadyProcessed(responseItemUrlNormalized)) {
+                    if (isResponseComplete(responseItem)) {
+                        publishToKafka(responseItem);
+                        responseItemsSentToKafkaTotal++;
+                    } else {
+                        responseItemsIncompleteTotal++;
+                        metricService.setValue("arquivo_crawler_response_items_incomplete_total", responseItemsIncompleteTotal);
+                    }
                 }
             }
         }
     }
 
     int roundRobinIndex = 0;
+
     private void publishToKafka(JsonNode responseItem) {
         try {
             kafkaTemplate.send(topic, roundRobinIndex, "" + roundRobinIndex, objectMapper.writeValueAsString(responseItem));
