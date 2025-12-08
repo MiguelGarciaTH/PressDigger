@@ -2,10 +2,8 @@ package arquivo.crawler;
 
 import arquivo.model.Keyword;
 import arquivo.model.Site;
-import arquivo.repository.ArticleRepository;
-import arquivo.repository.KeywordRepository;
-import arquivo.repository.RateLimiterRepository;
-import arquivo.repository.SiteRepository;
+import arquivo.model.Url;
+import arquivo.repository.*;
 import arquivo.services.WebClientService;
 import arquivo.utils.UrlNormalizer;
 import arquivo.utils.UrlValidator;
@@ -26,7 +24,6 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedList;
 import java.util.List;
 
 @Component
@@ -44,97 +41,109 @@ public class ArquivoCrawler {
     private final KeywordRepository keywordRepository;
     private final SiteRepository siteRepository;
     private final ArticleRepository articleRepository;
+    private final UrlRepository urlRepository;
     private final WebClientService webClientService;
 
     @Autowired
     public ArquivoCrawler(KeywordRepository keywordRepository,
                           SiteRepository siteRepository,
                           ArticleRepository articleRepository,
+                          UrlRepository urlRepository,
                           RateLimiterRepository rateLimiterRepository) {
         this.keywordRepository = keywordRepository;
         this.siteRepository = siteRepository;
         this.articleRepository = articleRepository;
+        this.urlRepository = urlRepository;
         this.webClientService = new WebClientService(rateLimiterRepository);
     }
 
     @EventListener(ApplicationReadyEvent.class)
     public void crawl() {
 
-        // Generate all URL to fetch from arquivo.pt API
-        final List<UrlStruct> urls = generateUrls();
+        final List<String> urls = getUrls();
         LOG.info("Number of URLs to hit Arquivo.pt {}", urls.size());
 
-        // Shuffle them, this reduces the number of duplicate processing, since it increases that duplicate results
-        // (arquivo urls) are processed after the first equal url is processed
-        Collections.shuffle(urls);
+        for (String url : urls) {
+            LOG.debug("Request for {}", url);
 
-        for (UrlStruct url : urls) {
-            LOG.debug("Request for {}", url.url);
-            final List<JsonNode> responseItems = getAllResponseItems(url.url);
-            for (var responseItem : responseItems) {
+            JsonNode response = getResponseItems(url);
+            while (response.has("next_page")) {
+                final String nextPageUrl = java.net.URLDecoder.decode(response.get("next_page").asText(), StandardCharsets.UTF_8);
+                urlRepository.save(new Url(nextPageUrl));
+                response = getResponseItems(nextPageUrl);
+            }
 
-                // check if the URL is valid, otherwise skip
-                final String arquivoUrl = responseItem.get("linkToArchive").asText();
-                if (UrlValidator.isValid(arquivoUrl)) {
+        }
+    }
 
-                    // normalizes URLs to check for duplicates
-                    final String responseItemUrlNormalized = UrlNormalizer.normalize(arquivoUrl);
-                    if (processResponseItem(responseItemUrlNormalized)) {
-                        // TODO should process
+    private JsonNode getResponseItems(String url){
+        JsonNode response = webClientService.get(url, "arquivo.pt");
+        JsonNode responseItems = response.get("response_items");
+        processResponseItems(responseItems);
+        urlRepository.setProcessed(url);
+        return response;
+    }
 
-                    }
+    private void processResponseItems(JsonNode responseItems) {
+        for (var responseItem : responseItems) {
+            // check if the URL is valid, otherwise skip
+            final String arquivoUrl = responseItem.get("linkToArchive").asText();
+            if (UrlValidator.isValid(arquivoUrl)) {
+                // normalizes URLs to check for duplicates
+                final String responseItemUrlNormalized = UrlNormalizer.normalize(arquivoUrl);
+                if (shouldProcessResponseItem(responseItemUrlNormalized) && areAllFieldsSet(responseItem)) {
+                    // TODO should process
+
                 }
             }
         }
     }
 
-    private boolean processResponseItem(String url) {
+    private List<String> getUrls() {
+        // first time, no results
+        if (urlRepository.count() == 0) {
+            // Generate all URL to fetch from arquivo.pt API
+            List<String> urls = generateUrls();
+            Collections.shuffle(urls);
+            List<Url> urlToProcess = urls.stream()
+                    .map(Url::new)
+                    .toList();
+            // Shuffle them, this reduces the number of duplicate processing, since it increases that duplicate results
+            // (arquivo urls) are processed after the first equal url is processed
+            urlRepository.saveAll(urlToProcess);
+            return urls;
+        }
+
+        return urlRepository.getAllUnprocessedUrls().stream()
+                .map(Url::getUrl)
+                .toList();
+    }
+
+    private boolean areAllFieldsSet(JsonNode node){
+        return node.has("title") && !node.get("title").isEmpty() && !node.get("title").isNull()
+                && node.has("linkToArchive") && !node.get("linkToArchive").isEmpty() && !node.get("linkToArchive").isNull()
+                && node.has("linkToExtractedText") && !node.get("linkToExtractedText").isEmpty() && !node.get("linkToExtractedText").isNull()
+                && node.has("linkToScreenshot") && !node.get("linkToScreenshot").isEmpty() && !node.get("linkToScreenshot").isNull();
+    }
+
+    private boolean shouldProcessResponseItem(String url) {
         return !articleRepository.existsByUrlTrimmed(url);
     }
 
-    private List<JsonNode> getAllResponseItems(String url) {
-        final List<JsonNode> items = new LinkedList<>();
-        JsonNode response = webClientService.get(url, "arquivo.pt");
-        JsonNode arrayNode = response.get("response_items");
-        // Add all elements in first page
-        if (arrayNode != null && arrayNode.isArray()) {
-            arrayNode.forEach(items::add);
-        }
-
-        int counter = arrayNode == null ? 0 : arrayNode.size();
-
-        while (response.has("next_page")) {
-            final String nextPageUrl = java.net.URLDecoder.decode(response.get("next_page").asText(), StandardCharsets.UTF_8);
-            response = webClientService.get(nextPageUrl, "arquivo.pt");
-            arrayNode = response.get("response_items");
-            if (arrayNode != null && arrayNode.isArray()) {
-                arrayNode.forEach(items::add);
-                counter += arrayNode.size();
-            }
-        }
-        LOG.debug("Collected a total of {} response items for url: {}", counter, url);
-
-        return items;
-    }
-
-    private List<UrlStruct> generateUrls() {
+    private List<String> generateUrls() {
         final List<Site> sites = siteRepository.findAll();
         final List<Keyword> keywords = keywordRepository.findAll();
         final List<DateInterval> dates = createDateIntervals();
-        final List<UrlStruct> urls = new ArrayList<>(dates.size() * keywords.size() * sites.size());
+        final List<String> urls = new ArrayList<>(dates.size() * keywords.size() * sites.size());
         for (Site site : sites) {
             for (Keyword keyword : keywords) {
                 for (var date : dates) {
                     String url = String.format(arquivoBaseUrl, keyword.getName(), site.getUrl(), date.starDate.format(arquivoFormatter), date.endDate.format(arquivoFormatter));
-                    urls.add(new UrlStruct(site, keyword, date.starDate, date.endDate, url));
+                    urls.add(url);
                 }
             }
         }
         return urls;
-    }
-
-    record UrlStruct(Site site, Keyword keyword, LocalDateTime startDate, LocalDateTime endDate, String url) {
-
     }
 
     private List<DateInterval> createDateIntervals() {

@@ -18,6 +18,16 @@ CREATE TABLE IF NOT EXISTS keyword (
     CONSTRAINT keyword_pk PRIMARY KEY (id)
 );
 
+CREATE SEQUENCE IF NOT EXISTS url_seq START WITH 1 INCREMENT BY 1;
+
+CREATE TABLE IF NOT EXISTS url (
+    id integer NOT NULL DEFAULT nextval('url_seq'),
+    "date" timestamp without time zone,
+    url text NOT NULL,
+    processed boolean,
+
+    CONSTRAINT url_pk PRIMARY KEY (id)
+);
 
 CREATE SEQUENCE IF NOT EXISTS article_seq START WITH 1 INCREMENT BY 1;
 
