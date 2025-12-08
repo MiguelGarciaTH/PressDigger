@@ -7,13 +7,17 @@ import arquivo.repository.*;
 import arquivo.services.WebClientService;
 import arquivo.utils.UrlNormalizer;
 import arquivo.utils.UrlValidator;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.stereotype.Component;
 
@@ -37,6 +41,15 @@ public class ArquivoCrawler {
 
     private final DateTimeFormatter arquivoFormatter = DateTimeFormatter.ofPattern("uuuuMMddHHmmss");
 
+    private final KafkaTemplate<String, String> kafkaTemplate;
+
+    @Value("${scribe-ref.arquivo.scribe-news-crawler.kafka.topic}")
+    private String topic;
+
+    @Value("${scribe-ref.arquivo.scribe-news-crawler.kafka.concurrency}")
+    private int concurrency;
+
+    private final ObjectMapper objectMapper;
 
     private final KeywordRepository keywordRepository;
     private final SiteRepository siteRepository;
@@ -49,12 +62,15 @@ public class ArquivoCrawler {
                           SiteRepository siteRepository,
                           ArticleRepository articleRepository,
                           UrlRepository urlRepository,
-                          RateLimiterRepository rateLimiterRepository) {
+                          RateLimiterRepository rateLimiterRepository,
+                          KafkaTemplate<String, String> kafkaTemplate) {
         this.keywordRepository = keywordRepository;
         this.siteRepository = siteRepository;
         this.articleRepository = articleRepository;
         this.urlRepository = urlRepository;
+        this.kafkaTemplate = kafkaTemplate;
         this.webClientService = new WebClientService(rateLimiterRepository);
+        this.objectMapper = new ObjectMapper();
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -76,7 +92,7 @@ public class ArquivoCrawler {
         }
     }
 
-    private JsonNode getResponseItems(String url){
+    private JsonNode getResponseItems(String url) {
         JsonNode response = webClientService.get(url, "arquivo.pt");
         JsonNode responseItems = response.get("response_items");
         processResponseItems(responseItems);
@@ -92,12 +108,26 @@ public class ArquivoCrawler {
                 // normalizes URLs to check for duplicates
                 final String responseItemUrlNormalized = UrlNormalizer.normalize(arquivoUrl);
                 if (shouldProcessResponseItem(responseItemUrlNormalized) && areAllFieldsSet(responseItem)) {
-                    // TODO should process
-
+                    publishToKafka(responseItem);
                 }
             }
         }
     }
+
+    int roundRobinIndex = 0;
+    private void publishToKafka(JsonNode responseItem) {
+        try {
+            kafkaTemplate.send(topic, roundRobinIndex, "" + roundRobinIndex, objectMapper.writeValueAsString(responseItem));
+            roundRobinIndex++;
+            LOG.debug("Sent to topic {} and partition value={}", topic, responseItem);
+            if (roundRobinIndex == concurrency) {
+                roundRobinIndex = 0;
+            }
+        } catch (JsonProcessingException e) {
+            LOG.warn("Error processing item: {}", responseItem.toPrettyString());
+        }
+    }
+
 
     private List<String> getUrls() {
         // first time, no results
@@ -119,7 +149,7 @@ public class ArquivoCrawler {
                 .toList();
     }
 
-    private boolean areAllFieldsSet(JsonNode node){
+    private boolean areAllFieldsSet(JsonNode node) {
         return node.has("title") && !node.get("title").isEmpty() && !node.get("title").isNull()
                 && node.has("linkToArchive") && !node.get("linkToArchive").isEmpty() && !node.get("linkToArchive").isNull()
                 && node.has("linkToExtractedText") && !node.get("linkToExtractedText").isEmpty() && !node.get("linkToExtractedText").isNull()
