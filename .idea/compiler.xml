@@ -8,6 +8,7 @@
         <outputRelativeToContentRoot value="true" />
         <module name="scribe-news-crawler" />
         <module name="scribe-lib" />
+        <module name="scribe-news-image-processor" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
@@ -18,6 +19,7 @@
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
       <module name="scribe-lib" options="-parameters" />
       <module name="scribe-news-crawler" options="-parameters" />
+      <module name="scribe-news-image-processor" options="-parameters" />
     </option>
   </component>
 </project>
