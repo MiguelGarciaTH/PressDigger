@@ -27,9 +27,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 @Component
 @EnableScheduling
@@ -59,6 +57,7 @@ public class ArquivoCrawler {
     private final UrlRepository urlRepository;
     private final WebClientService webClientService;
     private final MetricService metricService;
+    private final Set<String> titleCache;
 
     private long responseItemsCollectedTotal, responseItemsSentToKafkaTotal, responseItemsIncompleteTotal;
 
@@ -78,6 +77,7 @@ public class ArquivoCrawler {
         this.kafkaTemplate = kafkaTemplate;
         this.webClientService = new WebClientService(rateLimiterRepository);
         this.objectMapper = new ObjectMapper();
+        this.titleCache = new HashSet<>();
 
         responseItemsCollectedTotal = metricService.loadValue("arquivo_crawler_response_items_collected_total");
         responseItemsSentToKafkaTotal = metricService.loadValue("arquivo_crawler_response_items_sent_to_kafka_total");
@@ -143,7 +143,7 @@ public class ArquivoCrawler {
             if (UrlValidator.isValid(arquivoUrl)) {
                 // normalizes URLs to check for duplicates
                 final String responseItemUrlNormalized = UrlNormalizer.normalize(arquivoUrl);
-                if (isAlreadyProcessed(responseItemUrlNormalized)) {
+                if (!isAlreadyProcessed(responseItemUrlNormalized) && !isTitleAlreadyProcessed(responseItem.get("title").asText())) {
                     if (isResponseComplete(responseItem)) {
                         publishToKafka(responseItem);
                         responseItemsSentToKafkaTotal++;
@@ -199,8 +199,17 @@ public class ArquivoCrawler {
                 && node.has("linkToScreenshot"); //&& !node.get("linkToScreenshot").isEmpty() && !node.get("linkToScreenshot").isNull();
     }
 
+    private boolean isTitleAlreadyProcessed(String title) {
+        if (titleCache.contains(title)) {
+            return true;
+        } else {
+            titleCache.add(title);
+            return false;
+        }
+    }
+
     private boolean isAlreadyProcessed(String url) {
-        return !articleRepository.existsByUrlTrimmed(url);
+        return articleRepository.existsByUrlTrimmed(url);
     }
 
     private List<String> generateUrls() {
