@@ -45,10 +45,10 @@ public class ArquivoCrawler {
 
     private final KafkaTemplate<String, String> kafkaTemplate;
 
-    @Value("${scribe-ref.arquivo.scribe-news-crawler.kafka.topic}")
+    @Value("${scribe-ref.arquivo.scribe-news-crawler.kafka.to-send.topic}")
     private String topic;
 
-    @Value("${scribe-ref.arquivo.scribe-news-crawler.kafka.concurrency}")
+    @Value("${scribe-ref.arquivo.scribe-news-crawler.kafka.to-send.concurrency}")
     private int concurrency;
 
     private final ObjectMapper objectMapper;
