@@ -1,14 +1,8 @@
 package arquivo.services;
 
 import arquivo.model.Metric;
-import arquivo.model.RateLimiter;
 import arquivo.repository.MetricRepository;
-import arquivo.repository.RateLimiterRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Isolation;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
