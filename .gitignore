@@ -1,5 +1,15 @@
 ### Maven ###
+# Ignore build output in repo root and in any module
+/target/
 target/
+**/target/
+
+# optionally ignore other common build dirs
+**/out/
+**/build/
+
+images/
+
 pom.xml.tag
 pom.xml.releaseBackup
 pom.xml.versionsBackup
@@ -10,6 +20,7 @@ release.properties
 *.class
 *.log
 *.tmp
+createdFiles.lst
 
 # Generated sources
 **/generated-sources/
