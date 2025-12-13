@@ -2,8 +2,10 @@ package arquivo.processor;
 
 import arquivo.repository.RateLimiterRepository;
 import arquivo.services.MetricService;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import net.coobird.thumbnailator.Thumbnails;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,7 +21,15 @@ import org.springframework.stereotype.Component;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
+import java.io.InputStream;
 import java.net.URL;
+import java.net.URLConnection;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.nio.file.Files;
+import java.io.IOException;
 
 @Component
 @ConditionalOnProperty(name = "scribe-ref.arquivo.scribe-news-image-processor.enable", havingValue = "true")
@@ -36,24 +46,59 @@ public class ImageProcessorListener {
     @Value("${scribe-ref.arquivo.scribe-news-image-processor.kafka.to-listen.concurrency}")
     private int concurrencyToListen;
 
+    @Value("${scribe-ref.arquivo.scribe-news-image-processor.kafka.to-send.topic}")
+    private String topic;
+
+    @Value("${scribe-ref.arquivo.scribe-news-image-processor.kafka.to-send.concurrency}")
+    private int concurrency;
+
     private final ObjectMapper objectMapper;
 
     private final MetricService metricService;
 
-    private long responseItemsCollectedTotal, responseItemsSentToKafkaTotal, responseItemsIncompleteTotal;
+    private long blankImagesTotal, responseItemsIncompleteTotal;
+    private final LocalDateTime start = LocalDateTime.now(ZoneOffset.UTC);
+    private LocalDateTime nextProgressLog = start.plusMinutes(SHOW_STATS_INTERVAL_MINS);
+
+    private final Path directory;
+
+    // new configurable optimizations
+    @Value("${scribe-ref.arquivo.scribe-news-image-processor.thumbnail.max-size:800}")
+    private int thumbnailMaxSize;
+
+    @Value("${scribe-ref.arquivo.scribe-news-image-processor.thumbnail.quality:0.8}")
+    private double thumbnailQuality;
+
+    @Value("${scribe-ref.arquivo.scribe-news-image-processor.skip-if-exists:true}")
+    private boolean skipIfExists;
+
+    @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.connect-timeout-ms:5000}")
+    private int httpConnectTimeoutMs;
+
+    @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.read-timeout-ms:10000}")
+    private int httpReadTimeoutMs;
 
     @Autowired
     public ImageProcessorListener(RateLimiterRepository rateLimiterRepository,
                                   MetricService metricService,
-                                  KafkaTemplate<String, String> kafkaTemplate) {
+                                  KafkaTemplate<String, String> kafkaTemplate,
+                                  @Value("${scribe-ref.arquivo.scribe-news-image-processor.image-path-directory}") String imagePathDirectory) {
         this.metricService = metricService;
         this.kafkaTemplate = kafkaTemplate;
         this.objectMapper = new ObjectMapper();
 
-        responseItemsCollectedTotal = metricService.loadValue("arquivo_crawler_response_items_collected_total");
-        responseItemsSentToKafkaTotal = metricService.loadValue("arquivo_crawler_response_items_sent_to_kafka_total");
-        responseItemsIncompleteTotal = metricService.loadValue("arquivo_crawler_response_items_incomplete_total");
+        blankImagesTotal = metricService.loadValue("arquivo_image_processor_blank_images_total");
+        responseItemsIncompleteTotal = metricService.loadValue("arquivo_image_processor_response_items_incomplete_total");
+        directory = Paths.get(imagePathDirectory).toAbsolutePath().normalize();
+        LOG.info("Configured image directory: {}", directory);
 
+        // ensure required subdirectories exist at startup to avoid FileNotFoundException
+        try {
+            Files.createDirectories(directory.resolve("original"));
+            Files.createDirectories(directory.resolve("small"));
+        } catch (IOException e) {
+            LOG.warn("Could not create image directories under {}: {}", directory, e.getMessage());
+        }
     }
 
     @KafkaListener(
@@ -61,32 +106,143 @@ public class ImageProcessorListener {
             containerFactory = "kafkaListenerContainerFactory",
             concurrency = "${scribe-ref.arquivo.scribe-news-image-processor.kafka.to-listen.concurrency}")
     public void listener(ConsumerRecord<String, String> record, Acknowledgment ack, @Header(KafkaHeaders.RECEIVED_PARTITION) int partition) {
-        LOG.info("Received on topic {} on partition {} record {}", record.topic(), partition, record.value());
-        // please parse the record and process the image accordingly
+        LOG.debug("Received on topic {} on partition {} record {}", record.topic(), partition, record.value());
 
         try {
             String payload = record.value();
             if (payload == null || payload.isBlank()) {
                 LOG.warn("Empty payload for key {}", record.key());
+                responseItemsIncompleteTotal++;
                 return;
             }
-            JsonNode json = objectMapper.readTree(payload);
-            // example: log an `imageUrl` field if present
-            if (json.has("linkToScreenshot") && !json.get("linkToScreenshot").isNull()) {
-                final String imageUrl = json.get("linkToScreenshot").asText();
-                final URL url = new URL(imageUrl);
-                final BufferedImage image = ImageIO.read(url);
-                boolean blank = ImageBlankDetector.isBlank(image, 1, 0.01, 2);
 
-                LOG.info("Is blank? {} src: {}", blank, imageUrl);
+            final JsonNode responseItem = objectMapper.readTree(payload);
+            if (responseItem.has("linkToScreenshot") && !responseItem.get("linkToScreenshot").isNull()) {
+                final String imageUrl = responseItem.get("linkToScreenshot").asText();
+                final URL url = new URL(imageUrl);
+
+                // open connection with timeouts and read once, reuse the BufferedImage
+                BufferedImage image;
+                try (InputStream in = openUrlStreamWithTimeouts(url)) {
+                    image = ImageIO.read(in);
+                } catch (Exception e) {
+                    LOG.warn("Failed to fetch image: {}", e.getMessage());
+                    responseItemsIncompleteTotal++;
+                    return;
+                }
+
+                if (image == null) {
+                    // ImageIO.read may return null for unsupported formats; treat as incomplete
+                    LOG.warn("ImageIO.read returned null for URL {}", imageUrl);
+                    responseItemsIncompleteTotal++;
+                    return;
+                }
+
+                if (ImageBlankDetector.isBlank(image, 1, 0.01, 2)) {
+                    blankImagesTotal++;
+                    return;
+                }
+
+                // process using the already-read BufferedImage (no re-download)
+                processImage(url, image);
+
+                publishToKafka(responseItem);
+
             } else {
-                LOG.info("No imageUrl field present in payload");
+                responseItemsIncompleteTotal++;
             }
+            printStats();
         } catch (Exception e) {
-            LOG.error("Failed to parse record as JSON", e);
-            responseItemsIncompleteTotal++;
+            LOG.error("Failed to parse record as JSON or process image", e);
         } finally {
-            ack.acknowledge();
+            // acknowledge exactly once here
+            try {
+                ack.acknowledge();
+            } catch (Exception e) {
+                LOG.warn("Failed to acknowledge record: {}", e.getMessage());
+            }
+        }
+
+    }
+
+    int roundRobinIndex = 0;
+
+    private void publishToKafka(JsonNode responseItem) {
+        try {
+            kafkaTemplate.send(topic, roundRobinIndex, "" + roundRobinIndex, objectMapper.writeValueAsString(responseItem));
+            roundRobinIndex++;
+            LOG.debug("Sent to topic {} and partition value={}", topic, responseItem);
+            if (roundRobinIndex == concurrency) {
+                roundRobinIndex = 0;
+            }
+        } catch (JsonProcessingException e) {
+            LOG.warn("Error processing item: {}", responseItem.toPrettyString());
+        }
+    }
+
+    // helper to open URL input stream with configured timeouts
+    private InputStream openUrlStreamWithTimeouts(URL url) throws IOException {
+        URLConnection conn = url.openConnection();
+        conn.setConnectTimeout(httpConnectTimeoutMs);
+        conn.setReadTimeout(httpReadTimeoutMs);
+        return conn.getInputStream();
+    }
+
+    private void processImage(URL imageUrl, BufferedImage image) throws Exception {
+        final String fileName = (imageUrl.getPath().hashCode() & Integer.MAX_VALUE) + ".png";
+
+        // ensure directories exist (defensive in case they were deleted after startup)
+        try {
+            Files.createDirectories(directory.resolve("original"));
+            Files.createDirectories(directory.resolve("small"));
+        } catch (IOException e) {
+            LOG.warn("Could not create image directories under {}: {}", directory, e.getMessage());
+        }
+
+        final Path originalOutputPath = directory.resolve("original").resolve(fileName);
+        final Path smallOutputPath = directory.resolve("small").resolve(fileName);
+
+        // quick skip if both files already exist (saves expensive processing)
+        if (skipIfExists && Files.exists(originalOutputPath) && Files.exists(smallOutputPath)) {
+            LOG.debug("Skipping processing for {} because outputs exist", fileName);
+            return;
+        }
+
+        // write original (ensure parent exists)
+        try {
+            Files.createDirectories(originalOutputPath.getParent());
+            boolean wrote = ImageIO.write(image, "png", originalOutputPath.toFile());
+            if (!wrote) {
+                throw new IOException("ImageIO.write returned false for " + originalOutputPath);
+            }
+        } catch (IOException e) {
+            throw new IOException("Failed to write original image to " + originalOutputPath + ": " + e.getMessage(), e);
+        }
+
+        // create thumbnail from the already-loaded BufferedImage (avoids re-downloading)
+        try {
+            Files.createDirectories(smallOutputPath.getParent());
+            Thumbnails.of(image)
+                    .size(thumbnailMaxSize, thumbnailMaxSize)
+                    .outputFormat("png")
+                    .outputQuality(thumbnailQuality)
+                    .toFile(smallOutputPath.toFile());
+        } catch (IOException e) {
+            throw new IOException("Failed to write thumbnail to " + smallOutputPath + ": " + e.getMessage(), e);
+        }
+    }
+
+    private void printStats() {
+        // just to show the progress every SHOW_STATS_INTERVAL_MINS minutes
+        final LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+        if (now.isAfter(nextProgressLog)) {
+            metricService.setValue("arquivo_image_processor_blank_images_total", blankImagesTotal);
+            metricService.setValue("arquivo_image_processor_response_items_incomplete_total", responseItemsIncompleteTotal);
+            LOG.info("Total blank images: {}", blankImagesTotal);
+            LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal);
+            while (!now.isBefore(nextProgressLog)) {
+                nextProgressLog = nextProgressLog.plusMinutes(SHOW_STATS_INTERVAL_MINS);
+            }
         }
     }
 }
