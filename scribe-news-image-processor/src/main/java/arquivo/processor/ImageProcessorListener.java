@@ -1,6 +1,5 @@
 package arquivo.processor;
 
-import arquivo.repository.RateLimiterRepository;
 import arquivo.services.MetricService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -21,15 +20,15 @@ import org.springframework.stereotype.Component;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.net.URLConnection;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.nio.file.Files;
-import java.io.IOException;
 
 @Component
 @ConditionalOnProperty(name = "scribe-ref.arquivo.scribe-news-image-processor.enable", havingValue = "true")
@@ -56,7 +55,7 @@ public class ImageProcessorListener {
 
     private final MetricService metricService;
 
-    private long blankImagesTotal, responseItemsIncompleteTotal;
+    private long blankImagesTotal, responseItemsIncompleteTotal, duplicateFilesTotal;
     private final LocalDateTime start = LocalDateTime.now(ZoneOffset.UTC);
     private LocalDateTime nextProgressLog = start.plusMinutes(SHOW_STATS_INTERVAL_MINS);
 
@@ -88,6 +87,8 @@ public class ImageProcessorListener {
 
         blankImagesTotal = metricService.loadValue("arquivo_image_processor_blank_images_total");
         responseItemsIncompleteTotal = metricService.loadValue("arquivo_image_processor_response_items_incomplete_total");
+        duplicateFilesTotal = metricService.loadValue("arquivo_image_processor_duplicate_files_total");
+
         directory = Paths.get(imagePathDirectory).toAbsolutePath().normalize();
         LOG.info("Configured image directory: {}", directory);
 
@@ -189,21 +190,13 @@ public class ImageProcessorListener {
 
     private void processImage(URL imageUrl, BufferedImage image) throws Exception {
         final String fileName = (imageUrl.getPath().hashCode() & Integer.MAX_VALUE) + ".png";
-
-        // ensure directories exist (defensive in case they were deleted after startup)
-        try {
-            Files.createDirectories(directory.resolve("original"));
-            Files.createDirectories(directory.resolve("small"));
-        } catch (IOException e) {
-            LOG.warn("Could not create image directories under {}: {}", directory, e.getMessage());
-        }
-
         final Path originalOutputPath = directory.resolve("original").resolve(fileName);
         final Path smallOutputPath = directory.resolve("small").resolve(fileName);
 
         // quick skip if both files already exist (saves expensive processing)
         if (skipIfExists && Files.exists(originalOutputPath) && Files.exists(smallOutputPath)) {
             LOG.debug("Skipping processing for {} because outputs exist", fileName);
+            duplicateFilesTotal++;
             return;
         }
 
@@ -237,8 +230,11 @@ public class ImageProcessorListener {
         if (now.isAfter(nextProgressLog)) {
             metricService.setValue("arquivo_image_processor_blank_images_total", blankImagesTotal);
             metricService.setValue("arquivo_image_processor_response_items_incomplete_total", responseItemsIncompleteTotal);
+            metricService.setValue("arquivo_image_processor_duplicate_files_total", duplicateFilesTotal);
             LOG.info("Total blank images: {}", blankImagesTotal);
             LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal);
+            LOG.info("Total duplicate files skipped: {}", duplicateFilesTotal);
+            LOG.info("Elapsed time: {} minutes", java.time.Duration.between(start, now).toMinutes());
             while (!now.isBefore(nextProgressLog)) {
                 nextProgressLog = nextProgressLog.plusMinutes(SHOW_STATS_INTERVAL_MINS);
             }
