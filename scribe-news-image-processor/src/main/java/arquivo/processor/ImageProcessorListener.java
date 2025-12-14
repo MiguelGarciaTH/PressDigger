@@ -79,8 +79,7 @@ public class ImageProcessorListener {
     private int httpReadTimeoutMs;
 
     @Autowired
-    public ImageProcessorListener(RateLimiterRepository rateLimiterRepository,
-                                  MetricService metricService,
+    public ImageProcessorListener(MetricService metricService,
                                   KafkaTemplate<String, String> kafkaTemplate,
                                   @Value("${scribe-ref.arquivo.scribe-news-image-processor.image-path-directory}") String imagePathDirectory) {
         this.metricService = metricService;
