@@ -10,6 +10,6 @@
     </root>
 
 
-    <logger name="arquivo.crawler.ArquivoCrawler" level="DEBUG"/>
+    <logger name="arquivo.processor.ImageProcessorListener" level="DEBUG"/>
 
 </configuration>
