@@ -1,7 +1,5 @@
 ### Maven ###
 # Ignore build output in repo root and in any module
-/target/
-target/
 **/target/
 
 # optionally ignore other common build dirs
