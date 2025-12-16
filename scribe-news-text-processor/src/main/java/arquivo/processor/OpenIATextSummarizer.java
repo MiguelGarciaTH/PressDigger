@@ -24,7 +24,7 @@ public class OpenIATextSummarizer {
             Tarefas (faça tudo em português):
             1) Extraia a data de publicação, se houver — coloque em ISO 8601 (YYYY-MM-DD) em "publish_date".
                - Se não houver uma data clara no conteúdo jornalístico, deixe null.
-            2) Produza um resumo conciso do **conteúdo factual da notícia** com 5–7 frases em "summary".
+            2) Produza um resumo conciso do **conteúdo factual da notícia** com 3–5 pagráfos em "summary".
             3) Forneça "highlights": 3 bullets (máx. 10 palavras cada) com os pontos-chave factuais.
             4) Forneça "publish_date_confidence": número entre 0 e 1 (0 = não confiante, 1 = muito confiante).
             5) Formate a saída **somente** como JSON com as chaves:
