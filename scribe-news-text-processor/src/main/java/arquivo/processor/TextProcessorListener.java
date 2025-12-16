@@ -1,0 +1,177 @@
+package arquivo.processor;
+
+import arquivo.services.MetricService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.core.env.Environment;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.support.Acknowledgment;
+import org.springframework.kafka.support.KafkaHeaders;
+import org.springframework.messaging.handler.annotation.Header;
+import org.springframework.stereotype.Component;
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+
+@Component
+@ConditionalOnProperty(name = "scribe-ref.arquivo.scribe-news-text-processor.enable", havingValue = "true")
+public class TextProcessorListener {
+
+    private static final Logger LOG = LoggerFactory.getLogger(TextProcessorListener.class);
+    public static final int SHOW_STATS_INTERVAL_MINS = 1;
+
+    private final KafkaTemplate<String, String> kafkaTemplate;
+
+    @Value("${scribe-ref.arquivo.scribe-news-text-processor.kafka.to-listen.topic}")
+    private String topicToListen;
+
+    @Value("${scribe-ref.arquivo.scribe-news-text-processor.kafka.to-listen.concurrency}")
+    private int concurrencyToListen;
+
+    @Value("${scribe-ref.arquivo.scribe-news-text-processor.kafka.to-send.topic}")
+    private String topic;
+
+    @Value("${scribe-ref.arquivo.scribe-news-text-processor.kafka.to-send.concurrency}")
+    private int concurrency;
+
+    private final ObjectMapper objectMapper;
+
+    private final MetricService metricService;
+
+    private long responseItemsIncompleteTotal;
+    private final LocalDateTime start = LocalDateTime.now(ZoneOffset.UTC);
+    private LocalDateTime nextProgressLog = start.plusMinutes(SHOW_STATS_INTERVAL_MINS);
+
+    private final HttpClient httpClient;
+
+    private final String apiKey;
+
+    private OpenIATextSummarizer textSummarizer;
+
+    @Autowired
+    public TextProcessorListener(Environment environment,
+                                 MetricService metricService,
+                                 KafkaTemplate<String, String> kafkaTemplate) {
+        this.metricService = metricService;
+        this.kafkaTemplate = kafkaTemplate;
+        this.objectMapper = new ObjectMapper();
+
+        responseItemsIncompleteTotal = metricService.loadValue("arquivo_text_processor_response_items_incomplete_total");
+
+        this.apiKey = environment.getProperty("scribe-ref.arquivo.scribe-news-text-processor.open-ai.api-key");
+
+        this.textSummarizer = new OpenIATextSummarizer(apiKey, objectMapper);
+
+        httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10))
+                .build();
+    }
+
+    @KafkaListener(
+            topics = {"${scribe-ref.arquivo.scribe-news-text-processor.kafka.to-listen.topic}"},
+            containerFactory = "kafkaListenerContainerFactory",
+            concurrency = "${scribe-ref.arquivo.scribe-news-text-processor.kafka.to-listen.concurrency}")
+    public void listener(ConsumerRecord<String, String> record, Acknowledgment ack, @Header(KafkaHeaders.RECEIVED_PARTITION) int partition) {
+        LOG.debug("Received on topic {} on partition {} record {}", record.topic(), partition, record.value());
+
+        try {
+            String payload = record.value();
+            if (payload == null || payload.isBlank()) {
+                LOG.warn("Empty payload for key {}", record.key());
+                responseItemsIncompleteTotal++;
+                return;
+            }
+
+            final JsonNode responseItem = objectMapper.readTree(payload);
+            if (responseItem.has("linkToExtractedText") && !responseItem.get("linkToExtractedText").isNull()) {
+
+                // get text processing could be done here
+                final String rawText = fetchExtractedText(responseItem.get("linkToExtractedText").asText());
+                LOG.debug("Fetched extracted text of length {}", rawText.length());
+
+                // clean text: remove extra spaces, new lines, etc. could be done here
+                String cleanedText = rawText.replaceAll("\\s+", " ").trim();
+                LOG.debug("Cleaned text length {}", cleanedText.length());
+
+                // use open IA to sumerize the text could be done here
+                JsonNode summarizedText = textSummarizer.summarizeTextWithOpenAI(cleanedText);
+
+                // create a new field with the summarized text could be done here and send to the next topic
+                //publishToKafka(responseItem);
+
+            } else {
+                responseItemsIncompleteTotal++;
+            }
+            printStats();
+        } catch (Exception e) {
+            LOG.error("Failed to parse record as JSON or process image", e);
+        } finally {
+            // acknowledge exactly once here
+            try {
+                ack.acknowledge();
+            } catch (Exception e) {
+                LOG.warn("Failed to acknowledge record: {}", e.getMessage());
+            }
+        }
+
+    }
+
+    private String fetchExtractedText(String url) throws Exception {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .timeout(Duration.ofSeconds(20))
+                .GET()
+                .build();
+
+        HttpResponse<String> response =
+                httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        if (response.statusCode() != 200) {
+            throw new RuntimeException("Failed to fetch text. HTTP " + response.statusCode());
+        }
+
+        return response.body();
+    }
+
+    int roundRobinIndex = 0;
+
+    private void publishToKafka(JsonNode responseItem) {
+        try {
+            kafkaTemplate.send(topic, roundRobinIndex, "" + roundRobinIndex, objectMapper.writeValueAsString(responseItem));
+            roundRobinIndex++;
+            LOG.debug("Sent to topic {} and partition value={}", topic, responseItem);
+            if (roundRobinIndex == concurrency) {
+                roundRobinIndex = 0;
+            }
+        } catch (JsonProcessingException e) {
+            LOG.warn("Error processing item: {}", responseItem.toPrettyString());
+        }
+    }
+
+
+    private void printStats() {
+        // just to show the progress every SHOW_STATS_INTERVAL_MINS minutes
+        final LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+        if (now.isAfter(nextProgressLog)) {
+            metricService.setValue("arquivo_text_processor_response_items_incomplete_total", responseItemsIncompleteTotal);
+            LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal);
+            LOG.info("Elapsed time: {} minutes", java.time.Duration.between(start, now).toMinutes());
+            while (!now.isBefore(nextProgressLog)) {
+                nextProgressLog = nextProgressLog.plusMinutes(SHOW_STATS_INTERVAL_MINS);
+            }
+        }
+    }
+}

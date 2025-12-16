@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <artifactId>scribe-news-text-processor</artifactId>
+    <properties>
+        <maven.compiler.source>24</maven.compiler.source>
+        <maven.compiler.target>24</maven.compiler.target>
+    </properties>
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <artifactId>ScribeRef</artifactId>
+        <groupId>arquivo</groupId>
+        <version>0.0.1-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <dependencies>
+        <dependency>
+            <groupId>arquivo</groupId>
+            <artifactId>scribe-lib</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.openai</groupId>
+            <artifactId>openai-java</artifactId>
+            <version>4.11.0</version>
+        </dependency>
+
+    </dependencies>
+    <build>
+        <!-- deb packaging config -->
+        <extensions>
+            <extension>
+                <groupId>org.vafer</groupId>
+                <artifactId>jdeb</artifactId>
+                <version>1.14</version>
+            </extension>
+        </extensions>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.vafer</groupId>
+                    <artifactId>jdeb</artifactId>
+                    <configuration>
+                        <controlDir>deb/control</controlDir>
+                        <dataSet>
+                            <data>
+                                <type>directory</type>
+                                <src>deb/data/etc</src>
+                                <conffile>true</conffile>
+                                <mapper>
+                                    <type>perm</type>
+                                    <prefix>/etc</prefix>
+                                    <filemode>640</filemode>
+                                    <user>root</user>
+                                    <group>arquivo</group>
+                                </mapper>
+                            </data>
+                            <data>
+                                <type>file</type>
+                                <src>${project.build.directory}/${project.build.finalName}.jar</src>
+                                <mapper>
+                                    <type>perm</type>
+                                    <prefix>/opt/ScribeRef/scribe-news-text-processor</prefix>
+                                    <user>arquivo</user>
+                                    <group>arquivo</group>
+                                </mapper>
+                            </data>
+                            <data>
+                                <type>file</type>
+                                <src>deb/data/opt/ScribeRef/scribe-news-text-processor/run.sh</src>
+                                <mapper>
+                                    <type>perm</type>
+                                    <prefix>/opt/ScribeRef/scribe-news-text-processor</prefix>
+                                    <filemode>755</filemode>
+                                    <user>arquivo</user>
+                                    <group>arquivo</group>
+                                </mapper>
+                            </data>
+                        </dataSet>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

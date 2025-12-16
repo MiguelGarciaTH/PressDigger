@@ -27,6 +27,7 @@
 	<modules>
 		<module>scribe-news-crawler</module>
 		<module>scribe-news-image-processor</module>
+		<module>scribe-news-text-processor</module>
 		<module>scribe-lib</module>
 	</modules>
 
