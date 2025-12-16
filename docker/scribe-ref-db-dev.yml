@@ -40,6 +40,21 @@ services:
     volumes:
       - kafka_data:/opt/kafka/kafka-logs
 
+  embedding-service:
+    build: ./embedding-service
+    container_name: embedding-service
+    ports:
+      - "8000:8000"
+    deploy:
+      resources:
+        limits:
+          memory: 4g
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
 volumes:
   kafka_data:
     driver: local
