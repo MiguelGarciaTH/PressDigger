@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 
 @Entity
 public class Article {
@@ -31,6 +32,9 @@ public class Article {
 
     @Column(columnDefinition = "text")
     private String urlText;
+
+    @OneToMany(mappedBy = "article", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    List<ArticleChunk> articleChunks;
 
     public Article() {
 
@@ -114,5 +118,13 @@ public class Article {
 
     public void setUrlText(String urlText) {
         this.urlText = urlText;
+    }
+
+    public List<ArticleChunk> getArticleChunks() {
+        return articleChunks;
+    }
+    
+    public void setArticleChunks(List<ArticleChunk> articleChunks) {
+        this.articleChunks = articleChunks;
     }
 }

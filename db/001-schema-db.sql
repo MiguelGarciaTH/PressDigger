@@ -1,3 +1,5 @@
+CREATE EXTENSION vector;
+
 CREATE SEQUENCE IF NOT EXISTS site_seq START WITH 1 INCREMENT BY 1;
 
 CREATE TABLE IF NOT EXISTS site (
@@ -40,9 +42,31 @@ CREATE TABLE IF NOT EXISTS article (
     url_trimmed text NOT NULL, -- for duplication lookup
     url_image text NOT NULL,
     url_text text NOT NULL,
+
     CONSTRAINT article_pk PRIMARY KEY (id),
     CONSTRAINT article_fk_site_id FOREIGN KEY (site_id) REFERENCES site(id)
 );
+
+CREATE SEQUENCE IF NOT EXISTS article_chunks_seq START WITH 1 INCREMENT BY 1;
+
+CREATE TABLE article_chunks (
+    id BIGINT NOT NULL DEFAULT nextval('article_chunks_seq'),
+    article_id BIGINT NOT NULL,
+    chunk_index INT NOT NULL,
+    content TEXT NOT NULL,
+    tsv tsvector GENERATED ALWAYS AS (to_tsvector('portuguese', content)) STORED,
+    embedding vector(768) NOT NULL,
+
+    CONSTRAINT article_chunks_pk PRIMARY KEY (id),
+    CONSTRAINT article_chunks_fk_article_id FOREIGN KEY (article_id) REFERENCES article(id)
+);
+
+CREATE INDEX idx_chunks_tsv
+ON article_chunks USING GIN (tsv);
+
+CREATE INDEX idx_chunks_embedding
+ON article_chunks USING ivfflat (embedding vector_cosine_ops)
+WITH (lists = 100);
 
 CREATE SEQUENCE IF NOT EXISTS url_log_seq START WITH 1 INCREMENT BY 1;
 
