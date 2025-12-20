@@ -4,6 +4,7 @@ import arquivo.services.MetricService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -107,10 +108,14 @@ public class TextProcessorListener {
                 LOG.debug("Cleaned text length {}", cleanedText.length());
 
                 // use open IA to sumerize the text could be done here
-                JsonNode summarizedText = textSummarizer.summarizeTextWithOpenAI(cleanedText);
+                final JsonNode summarizedText = textSummarizer.summarizeTextWithOpenAI(cleanedText);
 
-                // create a new field with the summarized text could be done here and send to the next topic
-                //publishToKafka(responseItem);
+                final ObjectNode articleToExtractEmbeddding = objectMapper.createObjectNode()
+                        .put("title", responseItem.get("title").asText())
+                        .put("summary", summarizedText.get("summary").asText())
+                        .put("originalUrl", responseItem.get("originalUrl").asText());
+
+                publishToKafka(articleToExtractEmbeddding);
 
             } else {
                 responseItemsIncompleteTotal++;
@@ -126,7 +131,6 @@ public class TextProcessorListener {
                 LOG.warn("Failed to acknowledge record: {}", e.getMessage());
             }
         }
-
     }
 
     private String fetchExtractedText(String url) throws Exception {

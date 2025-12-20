@@ -1,0 +1,8 @@
+Package: [[name]]
+Version: [[version]]
+Priority: optional
+Architecture: all
+Depends: java21-runtime | java21-runtime-headless
+Maintainer: Miguel Garcia <miguel.garcia.th@gmail.com>
+Homepage: https://github.com/MiguelGarciaTH/ScribeRef
+Description: [[description]]

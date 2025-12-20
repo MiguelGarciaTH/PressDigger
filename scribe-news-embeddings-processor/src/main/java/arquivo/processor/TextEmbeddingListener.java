@@ -1,0 +1,122 @@
+package arquivo.processor;
+
+import arquivo.services.MetricService;
+import arquivo.services.TextEmbeddingClient;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.core.env.Environment;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.support.Acknowledgment;
+import org.springframework.kafka.support.KafkaHeaders;
+import org.springframework.messaging.handler.annotation.Header;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.regex.Pattern;
+
+@Component
+@ConditionalOnProperty(name = "scribe-ref.arquivo.scribe-news-embeddings-processor.enable", havingValue = "true")
+public class TextEmbeddingListener {
+
+    private static final Logger LOG = LoggerFactory.getLogger(TextEmbeddingListener.class);
+    public static final int SHOW_STATS_INTERVAL_MINS = 1;
+
+    @Value("${scribe-ref.arquivo.scribe-news-embeddings-processor.kafka.to-listen.topic}")
+    private String topicToListen;
+
+    @Value("${scribe-ref.arquivo.scribe-news-embeddings-processor.kafka.to-listen.concurrency}")
+    private int concurrencyToListen;
+
+    private final ObjectMapper objectMapper;
+
+    private final MetricService metricService;
+
+    private long responseItemsIncompleteTotal;
+    private final LocalDateTime start = LocalDateTime.now(ZoneOffset.UTC);
+    private LocalDateTime nextProgressLog = start.plusMinutes(SHOW_STATS_INTERVAL_MINS);
+    private final TextEmbeddingClient textEmbeddingClient;
+
+    private static final Pattern PARAGRAPH_SPLIT = Pattern.compile("\\R\\s*\\R");
+
+    @Autowired
+    public TextEmbeddingListener(Environment environment,
+                                 MetricService metricService) {
+        this.metricService = metricService;
+        this.objectMapper = new ObjectMapper();
+
+        final String url = environment.getProperty("scribe-ref.arquivo.scribe-embeddings-processor.embedding-service-url");
+        this.textEmbeddingClient = new TextEmbeddingClient(url, objectMapper, false);
+
+        responseItemsIncompleteTotal = metricService.loadValue("arquivo_embeddings_processor_response_items_incomplete_total");
+
+    }
+
+    @KafkaListener(
+            topics = {"${scribe-ref.arquivo.scribe-news-embeddings-processor.kafka.to-listen.topic}"},
+            containerFactory = "kafkaListenerContainerFactory",
+            concurrency = "${scribe-ref.arquivo.scribe-news-embeddings-processor.kafka.to-listen.concurrency}")
+    public void listener(ConsumerRecord<String, String> record, Acknowledgment ack, @Header(KafkaHeaders.RECEIVED_PARTITION) int partition) {
+        LOG.debug("Received on topic {} on partition {} record {}", record.topic(), partition, record.value());
+
+        try {
+            String payload = record.value();
+            if (payload == null || payload.isBlank()) {
+                LOG.warn("Empty payload for key {}", record.key());
+                responseItemsIncompleteTotal++;
+                return;
+            }
+
+            final JsonNode responseItem = objectMapper.readTree(payload);
+            /*
+                        .put("title", responseItem.get("title").asText())
+                        .put("summary", summarizedText.get("summary").asText())
+                        .put("originalUrl", responseItem.get("originalUrl").asText());
+             */
+
+            final String summary = responseItem.get("summary").asText();
+
+            final String[] summaryParagraphs = PARAGRAPH_SPLIT.split(summary);
+            System.out.println("Title: " + responseItem.get("title").asText());
+            System.out.println("URL: " + responseItem.get("originalUrl").asText());
+            for(String paragraph : summaryParagraphs) {
+                System.out.println("Paragraph: " + paragraph);
+                JsonNode embeddingResponseParagraph = textEmbeddingClient.getEmbeddings(paragraph);
+                System.out.println(embeddingResponseParagraph.toPrettyString());
+            }
+
+            // store final data
+
+            printStats();
+        } catch (Exception e) {
+            LOG.error("Failed to parse record as JSON or process image", e);
+        } finally {
+            // acknowledge exactly once here
+            try {
+                ack.acknowledge();
+            } catch (Exception e) {
+                LOG.warn("Failed to acknowledge record: {}", e.getMessage());
+            }
+        }
+
+    }
+
+    private void printStats() {
+        // just to show the progress every SHOW_STATS_INTERVAL_MINS minutes
+        final LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+        if (now.isAfter(nextProgressLog)) {
+            metricService.setValue("arquivo_embeddings_processor_response_items_incomplete_total", responseItemsIncompleteTotal);
+            LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal);
+            LOG.info("Elapsed time: {} minutes", java.time.Duration.between(start, now).toMinutes());
+            while (!now.isBefore(nextProgressLog)) {
+                nextProgressLog = nextProgressLog.plusMinutes(SHOW_STATS_INTERVAL_MINS);
+            }
+        }
+    }
+}
