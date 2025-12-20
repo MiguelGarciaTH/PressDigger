@@ -44,6 +44,7 @@ public class OpenIATextSummarizer {
             - NÃO refira que o texto é um artigo, coluna ou notícia.
             - NÃO use meta-linguagem jornalística (“o artigo analisa”, “o texto explica”).
             - Use linguagem factual, direta e informativa.
+            - Se possível manter uma estrutura em paragráfos - estes devem ser marcados por quebra de linha (\n)
             
             Datas:
             - Prefira datas encontradas perto do topo do texto (títulos/subtítulos), mas verifique todo o texto.
