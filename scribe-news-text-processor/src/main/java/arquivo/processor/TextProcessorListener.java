@@ -108,12 +108,12 @@ public class TextProcessorListener {
                 LOG.debug("Cleaned text length {}", cleanedText.length());
 
                 // use open IA to sumerize the text could be done here
-                final JsonNode summarizedText = textSummarizer.summarizeTextWithOpenAI(cleanedText);
+                final String summarizedText = textSummarizer.summarizeTextWithOpenAI(cleanedText);
 
                 final ObjectNode articleToExtractEmbeddding = objectMapper.createObjectNode()
                         .put("title", responseItem.get("title").asText())
-                        .put("summary", summarizedText.get("summary").asText())
-                        .put("originalUrl", responseItem.get("originalUrl").asText());
+                        .put("summary", summarizedText)
+                        .put("originalUrl", responseItem.get("linkToArchive").asText());
 
                 publishToKafka(articleToExtractEmbeddding);
 

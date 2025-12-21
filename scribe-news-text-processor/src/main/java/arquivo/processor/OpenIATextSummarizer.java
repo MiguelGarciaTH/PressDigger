@@ -63,7 +63,7 @@ public class OpenIATextSummarizer {
 
     }
 
-    public JsonNode summarizeTextWithOpenAI(String text) throws JsonProcessingException {
+    public String summarizeTextWithOpenAI(String text) {
         final ResponseCreateParams params = ResponseCreateParams.builder()
                 .model("gpt-4o-mini")
                 .input(prompt + "\n\n" + text)
@@ -71,11 +71,6 @@ public class OpenIATextSummarizer {
 
         final Response response = client.responses().create(params);
 
-
-        final String responseString = response.output().getFirst().message().get().content().getFirst().asOutputText().text().replaceAll("^```json\\s*|```\\s*$", "").trim();
-
-
-        return mapper.readTree(text);
-
+        return response.output().getFirst().message().get().content().getFirst().asOutputText().text().replaceAll("^```json\\s*|```\\s*$", "").trim();
     }
 }
