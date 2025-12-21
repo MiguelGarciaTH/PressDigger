@@ -22,13 +22,12 @@ public class OpenIATextSummarizer {
             Extrair e resumir **apenas o conteúdo jornalístico principal da notícia**.
             
             Tarefas (faça tudo em português):
-            1) Extraia a data de publicação, se houver — coloque em ISO 8601 (YYYY-MM-DD) em "publish_date".
+            1) Extraia a data de publicação, se houver — coloque em ISO 8601 (YYYY-MM-DD) em "publishedDate".
                - Se não houver uma data clara no conteúdo jornalístico, deixe null.
             2) Produza um resumo conciso do **conteúdo factual da notícia** com 3–5 pagráfos em "summary".
-            3) Forneça "highlights": 3 bullets (máx. 10 palavras cada) com os pontos-chave factuais.
-            4) Forneça "publish_date_confidence": número entre 0 e 1 (0 = não confiante, 1 = muito confiante).
-            5) Formate a saída **somente** como JSON com as chaves:
-               { "publish_date": ..., "publish_date_confidence": ..., "summary": ..., "highlights": [...] }
+            3) Forneça "publishDateConfidence": número entre 0 e 1 (0 = não confiante, 1 = muito confiante).
+            4) Formate a saída **somente** como JSON com as chaves:
+               { "publishedDate": ..., "publishedDateConfidence": ..., "summary": ...}
             
             Regras de filtragem (OBRIGATÓRIAS):
             - Ignore completamente:
@@ -49,7 +48,7 @@ public class OpenIATextSummarizer {
             Datas:
             - Prefira datas encontradas perto do topo do texto (títulos/subtítulos), mas verifique todo o texto.
             - Se a data for ambígua (ex.: “ontem”, “segunda-feira”), só infira uma data absoluta se houver
-              contexto temporal claro; caso contrário, use publish_date = null e baixa confiança.
+              contexto temporal claro; caso contrário, use publishedDate = null e baixa confiança.
             
             Formato:
             - Produza exclusivamente JSON válido.
