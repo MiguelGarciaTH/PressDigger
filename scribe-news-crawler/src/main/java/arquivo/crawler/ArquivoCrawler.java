@@ -139,17 +139,19 @@ public class ArquivoCrawler {
     private void processResponseItems(JsonNode responseItems) {
         for (var responseItem : responseItems) {
             // check if the URL is valid, otherwise skip
-            final String arquivoUrl = responseItem.get("linkToArchive").asText();
-            if (UrlValidator.isValid(arquivoUrl)) {
-                // normalizes URLs to check for duplicates
-                final String responseItemUrlNormalized = UrlNormalizer.normalize(arquivoUrl);
-                if (!isAlreadyProcessed(responseItemUrlNormalized) && !isTitleAlreadyProcessed(responseItem.get("title").asText())) {
-                    if (isResponseComplete(responseItem)) {
-                        publishToKafka(responseItem);
-                        responseItemsSentToKafkaTotal++;
-                    } else {
-                        responseItemsIncompleteTotal++;
-                        metricService.setValue("arquivo_crawler_response_items_incomplete_total", responseItemsIncompleteTotal);
+            if (isNewsArticle(responseItem.get("title").asText())) {
+                final String arquivoUrl = responseItem.get("linkToArchive").asText();
+                if (UrlValidator.isValid(arquivoUrl)) {
+                    // normalizes URLs to check for duplicates
+                    final String responseItemUrlNormalized = UrlNormalizer.normalize(arquivoUrl);
+                    if (!isAlreadyProcessed(responseItemUrlNormalized) && !isTitleAlreadyProcessed(responseItem.get("title").asText())) {
+                        if (isResponseComplete(responseItem)) {
+                            publishToKafka(responseItem);
+                            responseItemsSentToKafkaTotal++;
+                        } else {
+                            responseItemsIncompleteTotal++;
+                            metricService.setValue("arquivo_crawler_response_items_incomplete_total", responseItemsIncompleteTotal);
+                        }
                     }
                 }
             }
@@ -191,6 +193,20 @@ public class ArquivoCrawler {
                 .map(Url::getUrl)
                 .toList();
     }
+
+    private boolean isNewsArticle(String section) {
+        if (section == null) return false;
+
+        String normalized = section.trim().toLowerCase();
+
+        return !(normalized.contains("opinião")
+                || normalized.contains("opinion")
+                || normalized.contains("editorial")
+                || normalized.contains("coluna")
+                || normalized.contains("comentário"));
+    }
+
+
 
     private boolean isResponseComplete(JsonNode node) {
         return node.has("title") //&& !node.get("title").isEmpty() && !node.get("title").isNull()
