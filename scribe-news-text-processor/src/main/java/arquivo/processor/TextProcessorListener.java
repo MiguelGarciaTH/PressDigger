@@ -74,7 +74,7 @@ public class TextProcessorListener {
 
         this.apiKey = environment.getProperty("scribe-ref.arquivo.scribe-news-text-processor.open-ai.api-key");
 
-        this.textSummarizer = new OpenIATextSummarizer(apiKey, objectMapper);
+        this.textSummarizer = new OpenIATextSummarizer(apiKey);
 
         httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
@@ -108,12 +108,16 @@ public class TextProcessorListener {
                 LOG.debug("Cleaned text length {}", cleanedText.length());
 
                 // use open IA to sumerize the text could be done here
-                final String summarizedText = textSummarizer.summarizeTextWithOpenAI(cleanedText);
+                final JsonNode openIaResponse = objectMapper.readTree(textSummarizer.summarizeTextWithOpenAI(cleanedText));
+                LOG.debug("OpenAI response: {}", openIaResponse.toPrettyString());
 
                 final ObjectNode articleToExtractEmbeddding = objectMapper.createObjectNode()
                         .put("title", responseItem.get("title").asText())
-                        .put("summary", summarizedText)
-                        .put("originalUrl", responseItem.get("linkToArchive").asText());
+                        .put("imageName", responseItem.get("imageName").asText())
+                        .put("summary", openIaResponse.get("summary").asText())
+                        .put("publishedDate", openIaResponse.get("publishedDate").asText())
+                        .put("publishedDateConfidence", openIaResponse.get("publishedDateConfidence").asDouble())
+                        .put("linkToArchive", responseItem.get("linkToArchive").asText());
 
                 publishToKafka(articleToExtractEmbeddding);
 

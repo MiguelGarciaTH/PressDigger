@@ -4,6 +4,7 @@ import arquivo.services.MetricService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import net.coobird.thumbnailator.Thumbnails;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
@@ -144,9 +145,15 @@ public class ImageProcessorListener {
                 }
 
                 // process using the already-read BufferedImage (no re-download)
-                processImage(url, image);
+                final String imageName = processImage(url, image);
 
-                publishToKafka(responseItem);
+                final ObjectNode articleToTextSummary = objectMapper.createObjectNode()
+                        .put("title", responseItem.get("title").asText())
+                        .put("linkToArchive", responseItem.get("linkToArchive").asText())
+                        .put("linkToExtractedText", responseItem.get("linkToExtractedText").asText())
+                        .put("imageName", imageName);
+
+                publishToKafka(articleToTextSummary);
 
             } else {
                 responseItemsIncompleteTotal++;
@@ -188,7 +195,7 @@ public class ImageProcessorListener {
         return conn.getInputStream();
     }
 
-    private void processImage(URL imageUrl, BufferedImage image) throws Exception {
+    private String processImage(URL imageUrl, BufferedImage image) throws Exception {
         final String fileName = (imageUrl.getPath().hashCode() & Integer.MAX_VALUE) + ".png";
         final Path originalOutputPath = directory.resolve("original").resolve(fileName);
         final Path smallOutputPath = directory.resolve("small").resolve(fileName);
@@ -197,7 +204,7 @@ public class ImageProcessorListener {
         if (skipIfExists && Files.exists(originalOutputPath) && Files.exists(smallOutputPath)) {
             LOG.debug("Skipping processing for {} because outputs exist", fileName);
             duplicateFilesTotal++;
-            return;
+            return null;
         }
 
         // write original (ensure parent exists)
@@ -222,6 +229,7 @@ public class ImageProcessorListener {
         } catch (IOException e) {
             throw new IOException("Failed to write thumbnail to " + smallOutputPath + ": " + e.getMessage(), e);
         }
+        return fileName;
     }
 
     private void printStats() {

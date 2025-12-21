@@ -1,7 +1,12 @@
 package arquivo.processor;
 
+import arquivo.model.Article;
+import arquivo.model.ArticleChunk;
+import arquivo.repository.ArticleChunkRepository;
+import arquivo.repository.ArticleRepository;
 import arquivo.services.MetricService;
 import arquivo.services.TextEmbeddingClient;
+import arquivo.utils.UrlNormalizer;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -17,6 +22,7 @@ import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.regex.Pattern;
@@ -45,12 +51,18 @@ public class TextEmbeddingListener {
 
     private static final Pattern PARAGRAPH_SPLIT = Pattern.compile("\\R\\s*\\R");
 
+    private final ArticleRepository articleRepository;
+    private final ArticleChunkRepository articleChunkRepository;
+
     @Autowired
     public TextEmbeddingListener(Environment environment,
-                                 MetricService metricService) {
+                                 MetricService metricService,
+                                 ArticleRepository articleRepository,
+                                 ArticleChunkRepository articleChunkRepository) {
         this.metricService = metricService;
         this.objectMapper = new ObjectMapper();
-
+        this.articleRepository = articleRepository;
+        this.articleChunkRepository = articleChunkRepository;
         final String url = environment.getProperty("scribe-ref.arquivo.scribe-embeddings-processor.embedding-service-url");
         this.textEmbeddingClient = new TextEmbeddingClient(url, objectMapper, false);
 
@@ -74,24 +86,25 @@ public class TextEmbeddingListener {
             }
 
             final JsonNode responseItem = objectMapper.readTree(payload);
-            /*
-                        .put("title", responseItem.get("title").asText())
-                        .put("summary", summarizedText.get("summary").asText())
-                        .put("originalUrl", responseItem.get("originalUrl").asText());
-             */
 
             final String summary = responseItem.get("summary").asText();
-
             final String[] summaryParagraphs = PARAGRAPH_SPLIT.split(summary);
-            System.out.println("Title: " + responseItem.get("title").asText());
-            System.out.println("URL: " + responseItem.get("originalUrl").asText());
-            for(String paragraph : summaryParagraphs) {
-                System.out.println("Paragraph: " + paragraph);
-                JsonNode embeddingResponseParagraph = textEmbeddingClient.getEmbeddings(paragraph);
-                System.out.println(embeddingResponseParagraph.toPrettyString());
-            }
 
-            // store final data
+            final Article article = articleRepository.save(
+                    new Article(responseItem.get("title").asText(),
+                            !responseItem.get("publishedDate").isNull() ? LocalDate.parse(responseItem.get("publishedDate").asText()) : null,
+                            responseItem.get("publishedDateConfidence").asDouble(),
+                            responseItem.get("linkToArchive").asText(),
+                            UrlNormalizer.normalize(responseItem.get("linkToArchive").asText()),
+                            responseItem.get("imageName").asText()
+                    )
+            );
+
+            int i = 0;
+            for (String paragraph : summaryParagraphs) {
+                final JsonNode embeddingResponseParagraph = textEmbeddingClient.getEmbeddings(paragraph).get("embedding");
+                articleChunkRepository.save(new ArticleChunk(article, i++, paragraph, toFloatArray(embeddingResponseParagraph)));
+            }
 
             printStats();
         } catch (Exception e) {
@@ -118,5 +131,20 @@ public class TextEmbeddingListener {
                 nextProgressLog = nextProgressLog.plusMinutes(SHOW_STATS_INTERVAL_MINS);
             }
         }
+    }
+
+    private static float[] toFloatArray(JsonNode embeddingNode) {
+        if (!embeddingNode.isArray()) {
+            throw new IllegalArgumentException("Embedding node is not an array");
+        }
+
+        int size = embeddingNode.size();
+        float[] vector = new float[size];
+
+        for (int i = 0; i < size; i++) {
+            vector[i] = (float) embeddingNode.get(i).asDouble();
+        }
+
+        return vector;
     }
 }
