@@ -1,8 +1,5 @@
 package arquivo.processor;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.models.responses.Response;
@@ -11,7 +8,6 @@ import com.openai.models.responses.ResponseCreateParams;
 public class OpenIATextSummarizer {
 
     private final OpenAIClient client;
-    private final ObjectMapper mapper;
 
     private final String prompt = """
             Você é um assistente que recebe o texto bruto (apenas texto) de uma página de notícia em Português.
@@ -56,10 +52,8 @@ public class OpenIATextSummarizer {
             """;
 
 
-    public OpenIATextSummarizer(String apiKey, ObjectMapper mapper) {
+    public OpenIATextSummarizer(String apiKey) {
         client = OpenAIOkHttpClient.builder().apiKey(apiKey).build();
-        this.mapper = mapper;
-
     }
 
     public String summarizeTextWithOpenAI(String text) {
