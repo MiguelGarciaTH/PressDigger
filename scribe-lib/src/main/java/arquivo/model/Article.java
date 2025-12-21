@@ -2,8 +2,7 @@ package arquivo.model;
 
 import jakarta.persistence.*;
 
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.LocalDate;
 import java.util.List;
 
 @Entity
@@ -13,25 +12,21 @@ public class Article {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
 
-    private LocalDateTime date;
+    private LocalDate publishedDate;
 
-    @ManyToOne(fetch = FetchType.EAGER)
-    private Site site;
+    private double publishedDateConfidence;
 
     @Column(columnDefinition = "text")
     private String title;
 
     @Column(columnDefinition = "text")
-    private String url;
+    private String linkToArchive;
 
     @Column(columnDefinition = "text")
-    private String urlTrimmed;
+    private String linkToArchiveTrimmed;
 
     @Column(columnDefinition = "text")
-    private String urlImage;
-
-    @Column(columnDefinition = "text")
-    private String urlText;
+    private String imageName;
 
     @OneToMany(mappedBy = "article", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     List<ArticleChunk> articleChunks;
@@ -40,45 +35,27 @@ public class Article {
 
     }
 
-    public Article(Site site, String title, String url, String urlTrimmed, String urlImage, String urlText) {
-        this.date = LocalDateTime.now(ZoneOffset.UTC);
-        this.site = site;
+    public Article(String title, LocalDate publishedDate, double publishedDateConfidence, String linkToArchive, String linkToArchiveTrimmed, String imageName) {
+        this.publishedDate = publishedDate;
+        this.publishedDateConfidence = publishedDateConfidence;
         this.title = title;
-        this.url = url;
-        this.urlTrimmed = urlTrimmed;
-        this.urlImage = urlImage;
-        this.urlText = urlText;
-    }
-
-    public Article(LocalDateTime date, Site site, String title, String url, String urlTrimmed, String urlImage, String urlText) {
-        this.date = date;
-        this.site = site;
-        this.title = title;
-        this.url = url;
-        this.urlTrimmed = urlTrimmed;
-        this.urlImage = urlImage;
-        this.urlText = urlText;
+        this.linkToArchive = linkToArchive;
+        this.linkToArchiveTrimmed = linkToArchiveTrimmed;
+        this.imageName = imageName;
     }
 
     public int getId() {
         return id;
     }
 
-    public LocalDateTime getDate() {
-        return date;
+    public LocalDate getPublishedDate() {
+        return publishedDate;
     }
 
-    public void setDate(LocalDateTime date) {
-        this.date = date;
+    public void setPublishedDate(LocalDate publishedDate) {
+        this.publishedDate = publishedDate;
     }
 
-    public Site getSite() {
-        return site;
-    }
-
-    public void setSite(Site site) {
-        this.site = site;
-    }
 
     public String getTitle() {
         return title;
@@ -88,36 +65,27 @@ public class Article {
         this.title = title;
     }
 
-    public String getUrl() {
-        return url;
+    public String getLinkToArchive() {
+        return linkToArchive;
     }
 
-    public void setUrl(String url) {
-        this.url = url;
+    public void setLinkToArchive(String linkToArchive) {
+        this.linkToArchive = linkToArchive;
     }
 
-    public String getUrlTrimmed() {
-        return urlTrimmed;
+    public String getLinkToArchiveTrimmed() {
+        return linkToArchiveTrimmed;
     }
 
-    public void setUrlTrimmed(String urlTrimmed) {
-        this.urlTrimmed = urlTrimmed;
+    public void setLinkToArchiveTrimmed(String linkToArchiveTrimmed) {
+        this.linkToArchiveTrimmed = linkToArchiveTrimmed;
     }
 
-    public String getUrlImage() {
-        return urlImage;
+    public String getImageName() {
+        return imageName;
     }
-
-    public void setUrlImage(String urlImage) {
-        this.urlImage = urlImage;
-    }
-
-    public String getUrlText() {
-        return urlText;
-    }
-
-    public void setUrlText(String urlText) {
-        this.urlText = urlText;
+    public void setImageName(String imageName) {
+        this.imageName = imageName;
     }
 
     public List<ArticleChunk> getArticleChunks() {

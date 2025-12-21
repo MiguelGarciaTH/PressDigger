@@ -46,11 +46,16 @@ public class ArticleChunk {
 
     }
 
-    public ArticleChunk(Article article, int chunkIndex, String content, String tsv, float[] embedding) {
+    public ArticleChunk(int chunkIndex, String content, float[] embedding) {
+        this.chunkIndex = chunkIndex;
+        this.content = content;
+        this.embedding = embedding;
+    }
+
+    public ArticleChunk(Article article, int chunkIndex, String content, float[] embedding) {
         this.article = article;
         this.chunkIndex = chunkIndex;
         this.content = content;
-        this.tsv = tsv;
         this.embedding = embedding;
     }
 

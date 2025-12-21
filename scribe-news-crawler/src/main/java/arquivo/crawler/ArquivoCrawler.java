@@ -209,7 +209,7 @@ public class ArquivoCrawler {
     }
 
     private boolean isAlreadyProcessed(String url) {
-        return articleRepository.existsByUrlTrimmed(url);
+        return articleRepository.existsByLinkToArchiveTrimmed(url);
     }
 
     private List<String> generateUrls() {
