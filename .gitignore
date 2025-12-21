@@ -2,6 +2,8 @@
 # Ignore build output in repo root and in any module
 **/target/
 
+.env
+
 # optionally ignore other common build dirs
 **/out/
 **/build/
