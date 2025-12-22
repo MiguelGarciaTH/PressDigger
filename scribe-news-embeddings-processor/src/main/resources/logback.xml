@@ -10,7 +10,6 @@
     </root>
 
 
-    <logger name="arquivo.processor.TextProcessor" level="DEBUG"/>
     <logger name="arquivo.processor.TextEmbeddingListener" level="DEBUG"/>
 
 </configuration>

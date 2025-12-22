@@ -5,6 +5,12 @@ import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.util.List;
 
+@NamedEntityGraph(
+        name = "Article.withArticleChunks",
+        attributeNodes = {
+                @NamedAttributeNode("articleChunks")
+        }
+)
 @Entity
 public class Article {
 
@@ -84,6 +90,7 @@ public class Article {
     public String getImageName() {
         return imageName;
     }
+
     public void setImageName(String imageName) {
         this.imageName = imageName;
     }
@@ -91,7 +98,7 @@ public class Article {
     public List<ArticleChunk> getArticleChunks() {
         return articleChunks;
     }
-    
+
     public void setArticleChunks(List<ArticleChunk> articleChunks) {
         this.articleChunks = articleChunks;
     }

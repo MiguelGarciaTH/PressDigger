@@ -3,7 +3,10 @@
   <component name="Encoding">
     <file url="file://$PROJECT_DIR$/scribe-lib/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/scribe-news-crawler/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/scribe-news-embeddings-processor/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/scribe-news-image-processor/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/scribe-news-rest/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/scribe-news-text-processor/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/src/main/resources" charset="UTF-8" />
   </component>

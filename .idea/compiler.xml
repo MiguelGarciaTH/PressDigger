@@ -6,9 +6,12 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
-        <module name="scribe-news-crawler" />
         <module name="scribe-lib" />
         <module name="scribe-news-image-processor" />
+        <module name="scribe-news-rest" />
+        <module name="scribe-news-crawler" />
+        <module name="scribe-news-embeddings-processor" />
+        <module name="scribe-news-text-processor" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
@@ -19,7 +22,10 @@
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
       <module name="scribe-lib" options="-parameters" />
       <module name="scribe-news-crawler" options="-parameters" />
+      <module name="scribe-news-embeddings-processor" options="-parameters" />
       <module name="scribe-news-image-processor" options="-parameters" />
+      <module name="scribe-news-rest" options="-parameters" />
+      <module name="scribe-news-text-processor" options="-parameters" />
     </option>
   </component>
 </project>

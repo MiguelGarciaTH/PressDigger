@@ -1,15 +1,17 @@
 package arquivo.model;
 
 
+import arquivo.utils.VectorType;
 import jakarta.persistence.*;
 import org.codehaus.commons.nullanalysis.NotNull;
+import org.hibernate.annotations.Type;
 
 @Entity
 public class ArticleChunk {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int id;
+    private long id;
 
     @ManyToOne(fetch = FetchType.EAGER)
     private Article article;
@@ -35,11 +37,8 @@ public class ArticleChunk {
     /**
      * pgvector embedding
      */
-    @Column(
-            name = "embedding",
-            nullable = false,
-            columnDefinition = "vector(768)"
-    )
+    @Column(name = "embedding", columnDefinition = "vector(768)")
+    @Type(VectorType.class)
     private float[] embedding;
 
     public ArticleChunk() {
@@ -59,7 +58,7 @@ public class ArticleChunk {
         this.embedding = embedding;
     }
 
-    public int getId() {
+    public long getId() {
         return id;
     }
 
