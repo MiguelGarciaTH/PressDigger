@@ -1,0 +1,14 @@
+[Unit]
+Description=Arquivo crawler
+After=network.target multi-user.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/default/scribe-news-rest
+ExecStart=/opt/ScribeRef/scribe-news-rest/run.sh
+User=arquivo
+SyslogIdentifier=ScribeNewsCrawler
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
