@@ -103,7 +103,7 @@ public class TextEmbeddingListener {
             int i = 0;
             for (String paragraph : summaryParagraphs) {
                 final JsonNode embeddingResponseParagraph = textEmbeddingClient.getEmbeddings(paragraph).get("embedding");
-                articleChunkRepository.save(new ArticleChunk(article, i++, paragraph, toFloatArray(embeddingResponseParagraph)));
+                articleChunkRepository.save(new ArticleChunk(article, i++, paragraph, textEmbeddingClient.toFloatArray(embeddingResponseParagraph)));
             }
 
             printStats();
@@ -131,20 +131,5 @@ public class TextEmbeddingListener {
                 nextProgressLog = nextProgressLog.plusMinutes(SHOW_STATS_INTERVAL_MINS);
             }
         }
-    }
-
-    private static float[] toFloatArray(JsonNode embeddingNode) {
-        if (!embeddingNode.isArray()) {
-            throw new IllegalArgumentException("Embedding node is not an array");
-        }
-
-        int size = embeddingNode.size();
-        float[] vector = new float[size];
-
-        for (int i = 0; i < size; i++) {
-            vector[i] = (float) embeddingNode.get(i).asDouble();
-        }
-
-        return vector;
     }
 }

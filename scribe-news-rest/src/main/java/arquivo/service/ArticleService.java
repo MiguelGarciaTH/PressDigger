@@ -2,17 +2,34 @@ package arquivo.service;
 
 import arquivo.exceptions.ResourceNotFoundException;
 import arquivo.model.Article;
+import arquivo.model.ArticleChunk;
+import arquivo.repository.ArticleChunkRepository;
 import arquivo.repository.ArticleRepository;
+import arquivo.services.TextEmbeddingClient;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pgvector.PGvector;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 public class ArticleService {
 
     private final ArticleRepository articleRepository;
+    private final ArticleChunkRepository articleChunkRepository;
+    private final TextEmbeddingClient textEmbeddingClient;
 
-    public ArticleService(ArticleRepository articleRepository) {
+    public ArticleService(Environment environment,
+                          ArticleRepository articleRepository,
+                          ArticleChunkRepository articleChunkRepository) {
+
         this.articleRepository = articleRepository;
+        this.articleChunkRepository = articleChunkRepository;
+        final String url = environment.getProperty("scribe-ref.arquivo.scribe-rest.embedding-service-url");
+        this.textEmbeddingClient = new TextEmbeddingClient(url, new ObjectMapper(), true);
     }
 
     @Transactional(readOnly = true)
@@ -21,8 +38,19 @@ public class ArticleService {
         if (article == null) {
             throw new ResourceNotFoundException("article not found with id: " + articleId);
         }
-
-        System.out.println("ARTICLE ID= " + article.getId());
         return article;
+    }
+
+    @Transactional(readOnly = true)
+    public List<ArticleChunk> search(String inputText) {
+        JsonNode embedded = textEmbeddingClient
+                .getEmbeddings(inputText)
+                .get("embedding");
+
+        float[] queryEmbedding = textEmbeddingClient.toFloatArray(embedded);
+
+        String pgVector = textEmbeddingClient.toPgVectorLiteral(queryEmbedding);
+
+        return articleChunkRepository.searchByText(inputText, pgVector, 10);
     }
 }

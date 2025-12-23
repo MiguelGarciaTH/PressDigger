@@ -2,6 +2,7 @@ package arquivo.model;
 
 
 import arquivo.utils.VectorType;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import org.codehaus.commons.nullanalysis.NotNull;
 import org.hibernate.annotations.Type;
@@ -14,6 +15,7 @@ public class ArticleChunk {
     private long id;
 
     @ManyToOne(fetch = FetchType.EAGER)
+    @JsonIgnore
     private Article article;
 
     @NotNull
@@ -32,6 +34,7 @@ public class ArticleChunk {
             updatable = false,
             columnDefinition = "tsvector"
     )
+    @JsonIgnore
     private String tsv;
 
     /**
@@ -39,6 +42,7 @@ public class ArticleChunk {
      */
     @Column(name = "embedding", columnDefinition = "vector(768)")
     @Type(VectorType.class)
+    @JsonIgnore
     private float[] embedding;
 
     public ArticleChunk() {

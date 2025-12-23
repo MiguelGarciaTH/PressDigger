@@ -63,4 +63,29 @@ public class TextEmbeddingClient {
         body.put("kind", type);
         return body;
     }
+
+    public float[] toFloatArray(JsonNode embeddingNode) {
+        if (!embeddingNode.isArray()) {
+            throw new IllegalArgumentException("Embedding node is not an array");
+        }
+
+        int size = embeddingNode.size();
+        float[] vector = new float[size];
+
+        for (int i = 0; i < size; i++) {
+            vector[i] = (float) embeddingNode.get(i).asDouble();
+        }
+
+        return vector;
+    }
+
+    public String toPgVectorLiteral(float[] vector) {
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < vector.length; i++) {
+            if (i > 0) sb.append(",");
+            sb.append(vector[i]);
+        }
+        sb.append("]");
+        return sb.toString();
+    }
 }
