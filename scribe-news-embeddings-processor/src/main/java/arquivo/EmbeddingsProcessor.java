@@ -24,38 +24,39 @@ public class EmbeddingsProcessor {
         SpringApplication.run(EmbeddingsProcessor.class, args);
     }
 
-    /**
-     * Configure Kafka listener
-     */
-    @Configuration
-    class ConfigKafkaListener {
-        @Bean
-        ConcurrentKafkaListenerContainerFactory<?, ?> kafkaListenerContainerFactory(KafkaProperties kafkaProperties,
-                                                                                    ConcurrentKafkaListenerContainerFactoryConfigurer configurer,
-                                                                                    ConsumerFactory<Object, Object> kafkaConsumerFactory) {
-            final ConcurrentKafkaListenerContainerFactory<Object, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
-            configurer.configure(factory, kafkaConsumerFactory);
-            factory.setCommonErrorHandler(new DefaultErrorHandler(new FixedBackOff(0L, 2L)));
-            factory.setConcurrency(kafkaProperties.getListener().getConcurrency());
-            return factory;
-        }
+}
+
+/**
+ * Configure Kafka listener
+ */
+@Configuration
+class ConfigKafkaListener {
+    @Bean
+    ConcurrentKafkaListenerContainerFactory<?, ?> kafkaListenerContainerFactory(KafkaProperties kafkaProperties,
+                                                                                ConcurrentKafkaListenerContainerFactoryConfigurer configurer,
+                                                                                ConsumerFactory<Object, Object> kafkaConsumerFactory) {
+        final ConcurrentKafkaListenerContainerFactory<Object, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
+        configurer.configure(factory, kafkaConsumerFactory);
+        factory.setCommonErrorHandler(new DefaultErrorHandler(new FixedBackOff(0L, 2L)));
+        factory.setConcurrency(kafkaProperties.getListener().getConcurrency());
+        return factory;
     }
+}
 
-    @Configuration
-    @Component
-    class TopicConfig {
+@Configuration
+@Component
+class TopicConfig {
 
-        @Value("${scribe-ref.arquivo.scribe-news-embeddings-processor.kafka.to-listen.topic}")
-        private String topicToListen;
+    @Value("${scribe-ref.arquivo.scribe-news-embeddings-processor.kafka.to-listen.topic}")
+    private String topicToListen;
 
-        @Value("${scribe-ref.arquivo.scribe-news-embeddings-processor.kafka.to-listen.concurrency}")
-        private int concurrencyToListen;
+    @Value("${scribe-ref.arquivo.scribe-news-embeddings-processor.kafka.to-listen.concurrency}")
+    private int concurrencyToListen;
 
-        @Bean
-        public NewTopic createTopic() {
-            return TopicBuilder.name(topicToListen)
-                    .partitions(concurrencyToListen)
-                    .build();
-        }
+    @Bean
+    public NewTopic createTopic() {
+        return TopicBuilder.name(topicToListen)
+                .partitions(concurrencyToListen)
+                .build();
     }
 }

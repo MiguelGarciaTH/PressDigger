@@ -10,7 +10,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
-import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -23,7 +22,7 @@ public class WebClientService {
     private static final Logger LOG = LoggerFactory.getLogger(WebClientService.class);
 
     private final WebClient webClient;
-    private RateLimiterService rateLimiterService;
+    private final RateLimiterService rateLimiterService;
     private final ObjectMapper objectMapper;
     private int retryCounter = 0;
 

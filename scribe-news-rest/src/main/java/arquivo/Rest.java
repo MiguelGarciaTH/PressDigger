@@ -47,13 +47,6 @@ class ConfigJacksonConverter {
     @Bean
     MappingJackson2HttpMessageConverter jsonConverter() {
 
-
-        // use the Jackson time serializers, but use custom serializers for LocalDateTime
-        //final SimpleModule javaTimeSerializers = new JavaTimeModule();
-        //javaTimeSerializers.addSerializer(LocalDateTime.class, new UtcLocalDateTimeSerializer());
-        //javaTimeSerializers.addDeserializer(LocalDateTime.class, new UtcLocalDateTimeDeserializer());
-
-        // set configuration flags, register AntPathFilterMixin and serializers modules
         final ObjectMapper objectMapper = Jackson2ObjectMapperBuilder
                 .json()
                 .featuresToEnable(
@@ -61,7 +54,6 @@ class ConfigJacksonConverter {
                 .featuresToDisable(
                         SerializationFeature.FAIL_ON_EMPTY_BEANS,
                         SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
-                //.modulesToInstall(senseiSerializers, javaTimeSerializers)
                 .build();
 
         return new MappingJackson2HttpMessageConverter(objectMapper);

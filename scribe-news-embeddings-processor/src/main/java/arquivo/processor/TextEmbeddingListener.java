@@ -13,7 +13,6 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.env.Environment;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -33,12 +32,6 @@ public class TextEmbeddingListener {
 
     private static final Logger LOG = LoggerFactory.getLogger(TextEmbeddingListener.class);
     public static final int SHOW_STATS_INTERVAL_MINS = 1;
-
-    @Value("${scribe-ref.arquivo.scribe-news-embeddings-processor.kafka.to-listen.topic}")
-    private String topicToListen;
-
-    @Value("${scribe-ref.arquivo.scribe-news-embeddings-processor.kafka.to-listen.concurrency}")
-    private int concurrencyToListen;
 
     private final ObjectMapper objectMapper;
 

@@ -3,7 +3,6 @@ package arquivo.controller;
 import arquivo.model.Article;
 import arquivo.model.ArticleChunk;
 import arquivo.service.ArticleService;
-import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
