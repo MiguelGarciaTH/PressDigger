@@ -1,7 +1,7 @@
 package arquivo.processor;
 
 import arquivo.services.MetricService;
-import com.fasterxml.jackson.core.JsonProcessingException;
+import arquivo.utils.KafkaPublisher;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -38,13 +38,7 @@ public class ImageProcessorListener {
     private static final Logger LOG = LoggerFactory.getLogger(ImageProcessorListener.class);
     public static final int SHOW_STATS_INTERVAL_MINS = 1;
 
-    private final KafkaTemplate<String, String> kafkaTemplate;
-
-    @Value("${scribe-ref.arquivo.scribe-news-image-processor.kafka.to-listen.topic}")
-    private String topicToListen;
-
-    @Value("${scribe-ref.arquivo.scribe-news-image-processor.kafka.to-listen.concurrency}")
-    private int concurrencyToListen;
+    private final KafkaPublisher kafkaPublisher;
 
     @Value("${scribe-ref.arquivo.scribe-news-image-processor.kafka.to-send.topic}")
     private String topic;
@@ -83,8 +77,9 @@ public class ImageProcessorListener {
                                   KafkaTemplate<String, String> kafkaTemplate,
                                   @Value("${scribe-ref.arquivo.scribe-news-image-processor.image-path-directory}") String imagePathDirectory) {
         this.metricService = metricService;
-        this.kafkaTemplate = kafkaTemplate;
         this.objectMapper = new ObjectMapper();
+
+        this.kafkaPublisher = new KafkaPublisher(kafkaTemplate, topic, concurrency);
 
         blankImagesTotal = metricService.loadValue("arquivo_image_processor_blank_images_total");
         responseItemsIncompleteTotal = metricService.loadValue("arquivo_image_processor_response_items_incomplete_total");
@@ -153,7 +148,7 @@ public class ImageProcessorListener {
                         .put("linkToExtractedText", responseItem.get("linkToExtractedText").asText())
                         .put("imageName", imageName);
 
-                publishToKafka(articleToTextSummary);
+                kafkaPublisher.send(articleToTextSummary);
 
             } else {
                 responseItemsIncompleteTotal++;
@@ -170,21 +165,6 @@ public class ImageProcessorListener {
             }
         }
 
-    }
-
-    int roundRobinIndex = 0;
-
-    private void publishToKafka(JsonNode responseItem) {
-        try {
-            kafkaTemplate.send(topic, roundRobinIndex, "" + roundRobinIndex, objectMapper.writeValueAsString(responseItem));
-            roundRobinIndex++;
-            LOG.debug("Sent to topic {} and partition value={}", topic, responseItem);
-            if (roundRobinIndex == concurrency) {
-                roundRobinIndex = 0;
-            }
-        } catch (JsonProcessingException e) {
-            LOG.warn("Error processing item: {}", responseItem.toPrettyString());
-        }
     }
 
     // helper to open URL input stream with configured timeouts

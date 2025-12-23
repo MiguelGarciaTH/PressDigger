@@ -1,7 +1,7 @@
 package arquivo.processor;
 
 import arquivo.services.MetricService;
-import com.fasterxml.jackson.core.JsonProcessingException;
+import arquivo.utils.KafkaPublisher;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -34,13 +34,7 @@ public class TextProcessorListener {
     private static final Logger LOG = LoggerFactory.getLogger(TextProcessorListener.class);
     public static final int SHOW_STATS_INTERVAL_MINS = 1;
 
-    private final KafkaTemplate<String, String> kafkaTemplate;
-
-    @Value("${scribe-ref.arquivo.scribe-news-text-processor.kafka.to-listen.topic}")
-    private String topicToListen;
-
-    @Value("${scribe-ref.arquivo.scribe-news-text-processor.kafka.to-listen.concurrency}")
-    private int concurrencyToListen;
+    private final KafkaPublisher kafkaPublisher;
 
     @Value("${scribe-ref.arquivo.scribe-news-text-processor.kafka.to-send.topic}")
     private String topic;
@@ -67,7 +61,7 @@ public class TextProcessorListener {
                                  MetricService metricService,
                                  KafkaTemplate<String, String> kafkaTemplate) {
         this.metricService = metricService;
-        this.kafkaTemplate = kafkaTemplate;
+        this.kafkaPublisher = new KafkaPublisher(kafkaTemplate, topic, concurrency);
         this.objectMapper = new ObjectMapper();
 
         responseItemsIncompleteTotal = metricService.loadValue("arquivo_text_processor_response_items_incomplete_total");
@@ -119,7 +113,7 @@ public class TextProcessorListener {
                         .put("publishedDateConfidence", openIaResponse.get("publishedDateConfidence").asDouble())
                         .put("linkToArchive", responseItem.get("linkToArchive").asText());
 
-                publishToKafka(articleToExtractEmbeddding);
+                kafkaPublisher.send(articleToExtractEmbeddding);
 
             } else {
                 responseItemsIncompleteTotal++;
@@ -153,22 +147,6 @@ public class TextProcessorListener {
 
         return response.body();
     }
-
-    int roundRobinIndex = 0;
-
-    private void publishToKafka(JsonNode responseItem) {
-        try {
-            kafkaTemplate.send(topic, roundRobinIndex, "" + roundRobinIndex, objectMapper.writeValueAsString(responseItem));
-            roundRobinIndex++;
-            LOG.debug("Sent to topic {} and partition value={}", topic, responseItem);
-            if (roundRobinIndex == concurrency) {
-                roundRobinIndex = 0;
-            }
-        } catch (JsonProcessingException e) {
-            LOG.warn("Error processing item: {}", responseItem.toPrettyString());
-        }
-    }
-
 
     private void printStats() {
         // just to show the progress every SHOW_STATS_INTERVAL_MINS minutes

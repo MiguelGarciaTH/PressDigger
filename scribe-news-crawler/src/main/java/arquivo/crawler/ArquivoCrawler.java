@@ -6,11 +6,10 @@ import arquivo.model.Url;
 import arquivo.repository.*;
 import arquivo.services.MetricService;
 import arquivo.services.WebClientService;
+import arquivo.utils.KafkaPublisher;
 import arquivo.utils.UrlNormalizer;
 import arquivo.utils.UrlValidator;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,15 +40,13 @@ public class ArquivoCrawler {
 
     private final DateTimeFormatter arquivoFormatter = DateTimeFormatter.ofPattern("uuuuMMddHHmmss");
 
-    private final KafkaTemplate<String, String> kafkaTemplate;
-
     @Value("${scribe-ref.arquivo.scribe-news-crawler.kafka.to-send.topic}")
     private String topic;
 
     @Value("${scribe-ref.arquivo.scribe-news-crawler.kafka.to-send.concurrency}")
     private int concurrency;
 
-    private final ObjectMapper objectMapper;
+    private final KafkaPublisher kafkaPublisher;
 
     private final KeywordRepository keywordRepository;
     private final SiteRepository siteRepository;
@@ -74,10 +71,10 @@ public class ArquivoCrawler {
         this.articleRepository = articleRepository;
         this.urlRepository = urlRepository;
         this.metricService = metricService;
-        this.kafkaTemplate = kafkaTemplate;
         this.webClientService = new WebClientService(rateLimiterRepository);
-        this.objectMapper = new ObjectMapper();
         this.titleCache = new HashSet<>();
+
+        this.kafkaPublisher = new KafkaPublisher(kafkaTemplate, topic, concurrency);
 
         responseItemsCollectedTotal = metricService.loadValue("arquivo_crawler_response_items_collected_total");
         responseItemsSentToKafkaTotal = metricService.loadValue("arquivo_crawler_response_items_sent_to_kafka_total");
@@ -146,7 +143,7 @@ public class ArquivoCrawler {
                     final String responseItemUrlNormalized = UrlNormalizer.normalize(arquivoUrl);
                     if (!isAlreadyProcessed(responseItemUrlNormalized) && !isTitleAlreadyProcessed(responseItem.get("title").asText())) {
                         if (isResponseComplete(responseItem)) {
-                            publishToKafka(responseItem);
+                            kafkaPublisher.send(responseItem);
                             responseItemsSentToKafkaTotal++;
                         } else {
                             responseItemsIncompleteTotal++;
@@ -158,20 +155,7 @@ public class ArquivoCrawler {
         }
     }
 
-    int roundRobinIndex = 0;
 
-    private void publishToKafka(JsonNode responseItem) {
-        try {
-            kafkaTemplate.send(topic, roundRobinIndex, "" + roundRobinIndex, objectMapper.writeValueAsString(responseItem));
-            roundRobinIndex++;
-            LOG.debug("Sent to topic {} and partition value={}", topic, responseItem);
-            if (roundRobinIndex == concurrency) {
-                roundRobinIndex = 0;
-            }
-        } catch (JsonProcessingException e) {
-            LOG.warn("Error processing item: {}", responseItem.toPrettyString());
-        }
-    }
 
 
     private List<String> getUrlsToProcess() {
