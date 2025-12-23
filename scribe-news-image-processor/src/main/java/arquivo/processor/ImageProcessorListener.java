@@ -23,6 +23,7 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.file.Files;
@@ -115,7 +116,8 @@ public class ImageProcessorListener {
             final JsonNode responseItem = objectMapper.readTree(payload);
             if (responseItem.has("linkToScreenshot") && !responseItem.get("linkToScreenshot").isNull()) {
                 final String imageUrl = responseItem.get("linkToScreenshot").asText();
-                final URL url = new URL(imageUrl);
+                final URI uri = URI.create(imageUrl);
+                final URL url = uri.toURL();
 
                 // open connection with timeouts and read once, reuse the BufferedImage
                 BufferedImage image;
