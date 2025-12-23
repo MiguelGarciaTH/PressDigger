@@ -30,7 +30,7 @@
 		<module>scribe-news-text-processor</module>
 		<module>scribe-news-embeddings-processor</module>
 		<module>scribe-news-rest</module>
-		<module>scribe-lib</module>
+		<module>scribe-news-lib</module>
 	</modules>
 
 	<dependencies>

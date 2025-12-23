@@ -20,7 +20,7 @@
     <dependencies>
         <dependency>
             <groupId>arquivo</groupId>
-            <artifactId>scribe-lib</artifactId>
+            <artifactId>scribe-news-lib</artifactId>
             <version>${project.version}</version>
         </dependency>
 
