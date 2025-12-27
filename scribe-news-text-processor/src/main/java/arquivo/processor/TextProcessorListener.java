@@ -53,7 +53,7 @@ public class TextProcessorListener {
                                  MetricService metricService,
                                  KafkaTemplate<String, String> kafkaTemplate,
                                  @Value("${scribe-ref.arquivo.scribe-news-text-processor.kafka.to-send.topic}") String topic,
-                                 @Value("$){scribe-ref.arquivo.scribe-news-text-processor.kafka.to-send.concurrency}") int concurrency) {
+                                 @Value("${scribe-ref.arquivo.scribe-news-text-processor.kafka.to-send.concurrency}") int concurrency) {
         this.metricService = metricService;
         this.kafkaPublisher = new KafkaPublisher(kafkaTemplate, topic, concurrency);
         this.objectMapper = new ObjectMapper();
