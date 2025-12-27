@@ -150,9 +150,6 @@ public class ArquivoCrawler {
         }
     }
 
-
-
-
     private List<String> getUrlsToProcess() {
         // first time, no results
         if (urlRepository.count() == 0) {
@@ -188,10 +185,10 @@ public class ArquivoCrawler {
 
 
     private boolean isResponseComplete(JsonNode node) {
-        return node.has("title") //&& !node.get("title").isEmpty() && !node.get("title").isNull()
-                && node.has("linkToArchive") //&& !node.get("linkToArchive").isEmpty() && !node.get("linkToArchive").isNull()
-                && node.has("linkToExtractedText") //&& !node.get("linkToExtractedText").isEmpty() && !node.get("linkToExtractedText").isNull()
-                && node.has("linkToScreenshot"); //&& !node.get("linkToScreenshot").isEmpty() && !node.get("linkToScreenshot").isNull();
+        return node.has("title") && (!node.get("title").isEmpty() || !node.get("title").isNull())
+                && node.has("linkToArchive") && (!node.get("linkToArchive").isEmpty() || !node.get("linkToArchive").isNull())
+                && node.has("linkToExtractedText") && (!node.get("linkToExtractedText").isEmpty() || !node.get("linkToExtractedText").isNull())
+                && node.has("linkToScreenshot") && (!node.get("linkToScreenshot").isEmpty() || !node.get("linkToScreenshot").isNull());
     }
 
     private boolean isTitleAlreadyProcessed(String title) {
