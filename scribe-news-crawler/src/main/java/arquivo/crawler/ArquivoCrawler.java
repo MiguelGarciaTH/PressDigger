@@ -39,13 +39,6 @@ public class ArquivoCrawler {
     private final String arquivoBaseUrl = "https://arquivo.pt/textsearch?q=\"%s\"&prettyPrint=false&siteSearch=%s&from=%s&to=%s&maxItems=500&type=html&fields=title,linkToArchive,linkToExtractedText,linkToScreenshot";
 
     private final DateTimeFormatter arquivoFormatter = DateTimeFormatter.ofPattern("uuuuMMddHHmmss");
-
-    @Value("${scribe-ref.arquivo.scribe-news-crawler.kafka.to-send.topic}")
-    private String topic;
-
-    @Value("${scribe-ref.arquivo.scribe-news-crawler.kafka.to-send.concurrency}")
-    private int concurrency;
-
     private final KafkaPublisher kafkaPublisher;
 
     private final KeywordRepository keywordRepository;
@@ -65,7 +58,9 @@ public class ArquivoCrawler {
                           UrlRepository urlRepository,
                           RateLimiterRepository rateLimiterRepository,
                           MetricService metricService,
-                          KafkaTemplate<String, String> kafkaTemplate) {
+                          KafkaTemplate<String, String> kafkaTemplate,
+                          @Value("${scribe-ref.arquivo.scribe-news-crawler.kafka.to-send.topic}") String topic,
+                          @Value("${scribe-ref.arquivo.scribe-news-crawler.kafka.to-send.concurrency}") int concurrency) {
         this.keywordRepository = keywordRepository;
         this.siteRepository = siteRepository;
         this.articleRepository = articleRepository;

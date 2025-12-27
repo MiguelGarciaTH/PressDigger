@@ -23,6 +23,7 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
@@ -41,12 +42,6 @@ public class ImageProcessorListener {
 
     private final KafkaPublisher kafkaPublisher;
 
-    @Value("${scribe-ref.arquivo.scribe-news-image-processor.kafka.to-send.topic}")
-    private String topic;
-
-    @Value("${scribe-ref.arquivo.scribe-news-image-processor.kafka.to-send.concurrency}")
-    private int concurrency;
-
     private final ObjectMapper objectMapper;
 
     private final MetricService metricService;
@@ -64,9 +59,6 @@ public class ImageProcessorListener {
     @Value("${scribe-ref.arquivo.scribe-news-image-processor.thumbnail.quality:0.8}")
     private double thumbnailQuality;
 
-    @Value("${scribe-ref.arquivo.scribe-news-image-processor.skip-if-exists:true}")
-    private boolean skipIfExists;
-
     @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.connect-timeout-ms:5000}")
     private int httpConnectTimeoutMs;
 
@@ -76,7 +68,9 @@ public class ImageProcessorListener {
     @Autowired
     public ImageProcessorListener(MetricService metricService,
                                   KafkaTemplate<String, String> kafkaTemplate,
-                                  @Value("${scribe-ref.arquivo.scribe-news-image-processor.image-path-directory}") String imagePathDirectory) {
+                                  @Value("${scribe-ref.arquivo.scribe-news-image-processor.image-path-directory}") String imagePathDirectory,
+                                  @Value("${scribe-ref.arquivo.scribe-news-image-processor.kafka.to-send.topic}") String topic,
+                                  @Value("${scribe-ref.arquivo.scribe-news-image-processor.kafka.to-send.concurrency}") int concurrency) {
         this.metricService = metricService;
         this.objectMapper = new ObjectMapper();
 
@@ -116,39 +110,33 @@ public class ImageProcessorListener {
             final JsonNode responseItem = objectMapper.readTree(payload);
             if (responseItem.has("linkToScreenshot") && !responseItem.get("linkToScreenshot").isNull()) {
                 final String imageUrl = responseItem.get("linkToScreenshot").asText();
-                final URI uri = URI.create(imageUrl);
-                final URL url = uri.toURL();
+                final String fileName = (imageUrl.hashCode() & Integer.MAX_VALUE) + ".png";
 
-                // open connection with timeouts and read once, reuse the BufferedImage
-                BufferedImage image;
-                try (InputStream in = openUrlStreamWithTimeouts(url)) {
-                    image = ImageIO.read(in);
-                } catch (Exception e) {
-                    LOG.warn("Failed to fetch image: {}", e.getMessage());
-                    responseItemsIncompleteTotal++;
+                // quick skip if both files already exist (saves expensive processing)
+                final Path originalOutputPath = directory.resolve("original").resolve(fileName);
+
+                if (Files.exists(originalOutputPath)) {
+                    LOG.debug("Skipping processing for {} because outputs exist", originalOutputPath);
+                    duplicateFilesTotal++;
                     return;
                 }
 
-                if (image == null) {
-                    // ImageIO.read may return null for unsupported formats; treat as incomplete
-                    LOG.warn("ImageIO.read returned null for URL {}", imageUrl);
-                    responseItemsIncompleteTotal++;
-                    return;
-                }
-
-                if (ImageBlankDetector.isBlank(image, 1, 0.01, 2)) {
-                    blankImagesTotal++;
+                final BufferedImage image = getImage(imageUrl);
+                if(image == null){
+                    // either blank or failed to fetch
                     return;
                 }
 
                 // process using the already-read BufferedImage (no re-download)
-                final String imageName = processImage(url, image);
+                final String imagePath = processImage(fileName, image);
+                LOG.debug("Processed image stored {}", imagePath);
+
 
                 final ObjectNode articleToTextSummary = objectMapper.createObjectNode()
                         .put("title", responseItem.get("title").asText())
                         .put("linkToArchive", responseItem.get("linkToArchive").asText())
                         .put("linkToExtractedText", responseItem.get("linkToExtractedText").asText())
-                        .put("imageName", imageName);
+                        .put("imageName", imagePath);
 
                 kafkaPublisher.send(articleToTextSummary);
 
@@ -169,6 +157,41 @@ public class ImageProcessorListener {
 
     }
 
+    private BufferedImage getImage(String imageUrl) {
+        final URI uri = URI.create(imageUrl);
+        final URL url;
+        try {
+            url = uri.toURL();
+        } catch (MalformedURLException e) {
+            LOG.error("Invalid url {}", e.getMessage());
+            responseItemsIncompleteTotal++;
+            return null;
+        }
+
+        // open connection with timeouts and read once, reuse the BufferedImage
+        BufferedImage image;
+        try (InputStream in = openUrlStreamWithTimeouts(url)) {
+            image = ImageIO.read(in);
+        } catch (Exception e) {
+            LOG.warn("Failed to fetch image: {}", e.getMessage());
+            responseItemsIncompleteTotal++;
+            return null;
+        }
+
+        if (image == null) {
+            // ImageIO.read may return null for unsupported formats; treat as incomplete
+            LOG.warn("ImageIO.read returned null for URL {}", imageUrl);
+            responseItemsIncompleteTotal++;
+            return null;
+        }
+
+        if (ImageBlankDetector.isBlank(image, 1, 0.01, 2)) {
+            blankImagesTotal++;
+            return null;
+        }
+        return image;
+    }
+
     // helper to open URL input stream with configured timeouts
     private InputStream openUrlStreamWithTimeouts(URL url) throws IOException {
         URLConnection conn = url.openConnection();
@@ -177,17 +200,9 @@ public class ImageProcessorListener {
         return conn.getInputStream();
     }
 
-    private String processImage(URL imageUrl, BufferedImage image) throws Exception {
-        final String fileName = (imageUrl.getPath().hashCode() & Integer.MAX_VALUE) + ".png";
+    private String processImage(String fileName, BufferedImage image) throws Exception {
         final Path originalOutputPath = directory.resolve("original").resolve(fileName);
         final Path smallOutputPath = directory.resolve("small").resolve(fileName);
-
-        // quick skip if both files already exist (saves expensive processing)
-        if (skipIfExists && Files.exists(originalOutputPath) && Files.exists(smallOutputPath)) {
-            LOG.debug("Skipping processing for {} because outputs exist", fileName);
-            duplicateFilesTotal++;
-            return null;
-        }
 
         // write original (ensure parent exists)
         try {
@@ -211,7 +226,7 @@ public class ImageProcessorListener {
         } catch (IOException e) {
             throw new IOException("Failed to write thumbnail to " + smallOutputPath + ": " + e.getMessage(), e);
         }
-        return fileName;
+        return originalOutputPath.toString();
     }
 
     private void printStats() {
