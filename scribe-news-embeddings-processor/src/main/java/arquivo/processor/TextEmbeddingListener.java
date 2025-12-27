@@ -121,6 +121,7 @@ public class TextEmbeddingListener {
             metricService.updateValue("arquivo_embeddings_processor_response_items_incomplete_total", responseItemsIncompleteTotal);
             metricService.updateValue("arquivo_embeddings_processor_response_items_received_total", responseItemsReceivedTotal);
 
+            LOG.info("Total response items received: {}", responseItemsReceivedTotal);
             LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal);
             LOG.info("Elapsed time: {} minutes", java.time.Duration.between(start, now).toMinutes());
             while (!now.isBefore(nextProgressLog)) {

@@ -98,7 +98,7 @@ public class TextProcessorListener {
 
             // use open IA to sumerize the text could be done here
             final JsonNode openIaResponse = objectMapper.readTree(textSummarizer.summarizeTextWithOpenAI(cleanedText));
-            LOG.debug("OpenAI response: {}", openIaResponse.toPrettyString());
+            //LOG.debug("OpenAI response: {}", openIaResponse.toPrettyString());
 
             final ObjectNode articleToExtractEmbeddding = objectMapper.createObjectNode()
                     .put("title", responseItem.get("title").asText())
