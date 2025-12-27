@@ -102,7 +102,9 @@ public class TextProcessorListener {
 
             final ObjectNode articleToExtractEmbeddding = objectMapper.createObjectNode()
                     .put("title", responseItem.get("title").asText())
-                    .put("imageName", responseItem.get("imageName").asText())
+                    .put("originalImagePath", responseItem.get("originalImagePath").asText())
+                    .put("smallImagePath", responseItem.get("smallImagePath").asText())
+                    .put("linkToScreenshot", responseItem.get("linkToScreenshot").asText())
                     .put("summary", openIaResponse.get("summary").asText())
                     .put("publishedDate", openIaResponse.get("publishedDate").asText())
                     .put("publishedDateConfidence", openIaResponse.get("publishedDateConfidence").asDouble())

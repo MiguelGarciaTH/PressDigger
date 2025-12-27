@@ -38,9 +38,12 @@ CREATE TABLE IF NOT EXISTS article (
     published_date timestamp without time zone,
     published_date_confidence double precision, -- epoch time
     title text NOT NULL,
+    article_hash integer NOT NULL,
     link_to_archive text NOT NULL,
     link_to_archive_trimmed text NOT NULL, -- for duplication lookup
-    image_name text NOT NULL,
+    link_to_archive_image text NOT NULL,
+    original_image_path text NOT NULL,
+    small_image_path text NOT NULL,
 
     CONSTRAINT article_pk PRIMARY KEY (id)
 );

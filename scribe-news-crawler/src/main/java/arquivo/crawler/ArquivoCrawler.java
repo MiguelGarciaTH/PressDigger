@@ -7,7 +7,6 @@ import arquivo.repository.*;
 import arquivo.services.MetricService;
 import arquivo.services.WebClientService;
 import arquivo.utils.KafkaPublisher;
-import arquivo.utils.UrlNormalizer;
 import arquivo.utils.UrlValidator;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
@@ -134,9 +133,9 @@ public class ArquivoCrawler {
             if (isNewsArticle(responseItem.get("title").asText())) {
                 final String arquivoUrl = responseItem.get("linkToArchive").asText();
                 if (UrlValidator.isValid(arquivoUrl)) {
-                    // normalizes URLs to check for duplicates
-                    final String responseItemUrlNormalized = UrlNormalizer.normalize(arquivoUrl);
-                    if (!isAlreadyProcessed(responseItemUrlNormalized) && !isTitleAlreadyProcessed(responseItem.get("title").asText())) {
+                    final String imageUrl = responseItem.get("linkToScreenshot").asText();
+                    final int articleHash = (imageUrl.hashCode() & Integer.MAX_VALUE);
+                    if (!isAlreadyProcessed(articleHash) && !isTitleAlreadyProcessed(responseItem.get("title").asText())) {
                         if (isResponseComplete(responseItem)) {
                             kafkaPublisher.send(responseItem);
                             responseItemsSentToKafkaTotal++;
@@ -198,8 +197,8 @@ public class ArquivoCrawler {
         }
     }
 
-    private boolean isAlreadyProcessed(String url) {
-        return articleRepository.existsByLinkToArchiveTrimmed(url);
+    private boolean isAlreadyProcessed(int articleHash) {
+        return articleRepository.existsByArticleHash(articleHash);
     }
 
     private List<String> generateUrls() {

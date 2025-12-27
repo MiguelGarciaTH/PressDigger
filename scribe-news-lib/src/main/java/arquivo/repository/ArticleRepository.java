@@ -8,7 +8,7 @@ import java.util.Optional;
 
 
 public interface ArticleRepository extends JpaRepository<Article, Integer> {
-    boolean existsByLinkToArchiveTrimmed(String url);
+    boolean existsByArticleHash(int articleHash);
 
     @EntityGraph(value = "Article.withArticleChunks")
     Optional<Article> findById(int articleId);

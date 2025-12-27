@@ -85,12 +85,16 @@ public class TextEmbeddingListener {
             final String[] summaryParagraphs = PARAGRAPH_SPLIT.split(summary);
 
             final Article article = articleRepository.save(
-                    new Article(responseItem.get("title").asText(),
+                    new Article(
+                            responseItem.get("articleHash").asInt(),
+                            responseItem.get("title").asText(),
                             !responseItem.get("publishedDate").isNull() ? LocalDate.parse(responseItem.get("publishedDate").asText()) : null,
                             responseItem.get("publishedDateConfidence").asDouble(),
                             responseItem.get("linkToArchive").asText(),
                             UrlNormalizer.normalize(responseItem.get("linkToArchive").asText()),
-                            responseItem.get("imageName").asText()
+                            responseItem.get("linkToArchiveImage").asText(),
+                            responseItem.get("originalImagePath").asText(),
+                            responseItem.get("smallImagePath").asText()
                     )
             );
 

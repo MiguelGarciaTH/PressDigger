@@ -25,6 +25,8 @@ public class Article {
     @Column(columnDefinition = "text")
     private String title;
 
+    private int articleHash;
+
     @Column(columnDefinition = "text")
     private String linkToArchive;
 
@@ -32,7 +34,13 @@ public class Article {
     private String linkToArchiveTrimmed;
 
     @Column(columnDefinition = "text")
-    private String imageName;
+    private String linkToArchiveImage;
+
+    @Column(columnDefinition = "text")
+    private String originalImagePath;
+
+    @Column(columnDefinition = "text")
+    private String smallImagePath;
 
     @OneToMany(mappedBy = "article", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     List<ArticleChunk> articleChunks;
@@ -41,13 +49,26 @@ public class Article {
 
     }
 
-    public Article(String title, LocalDate publishedDate, double publishedDateConfidence, String linkToArchive, String linkToArchiveTrimmed, String imageName) {
+    public Article(int articleHash, String title, LocalDate publishedDate, double publishedDateConfidence, String linkToArchive,
+                   String linkToArchiveTrimmed, String linkToArchiveImage, String originalImagePath,
+                   String smallImagePath) {
+        this.articleHash = articleHash;
         this.publishedDate = publishedDate;
         this.publishedDateConfidence = publishedDateConfidence;
         this.title = title;
         this.linkToArchive = linkToArchive;
         this.linkToArchiveTrimmed = linkToArchiveTrimmed;
-        this.imageName = imageName;
+        this.linkToArchiveImage = linkToArchiveImage;
+        this.smallImagePath = smallImagePath;
+        this.originalImagePath = originalImagePath;
+    }
+
+    public int getArticleHash() {
+        return articleHash;
+    }
+
+    public void setArticleHash(int articleHash) {
+        this.articleHash = articleHash;
     }
 
     public int getId() {
@@ -62,6 +83,13 @@ public class Article {
         this.publishedDate = publishedDate;
     }
 
+    public double getPublishedDateConfidence() {
+        return publishedDateConfidence;
+    }
+
+    public void setPublishedDateConfidence(double publishedDateConfidence) {
+        this.publishedDateConfidence = publishedDateConfidence;
+    }
 
     public String getTitle() {
         return title;
@@ -87,12 +115,28 @@ public class Article {
         this.linkToArchiveTrimmed = linkToArchiveTrimmed;
     }
 
-    public String getImageName() {
-        return imageName;
+    public String getLinkToArchiveImage() {
+        return linkToArchiveImage;
     }
 
-    public void setImageName(String imageName) {
-        this.imageName = imageName;
+    public void setLinkToArchiveImage(String linkToArchiveImage) {
+        this.linkToArchiveImage = linkToArchiveImage;
+    }
+
+    public String getOriginalImagePath() {
+        return originalImagePath;
+    }
+
+    public void setOriginalImagePath(String originalImagePath) {
+        this.originalImagePath = originalImagePath;
+    }
+
+    public String getSmallImagePath() {
+        return smallImagePath;
+    }
+
+    public void setSmallImagePath(String smallImagePath) {
+        this.smallImagePath = smallImagePath;
     }
 
     public List<ArticleChunk> getArticleChunks() {

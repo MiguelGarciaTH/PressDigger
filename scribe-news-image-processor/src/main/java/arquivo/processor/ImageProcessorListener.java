@@ -107,32 +107,39 @@ public class ImageProcessorListener {
             final JsonNode responseItem = objectMapper.readTree(payload);
 
             final String imageUrl = responseItem.get("linkToScreenshot").asText();
-            final String fileName = (imageUrl.hashCode() & Integer.MAX_VALUE) + ".png";
+            final int articleHash = (imageUrl.hashCode() & Integer.MAX_VALUE);
+            final String fileName = articleHash + ".png";
 
             // quick skip if both files already exist (saves expensive processing)
             final Path originalOutputPath = directory.resolve("original").resolve(fileName);
+            final Path smallOutputPath = directory.resolve("small").resolve(fileName);
 
-            if (Files.exists(originalOutputPath)) {
+            boolean isDuplicate = Files.exists(originalOutputPath);
+            if (isDuplicate) {
                 LOG.debug("Skipping processing for {} because outputs exist", originalOutputPath);
                 duplicateFilesTotal++;
-                return;
             }
 
-            final BufferedImage image = getImage(imageUrl);
-            if (image == null) {
-                // either blank or failed to fetch
-                return;
-            }
+            if (!isDuplicate) { // process only if not duplicate
+                final BufferedImage image = getImage(imageUrl);
+                if (image == null) {
+                    // either blank or failed to fetch
+                    return;
+                }
 
-            // process using the already-read BufferedImage (no re-download)
-            final String imagePath = processImage(fileName, image);
-            LOG.debug("Processed image stored {}", imagePath);
+                // process using the already-read BufferedImage (no re-download)
+                processImage(originalOutputPath, image);
+                createSmallImage(smallOutputPath, image);
+                LOG.debug("Processed image stored {}", originalOutputPath);
+            }
 
             final ObjectNode articleToTextSummary = objectMapper.createObjectNode()
                     .put("title", responseItem.get("title").asText())
                     .put("linkToArchive", responseItem.get("linkToArchive").asText())
                     .put("linkToExtractedText", responseItem.get("linkToExtractedText").asText())
-                    .put("imageName", imagePath);
+                    .put("originalImagePath", originalOutputPath.toString())
+                    .put("smallImagePath", smallOutputPath.toString())
+                    .put("linkToScreenshot", responseItem.get("linkToScreenshot").asText());
 
             kafkaPublisher.send(articleToTextSummary);
 
@@ -147,7 +154,6 @@ public class ImageProcessorListener {
                 LOG.warn("Failed to acknowledge record: {}", e.getMessage());
             }
         }
-
     }
 
     private BufferedImage getImage(String imageUrl) {
@@ -193,9 +199,7 @@ public class ImageProcessorListener {
         return conn.getInputStream();
     }
 
-    private String processImage(String fileName, BufferedImage image) throws Exception {
-        final Path originalOutputPath = directory.resolve("original").resolve(fileName);
-        final Path smallOutputPath = directory.resolve("small").resolve(fileName);
+    private String processImage(Path originalOutputPath, BufferedImage image) throws Exception {
 
         // write original (ensure parent exists)
         try {
@@ -207,6 +211,11 @@ public class ImageProcessorListener {
         } catch (IOException e) {
             throw new IOException("Failed to write original image to " + originalOutputPath + ": " + e.getMessage(), e);
         }
+
+        return originalOutputPath.toString();
+    }
+
+    private String createSmallImage(Path smallOutputPath, BufferedImage image) throws Exception {
 
         // create thumbnail from the already-loaded BufferedImage (avoids re-downloading)
         try {
@@ -220,7 +229,7 @@ public class ImageProcessorListener {
         } catch (IOException e) {
             throw new IOException("Failed to write thumbnail to " + smallOutputPath + ": " + e.getMessage(), e);
         }
-        return originalOutputPath.toString();
+        return smallOutputPath.toString();
     }
 
     private void printStats() {
