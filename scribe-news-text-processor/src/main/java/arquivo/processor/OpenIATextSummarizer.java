@@ -40,6 +40,8 @@ public class OpenIATextSummarizer {
             - NÃO use meta-linguagem jornalística (“o artigo analisa”, “o texto explica”).
             - Use linguagem factual, direta e informativa.
             - Se possível manter uma estrutura em paragráfos - estes devem ser marcados por quebra de linha (\n)
+            - Em strings JSON, substitua quebras de linha reais por "\\n".
+            - NÃO use quebras de linha literais dentro de strings.
             
             Datas:
             - Prefira datas encontradas perto do topo do texto (títulos/subtítulos), mas verifique todo o texto.
@@ -47,7 +49,7 @@ public class OpenIATextSummarizer {
               contexto temporal claro; caso contrário, use publishedDate = null e baixa confiança.
             
             Formato:
-            - Produza exclusivamente JSON válido.
+            - Produza exclusivamente JSON válido. Valide que não há virgulas finais a mais ou "}" a mais ou em falta.
             - Não inclua texto explicativo fora do JSON.
             """;
 
