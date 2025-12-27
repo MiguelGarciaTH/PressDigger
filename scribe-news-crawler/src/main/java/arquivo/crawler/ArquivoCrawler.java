@@ -123,8 +123,8 @@ public class ArquivoCrawler {
         responseItemsCollectedTotal += responseItems.size();
         processResponseItems(responseItems);
         urlRepository.setProcessed(url);
-        metricService.setValue("arquivo_crawler_response_items_collected_total", responseItemsCollectedTotal);
-        metricService.setValue("arquivo_crawler_response_items_sent_to_kafka_total", responseItemsSentToKafkaTotal);
+        metricService.updateValue("arquivo_crawler_response_items_collected_total", responseItemsCollectedTotal);
+        metricService.updateValue("arquivo_crawler_response_items_sent_to_kafka_total", responseItemsSentToKafkaTotal);
         return response;
     }
 
@@ -142,7 +142,7 @@ public class ArquivoCrawler {
                             responseItemsSentToKafkaTotal++;
                         } else {
                             responseItemsIncompleteTotal++;
-                            metricService.setValue("arquivo_crawler_response_items_incomplete_total", responseItemsIncompleteTotal);
+                            metricService.updateValue("arquivo_crawler_response_items_incomplete_total", responseItemsIncompleteTotal);
                         }
                     }
                 }
@@ -181,8 +181,6 @@ public class ArquivoCrawler {
                 || normalized.contains("coluna")
                 || normalized.contains("comentário"));
     }
-
-
 
     private boolean isResponseComplete(JsonNode node) {
         return node.has("title") && (!node.get("title").isEmpty() || !node.get("title").isNull())

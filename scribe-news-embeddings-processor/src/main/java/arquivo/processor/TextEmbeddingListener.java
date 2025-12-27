@@ -37,7 +37,7 @@ public class TextEmbeddingListener {
 
     private final MetricService metricService;
 
-    private long responseItemsIncompleteTotal;
+    private long responseItemsIncompleteTotal, responseItemsReceivedTotal;
     private final LocalDateTime start = LocalDateTime.now(ZoneOffset.UTC);
     private LocalDateTime nextProgressLog = start.plusMinutes(SHOW_STATS_INTERVAL_MINS);
     private final TextEmbeddingClient textEmbeddingClient;
@@ -60,7 +60,7 @@ public class TextEmbeddingListener {
         this.textEmbeddingClient = new TextEmbeddingClient(url, objectMapper, false);
 
         responseItemsIncompleteTotal = metricService.loadValue("arquivo_embeddings_processor_response_items_incomplete_total");
-
+        responseItemsReceivedTotal = metricService.loadValue("arquivo_embeddings_processor_response_items_received_total");
     }
 
     @KafkaListener(
@@ -69,6 +69,7 @@ public class TextEmbeddingListener {
             concurrency = "${scribe-ref.arquivo.scribe-news-embeddings-processor.kafka.to-listen.concurrency}")
     public void listener(ConsumerRecord<String, String> record, Acknowledgment ack, @Header(KafkaHeaders.RECEIVED_PARTITION) int partition) {
         LOG.debug("Received on topic {} on partition {} record {}", record.topic(), partition, record.value());
+        responseItemsReceivedTotal++;
 
         try {
             String payload = record.value();
@@ -117,7 +118,9 @@ public class TextEmbeddingListener {
         // just to show the progress every SHOW_STATS_INTERVAL_MINS minutes
         final LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
         if (now.isAfter(nextProgressLog)) {
-            metricService.setValue("arquivo_embeddings_processor_response_items_incomplete_total", responseItemsIncompleteTotal);
+            metricService.updateValue("arquivo_embeddings_processor_response_items_incomplete_total", responseItemsIncompleteTotal);
+            metricService.updateValue("arquivo_embeddings_processor_response_items_received_total", responseItemsReceivedTotal);
+
             LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal);
             LOG.info("Elapsed time: {} minutes", java.time.Duration.between(start, now).toMinutes());
             while (!now.isBefore(nextProgressLog)) {

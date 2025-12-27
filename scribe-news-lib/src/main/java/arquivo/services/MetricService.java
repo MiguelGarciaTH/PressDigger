@@ -15,12 +15,13 @@ public class MetricService {
     }
 
     @Transactional
-    public void setValue(String key, long value) {
+    public synchronized void updateValue(String key, long value) {
         final Metric metric = metricRepository.findByKey(key);
         if (metric == null) {
             metricRepository.save(new Metric(key, value));
         } else {
-            metric.setValue(value);
+            final long updatedValue = metric.getValue() + value;
+            metric.setValue(updatedValue);
             metricRepository.save(metric);
         }
     }

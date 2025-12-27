@@ -40,7 +40,7 @@ public class TextProcessorListener {
 
     private final MetricService metricService;
 
-    private long responseItemsIncompleteTotal;
+    private long responseItemsReceivedTotal, responseItemsIncompleteTotal;
     private final LocalDateTime start = LocalDateTime.now(ZoneOffset.UTC);
     private LocalDateTime nextProgressLog = start.plusMinutes(SHOW_STATS_INTERVAL_MINS);
 
@@ -59,6 +59,7 @@ public class TextProcessorListener {
         this.objectMapper = new ObjectMapper();
 
         responseItemsIncompleteTotal = metricService.loadValue("arquivo_text_processor_response_items_incomplete_total");
+        responseItemsReceivedTotal = metricService.loadValue("arquivo_text_processor_response_items_received_total");
 
         final String apiKey = environment.getProperty("scribe-ref.arquivo.scribe-news-text-processor.open-ai.api-key");
 
@@ -75,6 +76,7 @@ public class TextProcessorListener {
             concurrency = "${scribe-ref.arquivo.scribe-news-text-processor.kafka.to-listen.concurrency}")
     public void listener(ConsumerRecord<String, String> record, Acknowledgment ack, @Header(KafkaHeaders.RECEIVED_PARTITION) int partition) {
         LOG.debug("Received on topic {} on partition {} record {}", record.topic(), partition, record.value());
+        responseItemsReceivedTotal++;
 
         try {
             String payload = record.value();
@@ -85,33 +87,29 @@ public class TextProcessorListener {
             }
 
             final JsonNode responseItem = objectMapper.readTree(payload);
-            if (responseItem.has("linkToExtractedText") && !responseItem.get("linkToExtractedText").isNull()) {
 
-                // get text processing could be done here
-                final String rawText = fetchExtractedText(responseItem.get("linkToExtractedText").asText());
-                LOG.debug("Fetched extracted text of length {}", rawText.length());
+            // get text processing could be done here
+            final String rawText = fetchExtractedText(responseItem.get("linkToExtractedText").asText());
+            LOG.debug("Fetched extracted text of length {}", rawText.length());
 
-                // clean text: remove extra spaces, new lines, etc. could be done here
-                String cleanedText = rawText.replaceAll("\\s+", " ").trim();
-                LOG.debug("Cleaned text length {}", cleanedText.length());
+            // clean text: remove extra spaces, new lines, etc. could be done here
+            String cleanedText = rawText.replaceAll("\\s+", " ").trim();
+            LOG.debug("Cleaned text length {}", cleanedText.length());
 
-                // use open IA to sumerize the text could be done here
-                final JsonNode openIaResponse = objectMapper.readTree(textSummarizer.summarizeTextWithOpenAI(cleanedText));
-                LOG.debug("OpenAI response: {}", openIaResponse.toPrettyString());
+            // use open IA to sumerize the text could be done here
+            final JsonNode openIaResponse = objectMapper.readTree(textSummarizer.summarizeTextWithOpenAI(cleanedText));
+            LOG.debug("OpenAI response: {}", openIaResponse.toPrettyString());
 
-                final ObjectNode articleToExtractEmbeddding = objectMapper.createObjectNode()
-                        .put("title", responseItem.get("title").asText())
-                        .put("imageName", responseItem.get("imageName").asText())
-                        .put("summary", openIaResponse.get("summary").asText())
-                        .put("publishedDate", openIaResponse.get("publishedDate").asText())
-                        .put("publishedDateConfidence", openIaResponse.get("publishedDateConfidence").asDouble())
-                        .put("linkToArchive", responseItem.get("linkToArchive").asText());
+            final ObjectNode articleToExtractEmbeddding = objectMapper.createObjectNode()
+                    .put("title", responseItem.get("title").asText())
+                    .put("imageName", responseItem.get("imageName").asText())
+                    .put("summary", openIaResponse.get("summary").asText())
+                    .put("publishedDate", openIaResponse.get("publishedDate").asText())
+                    .put("publishedDateConfidence", openIaResponse.get("publishedDateConfidence").asDouble())
+                    .put("linkToArchive", responseItem.get("linkToArchive").asText());
 
-                kafkaPublisher.send(articleToExtractEmbeddding);
+            kafkaPublisher.send(articleToExtractEmbeddding);
 
-            } else {
-                responseItemsIncompleteTotal++;
-            }
             printStats();
         } catch (Exception e) {
             LOG.error("Failed to parse record as JSON or process image", e);
@@ -120,7 +118,7 @@ public class TextProcessorListener {
             try {
                 ack.acknowledge();
             } catch (Exception e) {
-                LOG.warn("Failed to acknowledge record: {}", e.getMessage());
+                LOG.error("Failed to acknowledge record: {}", e.getMessage());
             }
         }
     }
@@ -136,6 +134,7 @@ public class TextProcessorListener {
                 httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() != 200) {
+            LOG.error("error fetching text from {}: HTTP {}", url, response.statusCode());
             throw new RuntimeException("Failed to fetch text. HTTP " + response.statusCode());
         }
 
@@ -146,7 +145,9 @@ public class TextProcessorListener {
         // just to show the progress every SHOW_STATS_INTERVAL_MINS minutes
         final LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
         if (now.isAfter(nextProgressLog)) {
-            metricService.setValue("arquivo_text_processor_response_items_incomplete_total", responseItemsIncompleteTotal);
+            metricService.updateValue("arquivo_text_processor_response_items_incomplete_total", responseItemsIncompleteTotal);
+            metricService.updateValue("arquivo_text_processor_response_items_received_total", responseItemsReceivedTotal);
+            LOG.info("Total response items received: {}", responseItemsReceivedTotal);
             LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal);
             LOG.info("Elapsed time: {} minutes", java.time.Duration.between(start, now).toMinutes());
             while (!now.isBefore(nextProgressLog)) {
