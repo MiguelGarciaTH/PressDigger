@@ -52,10 +52,6 @@ public class ImageProcessorListener {
 
     private final Path directory;
 
-    // new configurable optimizations
-    @Value("${scribe-ref.arquivo.scribe-news-image-processor.thumbnail.max-size:800}")
-    private int thumbnailMaxSize;
-
     @Value("${scribe-ref.arquivo.scribe-news-image-processor.thumbnail.quality:0.8}")
     private double thumbnailQuality;
 
@@ -130,7 +126,6 @@ public class ImageProcessorListener {
                 // process using the already-read BufferedImage (no re-download)
                 final String imagePath = processImage(fileName, image);
                 LOG.debug("Processed image stored {}", imagePath);
-
 
                 final ObjectNode articleToTextSummary = objectMapper.createObjectNode()
                         .put("title", responseItem.get("title").asText())
@@ -217,9 +212,10 @@ public class ImageProcessorListener {
 
         // create thumbnail from the already-loaded BufferedImage (avoids re-downloading)
         try {
+            BufferedImage dest = image.getSubimage(0, 0, image.getWidth(), Math.min(image.getHeight() / 2, (image.getWidth() + (image.getWidth() / 2))));
             Files.createDirectories(smallOutputPath.getParent());
-            Thumbnails.of(image)
-                    .size(thumbnailMaxSize, thumbnailMaxSize)
+            Thumbnails.of(dest)
+                    .size(dest.getWidth(), dest.getWidth())
                     .outputFormat("png")
                     .outputQuality(thumbnailQuality)
                     .toFile(smallOutputPath.toFile());
