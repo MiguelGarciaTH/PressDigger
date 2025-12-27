@@ -36,12 +36,6 @@ public class TextProcessorListener {
 
     private final KafkaPublisher kafkaPublisher;
 
-    @Value("${scribe-ref.arquivo.scribe-news-text-processor.kafka.to-send.topic}")
-    private String topic;
-
-    @Value("${scribe-ref.arquivo.scribe-news-text-processor.kafka.to-send.concurrency}")
-    private int concurrency;
-
     private final ObjectMapper objectMapper;
 
     private final MetricService metricService;
@@ -52,21 +46,21 @@ public class TextProcessorListener {
 
     private final HttpClient httpClient;
 
-    private final String apiKey;
-
-    private OpenIATextSummarizer textSummarizer;
+    private final OpenIATextSummarizer textSummarizer;
 
     @Autowired
     public TextProcessorListener(Environment environment,
                                  MetricService metricService,
-                                 KafkaTemplate<String, String> kafkaTemplate) {
+                                 KafkaTemplate<String, String> kafkaTemplate,
+                                 @Value("${scribe-ref.arquivo.scribe-news-text-processor.kafka.to-send.topic}") String topic,
+                                 @Value("$){scribe-ref.arquivo.scribe-news-text-processor.kafka.to-send.concurrency}") int concurrency) {
         this.metricService = metricService;
         this.kafkaPublisher = new KafkaPublisher(kafkaTemplate, topic, concurrency);
         this.objectMapper = new ObjectMapper();
 
         responseItemsIncompleteTotal = metricService.loadValue("arquivo_text_processor_response_items_incomplete_total");
 
-        this.apiKey = environment.getProperty("scribe-ref.arquivo.scribe-news-text-processor.open-ai.api-key");
+        final String apiKey = environment.getProperty("scribe-ref.arquivo.scribe-news-text-processor.open-ai.api-key");
 
         this.textSummarizer = new OpenIATextSummarizer(apiKey);
 
