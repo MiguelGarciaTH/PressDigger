@@ -120,8 +120,11 @@ public class TextProcessorListener {
 
             //LOG.debug("OpenAI response: {}", openIaResponse.toPrettyString());
 
+            final int articleHash = (responseItem.get("linkToScreenshot").asText().hashCode() & Integer.MAX_VALUE);
+
             final ObjectNode articleToExtractEmbeddding = objectMapper.createObjectNode()
                     .put("title", responseItem.get("title").asText())
+                    .put("articleHash", articleHash)
                     .put("originalImagePath", responseItem.get("originalImagePath").asText())
                     .put("smallImagePath", responseItem.get("smallImagePath").asText())
                     .put("linkToScreenshot", responseItem.get("linkToScreenshot").asText())
