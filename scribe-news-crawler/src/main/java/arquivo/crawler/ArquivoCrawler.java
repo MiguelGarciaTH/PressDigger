@@ -21,6 +21,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
+import java.text.Normalizer;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -189,12 +190,26 @@ public class ArquivoCrawler {
     }
 
     private boolean isTitleAlreadyProcessed(String title) {
-        if (titleCache.contains(title)) {
+        if (titleCache.contains(normalizeTitle(title))) {
             return true;
         } else {
-            titleCache.add(title);
+            titleCache.add(normalizeTitle(title));
             return false;
         }
+    }
+
+
+    private String normalizeTitle(String title) {
+        String normalized = Normalizer.normalize(title, Normalizer.Form.NFD)
+                .replaceAll("\\p{InCombiningDiacriticalMarks}+", "") // remove accents
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("[\"“”″']", "")           // normalize quotes
+                .replaceAll("\\s+-\\s+dn$", "")       // remove source suffix
+                .replaceAll("[^a-z0-9 ]", " ")         // remove punctuation
+                .replaceAll("\\s+", " ")               // normalize spaces
+                .trim();
+
+        return normalized;
     }
 
     private boolean isAlreadyProcessed(int articleHash) {
