@@ -92,7 +92,7 @@ public class TextEmbeddingListener {
                             responseItem.get("publishedDateConfidence").asDouble(),
                             responseItem.get("linkToArchive").asText(),
                             UrlNormalizer.normalize(responseItem.get("linkToArchive").asText()),
-                            responseItem.get("linkToArchiveImage").asText(),
+                            responseItem.get("linkToScreenshot").asText(),
                             responseItem.get("originalImagePath").asText(),
                             responseItem.get("smallImagePath").asText()
                     )
