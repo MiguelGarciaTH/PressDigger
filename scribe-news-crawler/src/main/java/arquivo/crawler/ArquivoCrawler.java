@@ -230,7 +230,7 @@ public class ArquivoCrawler {
     }
 
     private String normalizeTitle(String title) {
-        String normalized = Normalizer.normalize(title, Normalizer.Form.NFD)
+        return Normalizer.normalize(title, Normalizer.Form.NFD)
                 .replaceAll("\\p{InCombiningDiacriticalMarks}+", "") // remove accents
                 .toLowerCase(Locale.ROOT)
                 .replaceAll("[\"“”″']", "")           // normalize quotes
@@ -238,8 +238,6 @@ public class ArquivoCrawler {
                 .replaceAll("[^a-z0-9 ]", " ")         // remove punctuation
                 .replaceAll("\\s+", " ")               // normalize spaces
                 .trim();
-
-        return normalized;
     }
 
     private List<String> generateUrls() {
