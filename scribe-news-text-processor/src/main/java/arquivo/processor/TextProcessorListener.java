@@ -40,7 +40,7 @@ public class TextProcessorListener {
 
     private final MetricService metricService;
 
-    private long responseItemsReceivedTotal, responseItemsIncompleteTotal;
+    private long responseItemsReceivedTotal, responseItemsIncompleteTotal, openIaResponseErrorsTotal;
     private final LocalDateTime start = LocalDateTime.now(ZoneOffset.UTC);
     private LocalDateTime nextProgressLog = start.plusMinutes(SHOW_STATS_INTERVAL_MINS);
 
@@ -60,6 +60,7 @@ public class TextProcessorListener {
 
         responseItemsIncompleteTotal = metricService.loadValue("arquivo_text_processor_response_items_incomplete_total");
         responseItemsReceivedTotal = metricService.loadValue("arquivo_text_processor_response_items_received_total");
+        openIaResponseErrorsTotal = metricService.loadValue("arquivo_text_processor_open_ia_response_errors_total");
 
         final String apiKey = environment.getProperty("scribe-ref.arquivo.scribe-news-text-processor.open-ai.api-key");
 
@@ -86,18 +87,37 @@ public class TextProcessorListener {
                 return;
             }
 
-            final JsonNode responseItem = objectMapper.readTree(payload);
+            JsonNode responseItem = null;
+            try {
+                responseItem = objectMapper.readTree(payload);
+            } catch (Exception ex) {
+                LOG.error("Failed to parse record as JSON: {}", payload, ex);
+            }
+            if (responseItem == null
+                    || !responseItem.hasNonNull("linkToExtractedText")
+                    || responseItem.get("linkToExtractedText").asText().isBlank()) {
+                LOG.warn("Incomplete response item, missing linkToExtractedText: {}", payload);
+                responseItemsIncompleteTotal++;
+                return;
+            }
 
-            // get text processing could be done here
             final String rawText = fetchExtractedText(responseItem.get("linkToExtractedText").asText());
-            LOG.debug("Fetched extracted text of length {}", rawText.length());
-
-            // clean text: remove extra spaces, new lines, etc. could be done here
-            String cleanedText = rawText.replaceAll("\\s+", " ").trim();
-            LOG.debug("Cleaned text length {}", cleanedText.length());
 
             // use open IA to sumerize the text could be done here
-            final JsonNode openIaResponse = objectMapper.readTree(textSummarizer.summarizeTextWithOpenAI(cleanedText));
+            final String openAiResponseString = textSummarizer.summarizeTextWithOpenAI(rawText);
+            JsonNode openIaResponse = null;
+            try {
+                openIaResponse = objectMapper.readTree(sanitizeJson(openAiResponseString));
+            } catch (Exception ex) {
+                openIaResponseErrorsTotal++;
+                LOG.error("Failed to parse JSON from OpenIA: {}", openAiResponseString, ex);
+            }
+            if (openIaResponse == null) {
+                LOG.error("Incomplete response item, missing linkToExtractedText: {}", payload);
+                openIaResponseErrorsTotal++;
+                return;
+            }
+
             //LOG.debug("OpenAI response: {}", openIaResponse.toPrettyString());
 
             final ObjectNode articleToExtractEmbeddding = objectMapper.createObjectNode()
@@ -114,7 +134,7 @@ public class TextProcessorListener {
 
             printStats();
         } catch (Exception e) {
-            LOG.error("Failed to parse record as JSON or process image", e);
+            LOG.error("Failed", e);
         } finally {
             // acknowledge exactly once here
             try {
@@ -124,6 +144,20 @@ public class TextProcessorListener {
             }
         }
     }
+
+    private String sanitizeJson(String raw) {
+        // remove trailing commas
+        String s = raw.replaceAll(",\\s*([}\\]])", "$1");
+
+        // escape unescaped quotes inside string values
+        s = s.replaceAll(
+                "(?<!\\\\)\"([^\"\\n]*?)(?<!\\\\)\"",
+                "\\\\\"$1\\\\\""
+        );
+
+        return s;
+    }
+
 
     private String fetchExtractedText(String url) throws Exception {
         HttpRequest request = HttpRequest.newBuilder()
@@ -151,7 +185,7 @@ public class TextProcessorListener {
             metricService.updateValue("arquivo_text_processor_response_items_received_total", responseItemsReceivedTotal);
             LOG.info("Total response items received: {}", responseItemsReceivedTotal);
             LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal);
-            LOG.info("Elapsed time: {} minutes", java.time.Duration.between(start, now).toMinutes());
+            LOG.info("Elapsed time: {} minutes", Duration.between(start, now).toMinutes());
             while (!now.isBefore(nextProgressLog)) {
                 nextProgressLog = nextProgressLog.plusMinutes(SHOW_STATS_INTERVAL_MINS);
             }
