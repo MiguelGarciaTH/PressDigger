@@ -9,6 +9,8 @@ import arquivo.services.WebClientService;
 import arquivo.utils.KafkaPublisher;
 import arquivo.utils.UrlValidator;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,9 +49,13 @@ public class ArquivoCrawler {
     private final UrlRepository urlRepository;
     private final WebClientService webClientService;
     private final MetricService metricService;
-    private final Set<String> titleCache;
+    private final Set<Integer> titleCache;
 
-    private long responseItemsCollectedTotal, responseItemsSentToKafkaTotal, responseItemsIncompleteTotal;
+    private final ObjectMapper objectMapper;
+
+
+    private long responseItemsCollectedTotal, responseItemsSentToKafkaTotal, responseItemsIncompleteTotal, responseItemsDuplicateTotal,
+            responseItemsNotNewsArticleTotal, responseItemsInvalidUrlTotal;
 
     @Autowired
     public ArquivoCrawler(KeywordRepository keywordRepository,
@@ -68,13 +74,16 @@ public class ArquivoCrawler {
         this.metricService = metricService;
         this.webClientService = new WebClientService(rateLimiterRepository);
         this.titleCache = new HashSet<>();
+        this.objectMapper = new ObjectMapper();
 
         this.kafkaPublisher = new KafkaPublisher(kafkaTemplate, topic, concurrency);
 
         responseItemsCollectedTotal = metricService.loadValue("arquivo_crawler_response_items_collected_total");
         responseItemsSentToKafkaTotal = metricService.loadValue("arquivo_crawler_response_items_sent_to_kafka_total");
         responseItemsIncompleteTotal = metricService.loadValue("arquivo_crawler_response_items_incomplete_total");
-
+        responseItemsDuplicateTotal = metricService.loadValue("arquivo_crawler_response_items_duplicate_total");
+        responseItemsNotNewsArticleTotal = metricService.loadValue("arquivo_crawler_response_items_not_news_article_total");
+        responseItemsInvalidUrlTotal = metricService.loadValue("arquivo_crawler_response_items_invalid_url_total");
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -113,6 +122,9 @@ public class ArquivoCrawler {
 
     private void printStats() {
         LOG.info("Total response items collected: {}", responseItemsCollectedTotal);
+        LOG.info("Total response items not news article: {}", responseItemsNotNewsArticleTotal);
+        LOG.info("Total response items invalid URL: {}", responseItemsInvalidUrlTotal);
+        LOG.info("Total response items duplicate: {}", responseItemsDuplicateTotal);
         LOG.info("Total response items sent to Kafka: {}", responseItemsSentToKafkaTotal);
         LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal);
     }
@@ -130,24 +142,52 @@ public class ArquivoCrawler {
 
     private void processResponseItems(JsonNode responseItems) {
         for (var responseItem : responseItems) {
-            // check if the URL is valid, otherwise skip
-            if (isNewsArticle(responseItem.get("title").asText())) {
-                final String arquivoUrl = responseItem.get("linkToArchive").asText();
-                if (UrlValidator.isValid(arquivoUrl)) {
-                    final String imageUrl = responseItem.get("linkToScreenshot").asText();
-                    final int articleHash = (imageUrl.hashCode() & Integer.MAX_VALUE);
-                    if (!isAlreadyProcessed(articleHash) && !isTitleAlreadyProcessed(responseItem.get("title").asText())) {
-                        if (isResponseComplete(responseItem)) {
-                            kafkaPublisher.send(responseItem);
-                            responseItemsSentToKafkaTotal++;
-                        } else {
-                            responseItemsIncompleteTotal++;
-                            metricService.updateValue("arquivo_crawler_response_items_incomplete_total", responseItemsIncompleteTotal);
-                        }
-                    }
-                }
+
+            // check if is a news article (not opinion/editorial)
+            final String title = responseItem.get("title").asText();
+            if (!isANewsArticle(title)) {
+                responseItemsNotNewsArticleTotal++;
+                metricService.updateValue("arquivo_crawler_response_items_not_news_article_total", responseItemsNotNewsArticleTotal);
+                continue;
             }
+
+            final String arquivoUrl = responseItem.get("linkToArchive").asText();
+            if (!UrlValidator.isValid(arquivoUrl)) {
+                responseItemsInvalidUrlTotal++;
+                metricService.updateValue("arquivo_crawler_response_items_invalid_url_total", responseItemsInvalidUrlTotal);
+                continue;
+            }
+
+            // check if the response item is complete
+            if (!isResponseComplete(responseItem)) {
+                responseItemsIncompleteTotal++;
+                metricService.updateValue("arquivo_crawler_response_items_incomplete_total", responseItemsIncompleteTotal);
+            }
+
+            // check if is a new article
+            final String normalizedTitle = normalizeTitle(title);
+            final int articleHash = (normalizedTitle.hashCode() & Integer.MAX_VALUE);
+            if (!isNewArticle(articleHash)) {
+                responseItemsDuplicateTotal++;
+                metricService.updateValue("arquivo_crawler_response_items_duplicate_total", responseItemsDuplicateTotal);
+                continue;
+            }
+
+            final ObjectNode articleToImageProcessor = objectMapper.createObjectNode()
+                    .put("title", responseItem.get("title").asText())
+                    .put("articleHash", articleHash)
+                    .put("linkToArchive", responseItem.get("linkToArchive").asText())
+                    .put("linkToExtractedText", responseItem.get("linkToExtractedText").asText())
+                    .put("linkToScreenshot", responseItem.get("linkToScreenshot").asText());
+
+            kafkaPublisher.send(articleToImageProcessor);
+            titleCache.add(articleHash);
+            responseItemsSentToKafkaTotal++;
         }
+    }
+
+    private boolean isNewArticle(int articleHash) {
+        return !titleCache.contains(articleHash) && !articleRepository.existsByArticleHash(articleHash);
     }
 
     private List<String> getUrlsToProcess() {
@@ -170,7 +210,7 @@ public class ArquivoCrawler {
                 .toList();
     }
 
-    private boolean isNewsArticle(String section) {
+    private boolean isANewsArticle(String section) {
         if (section == null) return false;
 
         String normalized = section.trim().toLowerCase();
@@ -189,16 +229,6 @@ public class ArquivoCrawler {
                 && node.has("linkToScreenshot") && (!node.get("linkToScreenshot").isEmpty() || !node.get("linkToScreenshot").isNull());
     }
 
-    private boolean isTitleAlreadyProcessed(String title) {
-        if (titleCache.contains(normalizeTitle(title))) {
-            return true;
-        } else {
-            titleCache.add(normalizeTitle(title));
-            return false;
-        }
-    }
-
-
     private String normalizeTitle(String title) {
         String normalized = Normalizer.normalize(title, Normalizer.Form.NFD)
                 .replaceAll("\\p{InCombiningDiacriticalMarks}+", "") // remove accents
@@ -210,10 +240,6 @@ public class ArquivoCrawler {
                 .trim();
 
         return normalized;
-    }
-
-    private boolean isAlreadyProcessed(int articleHash) {
-        return articleRepository.existsByArticleHash(articleHash);
     }
 
     private List<String> generateUrls() {

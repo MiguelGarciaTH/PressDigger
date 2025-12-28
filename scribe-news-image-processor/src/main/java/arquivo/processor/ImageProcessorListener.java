@@ -106,8 +106,7 @@ public class ImageProcessorListener {
 
             final JsonNode responseItem = objectMapper.readTree(payload);
 
-            final String imageUrl = responseItem.get("linkToScreenshot").asText();
-            final int articleHash = (imageUrl.hashCode() & Integer.MAX_VALUE);
+            final int articleHash = responseItem.get("articleHash").asInt();
             final String fileName = articleHash + ".png";
 
             // quick skip if both files already exist (saves expensive processing)
@@ -121,7 +120,7 @@ public class ImageProcessorListener {
             }
 
             if (!isDuplicate) { // process only if not duplicate
-                final BufferedImage image = getImage(imageUrl);
+                final BufferedImage image = getImage(responseItem.get("linkToScreenshot").asText());
                 if (image == null) {
                     // either blank or failed to fetch
                     return;
@@ -135,6 +134,7 @@ public class ImageProcessorListener {
 
             final ObjectNode articleToTextSummary = objectMapper.createObjectNode()
                     .put("title", responseItem.get("title").asText())
+                    .put("articleHash", responseItem.get("articleHash").asInt())
                     .put("linkToArchive", responseItem.get("linkToArchive").asText())
                     .put("linkToExtractedText", responseItem.get("linkToExtractedText").asText())
                     .put("originalImagePath", originalOutputPath.toString())

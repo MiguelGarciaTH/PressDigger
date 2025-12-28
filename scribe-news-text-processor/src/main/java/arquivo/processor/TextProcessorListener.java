@@ -120,11 +120,9 @@ public class TextProcessorListener {
 
             //LOG.debug("OpenAI response: {}", openIaResponse.toPrettyString());
 
-            final int articleHash = (responseItem.get("linkToScreenshot").asText().hashCode() & Integer.MAX_VALUE);
-
             final ObjectNode articleToExtractEmbeddding = objectMapper.createObjectNode()
                     .put("title", responseItem.get("title").asText())
-                    .put("articleHash", articleHash)
+                    .put("articleHash", responseItem.get("articleHash").asInt())
                     .put("originalImagePath", responseItem.get("originalImagePath").asText())
                     .put("smallImagePath", responseItem.get("smallImagePath").asText())
                     .put("linkToScreenshot", responseItem.get("linkToScreenshot").asText())
@@ -149,18 +147,13 @@ public class TextProcessorListener {
     }
 
     private String sanitizeJson(String raw) {
-        // remove trailing commas
-        String s = raw.replaceAll(",\\s*([}\\]])", "$1");
+        if (raw == null) {
+            return null;
+        }
 
-        // escape unescaped quotes inside string values
-        s = s.replaceAll(
-                "(?<!\\\\)\"([^\"\\n]*?)(?<!\\\\)\"",
-                "\\\\\"$1\\\\\""
-        );
-
-        return s;
+        // Remove trailing commas before } or ]
+        return raw.replaceAll(",\\s*([}\\]])", "$1");
     }
-
 
     private String fetchExtractedText(String url) throws Exception {
         HttpRequest request = HttpRequest.newBuilder()
