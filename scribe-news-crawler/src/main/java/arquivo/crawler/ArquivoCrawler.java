@@ -135,7 +135,6 @@ public class ArquivoCrawler {
         processResponseItems(responseItems);
         urlRepository.setProcessed(url);
         metricService.updateValue("arquivo_crawler_response_items_collected_total", responseItemsCollectedTotal);
-        metricService.updateValue("arquivo_crawler_response_items_sent_to_kafka_total", responseItemsSentToKafkaTotal);
         return response;
     }
 
@@ -182,6 +181,7 @@ public class ArquivoCrawler {
             kafkaPublisher.send(articleToImageProcessor);
             titleCache.add(articleHash);
             responseItemsSentToKafkaTotal++;
+            metricService.updateValue("arquivo_crawler_response_items_sent_to_kafka_total", responseItemsSentToKafkaTotal);
         }
     }
 

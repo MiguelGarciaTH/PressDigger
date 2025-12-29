@@ -40,7 +40,7 @@ public class TextProcessorListener {
 
     private final MetricService metricService;
 
-    private long responseItemsReceivedTotal, responseItemsIncompleteTotal, openIaResponseErrorsTotal;
+    private long responseItemsReceivedTotal, responseItemsIncompleteTotal, openIaResponseErrorsTotal, responseItemsSentToKafkaTotal;
     private final LocalDateTime start = LocalDateTime.now(ZoneOffset.UTC);
     private LocalDateTime nextProgressLog = start.plusMinutes(SHOW_STATS_INTERVAL_MINS);
 
@@ -60,6 +60,7 @@ public class TextProcessorListener {
         responseItemsIncompleteTotal = metricService.loadValue("arquivo_text_processor_response_items_incomplete_total");
         responseItemsReceivedTotal = metricService.loadValue("arquivo_text_processor_response_items_received_total");
         openIaResponseErrorsTotal = metricService.loadValue("arquivo_text_processor_open_ia_response_errors_total");
+        responseItemsSentToKafkaTotal = metricService.loadValue("arquivo_text_processor_response_items_sent_to_kafka_total");
 
         final String apiKey = environment.getProperty("scribe-ref.arquivo.scribe-news-text-processor.open-ai.api-key");
 
@@ -110,10 +111,12 @@ public class TextProcessorListener {
             } catch (Exception ex) {
                 openIaResponseErrorsTotal++;
                 LOG.error("Failed to parse JSON from OpenIA: {}", openAiResponseString, ex);
+                metricService.updateValue("arquivo_text_processor_open_ia_response_errors_total", openIaResponseErrorsTotal);
             }
             if (openIaResponse == null) {
                 LOG.error("Incomplete response item, missing linkToExtractedText: {}", payload);
                 openIaResponseErrorsTotal++;
+                metricService.updateValue("arquivo_text_processor_open_ia_response_errors_total", openIaResponseErrorsTotal);
                 return;
             }
 
@@ -131,6 +134,8 @@ public class TextProcessorListener {
                     .put("linkToArchive", responseItem.get("linkToArchive").asText());
 
             kafkaPublisher.send(articleToExtractEmbeddding);
+            responseItemsSentToKafkaTotal++;
+            metricService.updateValue("arquivo_image_processor_response_items_sent_to_kafka_total", responseItemsSentToKafkaTotal);
 
             printStats();
         } catch (Exception e) {
@@ -180,6 +185,8 @@ public class TextProcessorListener {
             metricService.updateValue("arquivo_text_processor_response_items_received_total", responseItemsReceivedTotal);
             LOG.info("Total response items received: {}", responseItemsReceivedTotal);
             LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal);
+            LOG.info("Total OpenIA response errors: {}", openIaResponseErrorsTotal);
+            LOG.info("Total response items sent to Kafka: {}", responseItemsSentToKafkaTotal);
             LOG.info("Elapsed time: {} minutes", Duration.between(start, now).toMinutes());
             while (!now.isBefore(nextProgressLog)) {
                 nextProgressLog = nextProgressLog.plusMinutes(SHOW_STATS_INTERVAL_MINS);

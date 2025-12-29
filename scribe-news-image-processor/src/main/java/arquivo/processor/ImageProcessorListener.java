@@ -46,7 +46,7 @@ public class ImageProcessorListener {
 
     private final MetricService metricService;
 
-    private long responseItemsReceivedTotal, blankImagesTotal, responseItemsIncompleteTotal, duplicateFilesTotal;
+    private long responseItemsReceivedTotal, blankImagesTotal, responseItemsIncompleteTotal, duplicateFilesTotal, responseItemsSentToKafkaTotal;
     private final LocalDateTime start = LocalDateTime.now(ZoneOffset.UTC);
     private LocalDateTime nextProgressLog = start.plusMinutes(SHOW_STATS_INTERVAL_MINS);
 
@@ -75,6 +75,8 @@ public class ImageProcessorListener {
         blankImagesTotal = metricService.loadValue("arquivo_image_processor_blank_images_total");
         responseItemsIncompleteTotal = metricService.loadValue("arquivo_image_processor_response_items_incomplete_total");
         duplicateFilesTotal = metricService.loadValue("arquivo_image_processor_duplicate_files_total");
+        responseItemsSentToKafkaTotal = metricService.loadValue("arquivo_image_processor_response_items_sent_to_kafka_total");
+
 
         directory = Paths.get(imagePathDirectory).toAbsolutePath().normalize();
         LOG.info("Configured image directory: {}", directory);
@@ -141,6 +143,8 @@ public class ImageProcessorListener {
                     .put("linkToScreenshot", responseItem.get("linkToScreenshot").asText());
 
             kafkaPublisher.send(articleToTextSummary);
+            responseItemsSentToKafkaTotal++;
+            metricService.updateValue("arquivo_image_processor_response_items_sent_to_kafka_total", responseItemsSentToKafkaTotal);
 
             printStats();
         } catch (Exception e) {
@@ -243,6 +247,7 @@ public class ImageProcessorListener {
             LOG.info("Total blank images: {}", blankImagesTotal);
             LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal);
             LOG.info("Total duplicate files skipped: {}", duplicateFilesTotal);
+            LOG.info("Total response items sent to Kafka: {}", responseItemsSentToKafkaTotal);
             LOG.info("Elapsed time: {} minutes", java.time.Duration.between(start, now).toMinutes());
             while (!now.isBefore(nextProgressLog)) {
                 nextProgressLog = nextProgressLog.plusMinutes(SHOW_STATS_INTERVAL_MINS);

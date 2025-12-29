@@ -37,7 +37,7 @@ public class TextEmbeddingListener {
 
     private final MetricService metricService;
 
-    private long responseItemsIncompleteTotal, responseItemsReceivedTotal;
+    private long responseItemsIncompleteTotal, responseItemsReceivedTotal, responseItemsStoredTotal;
     private final LocalDateTime start = LocalDateTime.now(ZoneOffset.UTC);
     private LocalDateTime nextProgressLog = start.plusMinutes(SHOW_STATS_INTERVAL_MINS);
     private final TextEmbeddingClient textEmbeddingClient;
@@ -61,6 +61,7 @@ public class TextEmbeddingListener {
 
         responseItemsIncompleteTotal = metricService.loadValue("arquivo_embeddings_processor_response_items_incomplete_total");
         responseItemsReceivedTotal = metricService.loadValue("arquivo_embeddings_processor_response_items_received_total");
+        responseItemsStoredTotal = metricService.loadValue("arquivo_embeddings_processor_response_items_stored_total");
     }
 
     @KafkaListener(
@@ -88,7 +89,7 @@ public class TextEmbeddingListener {
                     new Article(
                             responseItem.get("articleHash").asInt(),
                             responseItem.get("title").asText(),
-                            !responseItem.get("publishedDate").isNull() ? LocalDate.parse(responseItem.get("publishedDate").asText()) : null,
+                            parsePublishedDate(responseItem.get("publishedDate")),
                             responseItem.get("publishedDateConfidence").asDouble(),
                             responseItem.get("linkToArchive").asText(),
                             UrlNormalizer.normalize(responseItem.get("linkToArchive").asText()),
@@ -97,6 +98,8 @@ public class TextEmbeddingListener {
                             responseItem.get("smallImagePath").asText()
                     )
             );
+            responseItemsStoredTotal++;
+            metricService.updateValue("arquivo_embeddings_processor_response_items_stored_total", responseItemsStoredTotal);
 
             int i = 0;
             for (String paragraph : summaryParagraphs) {
@@ -115,7 +118,20 @@ public class TextEmbeddingListener {
                 LOG.warn("Failed to acknowledge record: {}", e.getMessage());
             }
         }
+    }
 
+    private LocalDate parsePublishedDate(JsonNode node) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+
+        String value = node.asText().trim();
+
+        if (value.isEmpty() || value.equalsIgnoreCase("null")) {
+            return null;
+        }
+
+        return LocalDate.parse(value);
     }
 
     private void printStats() {
@@ -127,6 +143,7 @@ public class TextEmbeddingListener {
 
             LOG.info("Total response items received: {}", responseItemsReceivedTotal);
             LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal);
+            LOG.info("Total response items stored: {}", responseItemsStoredTotal);
             LOG.info("Elapsed time: {} minutes", java.time.Duration.between(start, now).toMinutes());
             while (!now.isBefore(nextProgressLog)) {
                 nextProgressLog = nextProgressLog.plusMinutes(SHOW_STATS_INTERVAL_MINS);
