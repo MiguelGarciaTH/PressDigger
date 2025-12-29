@@ -120,6 +120,7 @@ public class ArquivoCrawler {
     }
 
     private void printStats() {
+        LOG.info("------------------------------------");
         LOG.info("Total response items collected: {}", responseItemsCollectedTotal);
         LOG.info("Total response items not news article: {}", responseItemsNotNewsArticleTotal);
         LOG.info("Total response items invalid URL: {}", responseItemsInvalidUrlTotal);

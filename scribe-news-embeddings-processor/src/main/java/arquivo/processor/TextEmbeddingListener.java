@@ -152,7 +152,7 @@ public class TextEmbeddingListener {
         if (now.isAfter(nextProgressLog)) {
             metricService.updateValue("arquivo_embeddings_processor_response_items_incomplete_total", responseItemsIncompleteTotal);
             metricService.updateValue("arquivo_embeddings_processor_response_items_received_total", responseItemsReceivedTotal);
-
+            LOG.info("------------------------------------");
             LOG.info("Total response items received: {}", responseItemsReceivedTotal);
             LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal);
             LOG.info("Total response items stored: {}", responseItemsStoredTotal);

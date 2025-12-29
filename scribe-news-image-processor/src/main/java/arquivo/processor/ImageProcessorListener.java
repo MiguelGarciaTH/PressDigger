@@ -246,6 +246,7 @@ public class ImageProcessorListener {
             metricService.updateValue("arquivo_image_processor_response_items_incomplete_total", responseItemsIncompleteTotal);
             metricService.updateValue("arquivo_image_processor_duplicate_files_total", duplicateFilesTotal);
             metricService.updateValue("arquivo_image_processor_received_messages_total", responseItemsReceivedTotal);
+            LOG.info("------------------------------------");
             LOG.info("Total received messages: {}", responseItemsReceivedTotal);
             LOG.info("Total blank images: {}", blankImagesTotal);
             LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal);
