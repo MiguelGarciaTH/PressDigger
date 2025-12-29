@@ -51,6 +51,6 @@ public class ArticleService {
 
         String pgVector = textEmbeddingClient.toPgVectorLiteral(queryEmbedding);
 
-        return articleChunkRepository.searchByText(inputText, pgVector, 10);
+        return articleChunkRepository.searchByText(pgVector, 10);
     }
 }
