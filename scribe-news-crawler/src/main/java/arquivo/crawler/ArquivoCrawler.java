@@ -65,8 +65,7 @@ public class ArquivoCrawler {
                           RateLimiterRepository rateLimiterRepository,
                           MetricService metricService,
                           KafkaTemplate<String, String> kafkaTemplate,
-                          @Value("${scribe-ref.arquivo.scribe-news-crawler.kafka.to-send.topic}") String topic,
-                          @Value("${scribe-ref.arquivo.scribe-news-crawler.kafka.to-send.concurrency}") int concurrency) {
+                          @Value("${scribe-ref.arquivo.scribe-news-crawler.kafka.to-send.topic}") String topic) {
         this.keywordRepository = keywordRepository;
         this.siteRepository = siteRepository;
         this.articleRepository = articleRepository;
@@ -76,7 +75,7 @@ public class ArquivoCrawler {
         this.titleCache = new HashSet<>();
         this.objectMapper = new ObjectMapper();
 
-        this.kafkaPublisher = new KafkaPublisher(kafkaTemplate, topic, concurrency);
+        this.kafkaPublisher = new KafkaPublisher(kafkaTemplate, topic);
 
         responseItemsCollectedTotal = metricService.loadValue("arquivo_crawler_response_items_collected_total");
         responseItemsSentToKafkaTotal = metricService.loadValue("arquivo_crawler_response_items_sent_to_kafka_total");

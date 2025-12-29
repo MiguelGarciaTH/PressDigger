@@ -65,12 +65,11 @@ public class ImageProcessorListener {
     public ImageProcessorListener(MetricService metricService,
                                   KafkaTemplate<String, String> kafkaTemplate,
                                   @Value("${scribe-ref.arquivo.scribe-news-image-processor.image-path-directory}") String imagePathDirectory,
-                                  @Value("${scribe-ref.arquivo.scribe-news-image-processor.kafka.to-send.topic}") String topic,
-                                  @Value("${scribe-ref.arquivo.scribe-news-image-processor.kafka.to-send.concurrency}") int concurrency) {
+                                  @Value("${scribe-ref.arquivo.scribe-news-image-processor.kafka.to-send.topic}") String topic) {
         this.metricService = metricService;
         this.objectMapper = new ObjectMapper();
 
-        this.kafkaPublisher = new KafkaPublisher(kafkaTemplate, topic, concurrency);
+        this.kafkaPublisher = new KafkaPublisher(kafkaTemplate, topic);
 
         responseItemsReceivedTotal = metricService.loadValue("arquivo_image_processor_received_messages_total");
         blankImagesTotal = metricService.loadValue("arquivo_image_processor_blank_images_total");

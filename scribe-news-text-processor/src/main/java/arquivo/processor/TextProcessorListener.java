@@ -52,10 +52,9 @@ public class TextProcessorListener {
     public TextProcessorListener(Environment environment,
                                  MetricService metricService,
                                  KafkaTemplate<String, String> kafkaTemplate,
-                                 @Value("${scribe-ref.arquivo.scribe-news-text-processor.kafka.to-send.topic}") String topic,
-                                 @Value("${scribe-ref.arquivo.scribe-news-text-processor.kafka.to-send.concurrency}") int concurrency) {
+                                 @Value("${scribe-ref.arquivo.scribe-news-text-processor.kafka.to-send.topic}") String topic) {
         this.metricService = metricService;
-        this.kafkaPublisher = new KafkaPublisher(kafkaTemplate, topic, concurrency);
+        this.kafkaPublisher = new KafkaPublisher(kafkaTemplate, topic);
         this.objectMapper = new ObjectMapper();
 
         responseItemsIncompleteTotal = metricService.loadValue("arquivo_text_processor_response_items_incomplete_total");
