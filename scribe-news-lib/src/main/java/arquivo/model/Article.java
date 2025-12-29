@@ -18,6 +18,9 @@ public class Article {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    private Site site;
+
     private LocalDate publishedDate;
 
     private double publishedDateConfidence;
@@ -49,10 +52,11 @@ public class Article {
 
     }
 
-    public Article(int articleHash, String title, LocalDate publishedDate, double publishedDateConfidence, String linkToArchive,
+    public Article(int articleHash, Site site, String title, LocalDate publishedDate, double publishedDateConfidence, String linkToArchive,
                    String linkToArchiveTrimmed, String linkToArchiveImage, String originalImagePath,
                    String smallImagePath) {
         this.articleHash = articleHash;
+        this.site = site;
         this.publishedDate = publishedDate;
         this.publishedDateConfidence = publishedDateConfidence;
         this.title = title;

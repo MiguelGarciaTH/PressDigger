@@ -11,6 +11,9 @@ public class Url {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    private Site site;
+
     private LocalDateTime date;
 
     @Column(columnDefinition = "text")
@@ -22,9 +25,10 @@ public class Url {
 
     }
 
-    public Url(String url) {
+    public Url(Site site, String url) {
         this.url = url;
         this.processed = false;
+        this.site = site;
     }
 
     public int getId() {
@@ -53,5 +57,13 @@ public class Url {
 
     public void setProcessed(boolean processed) {
         this.processed = processed;
+    }
+
+    public Site getSite() {
+        return site;
+    }
+
+    public void setSite(Site site) {
+        this.site = site;
     }
 }

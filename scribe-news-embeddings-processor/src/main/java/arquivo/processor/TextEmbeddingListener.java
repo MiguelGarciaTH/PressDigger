@@ -2,8 +2,10 @@ package arquivo.processor;
 
 import arquivo.model.Article;
 import arquivo.model.ArticleChunk;
+import arquivo.model.Site;
 import arquivo.repository.ArticleChunkRepository;
 import arquivo.repository.ArticleRepository;
+import arquivo.repository.SiteRepository;
 import arquivo.services.MetricService;
 import arquivo.services.TextEmbeddingClient;
 import arquivo.utils.UrlNormalizer;
@@ -46,16 +48,19 @@ public class TextEmbeddingListener {
 
     private final ArticleRepository articleRepository;
     private final ArticleChunkRepository articleChunkRepository;
+    private final SiteRepository siteRepository;
 
     @Autowired
     public TextEmbeddingListener(Environment environment,
                                  MetricService metricService,
                                  ArticleRepository articleRepository,
-                                 ArticleChunkRepository articleChunkRepository) {
+                                 ArticleChunkRepository articleChunkRepository,
+                                 SiteRepository siteRepository) {
         this.metricService = metricService;
         this.objectMapper = new ObjectMapper();
         this.articleRepository = articleRepository;
         this.articleChunkRepository = articleChunkRepository;
+        this.siteRepository = siteRepository;
         final String url = environment.getProperty("scribe-ref.arquivo.scribe-embeddings-processor.embedding-service-url");
         this.textEmbeddingClient = new TextEmbeddingClient(url, objectMapper, false);
 
@@ -84,10 +89,16 @@ public class TextEmbeddingListener {
 
             final String summary = responseItem.get("summary").asText();
             final String[] summaryParagraphs = PARAGRAPH_SPLIT.split(summary);
-
+            final Site site  = siteRepository.findById(responseItem.get("siteId").asInt()).orElse(null);
+            if (site == null) {
+                LOG.warn("Site with id {} not found, skipping article {}", responseItem.get("siteId").asInt(), responseItem.get("title").asText());
+                responseItemsIncompleteTotal++;
+                return;
+            }
             final Article article = articleRepository.save(
                     new Article(
                             responseItem.get("articleHash").asInt(),
+                            site,
                             responseItem.get("title").asText(),
                             parsePublishedDate(responseItem.get("publishedDate")),
                             responseItem.get("publishedDateConfidence").asDouble(),

@@ -124,6 +124,7 @@ public class TextProcessorListener {
 
             final ObjectNode articleToExtractEmbeddding = objectMapper.createObjectNode()
                     .put("title", responseItem.get("title").asText())
+                    .put("siteId", responseItem.get("siteId").asInt())
                     .put("articleHash", responseItem.get("articleHash").asInt())
                     .put("originalImagePath", responseItem.get("originalImagePath").asText())
                     .put("smallImagePath", responseItem.get("smallImagePath").asText())

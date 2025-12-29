@@ -90,18 +90,18 @@ public class ArquivoCrawler {
         final LocalDateTime start = LocalDateTime.now(ZoneOffset.UTC);
         LocalDateTime nextProgressLog = start.plusMinutes(SHOW_STATS_INTERVAL_MINS);
 
-        final List<String> urls = getUrlsToProcess();
+        final List<Url> urls = getUrlsToProcess();
         LOG.info("Number of URLs to hit Arquivo.pt {}", urls.size());
 
 
-        for (String url : urls) {
+        for (Url url : urls) {
             LOG.trace("Request for {}", url);
 
-            JsonNode response = getResponseItems(url);
+            JsonNode response = getResponseItems(url.getSite().getId(), url.getUrl());
             while (response.has("next_page")) {
                 final String nextPageUrl = java.net.URLDecoder.decode(response.get("next_page").asText(), StandardCharsets.UTF_8);
-                urlRepository.save(new Url(nextPageUrl));
-                response = getResponseItems(nextPageUrl);
+                urlRepository.save(new Url(url.getSite(), nextPageUrl));
+                response = getResponseItems(url.getSite().getId(), nextPageUrl);
             }
 
             // just to show the progress every SHOW_STATS_INTERVAL_MINS minutes
@@ -128,17 +128,17 @@ public class ArquivoCrawler {
         LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal);
     }
 
-    private JsonNode getResponseItems(String url) {
+    private JsonNode getResponseItems(int siteId, String url) {
         final JsonNode response = webClientService.get(url, "arquivo.pt");
         final JsonNode responseItems = response.get("response_items");
         responseItemsCollectedTotal += responseItems.size();
-        processResponseItems(responseItems);
+        processResponseItems(siteId, responseItems);
         urlRepository.setProcessed(url);
         metricService.updateValue("arquivo_crawler_response_items_collected_total", responseItemsCollectedTotal);
         return response;
     }
 
-    private void processResponseItems(JsonNode responseItems) {
+    private void processResponseItems(int siteId, JsonNode responseItems) {
         for (var responseItem : responseItems) {
 
             // check if is a news article (not opinion/editorial)
@@ -177,6 +177,7 @@ public class ArquivoCrawler {
 
             final ObjectNode articleToImageProcessor = objectMapper.createObjectNode()
                     .put("title", responseItem.get("title").asText())
+                    .put("siteId", siteId)
                     .put("articleHash", articleHash)
                     .put("linkToArchive", responseItem.get("linkToArchive").asText())
                     .put("linkToExtractedText", responseItem.get("linkToExtractedText").asText())
@@ -194,24 +195,21 @@ public class ArquivoCrawler {
         return !titleCache.contains(articleHash) && !articleRepository.existsByArticleHash(articleHash);
     }
 
-    private List<String> getUrlsToProcess() {
+    private List<Url> getUrlsToProcess() {
         // first time, no results
         if (urlRepository.count() == 0) {
             // Generate all URL to fetch from arquivo.pt API
-            List<String> urls = generateUrls();
+            List<UrlSite> urls = generateUrls();
             Collections.shuffle(urls);
             List<Url> urlToProcess = urls.stream()
-                    .map(Url::new)
+                    .map(us -> new Url(us.site, us.siteUrl))
                     .toList();
             // Shuffle them, this reduces the number of duplicate processing, since it increases that duplicate results
             // (arquivo urls) are processed after the first equal url is processed
-            urlRepository.saveAll(urlToProcess);
-            return urls;
+            return urlRepository.saveAll(urlToProcess);
         }
 
-        return urlRepository.getAllUnprocessedUrls().stream()
-                .map(Url::getUrl)
-                .toList();
+        return urlRepository.getAllUnprocessedUrls();
     }
 
     private boolean isANewsArticle(String section) {
@@ -244,20 +242,23 @@ public class ArquivoCrawler {
                 .trim();
     }
 
-    private List<String> generateUrls() {
+    private List<UrlSite> generateUrls() {
         final List<Site> sites = siteRepository.findAll();
         final List<Keyword> keywords = keywordRepository.findAll();
         final List<DateInterval> dates = createDateIntervals();
-        final List<String> urls = new ArrayList<>(dates.size() * keywords.size() * sites.size());
+        final List<UrlSite> urls = new ArrayList<>(dates.size() * keywords.size() * sites.size());
         for (Site site : sites) {
             for (Keyword keyword : keywords) {
                 for (var date : dates) {
                     String url = String.format(arquivoBaseUrl, keyword.getName(), site.getUrl(), date.starDate.format(arquivoFormatter), date.endDate.format(arquivoFormatter));
-                    urls.add(url);
+                    urls.add(new UrlSite(site, url));
                 }
             }
         }
         return urls;
+    }
+
+    private record UrlSite(Site site, String siteUrl) {
     }
 
     private List<DateInterval> createDateIntervals() {
