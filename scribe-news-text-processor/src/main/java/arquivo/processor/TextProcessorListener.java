@@ -76,7 +76,7 @@ public class TextProcessorListener {
             containerFactory = "kafkaListenerContainerFactory",
             concurrency = "${scribe-ref.arquivo.scribe-news-text-processor.kafka.to-listen.concurrency}")
     public void listener(ConsumerRecord<String, String> record, Acknowledgment ack, @Header(KafkaHeaders.RECEIVED_PARTITION) int partition) {
-        LOG.debug("Received on topic {} on partition {} record {}", record.topic(), partition, record.value());
+        LOG.trace("Received on topic {} on partition {} record {}", record.topic(), partition, record.value());
         responseItemsReceivedTotal++;
 
         try {
@@ -96,7 +96,7 @@ public class TextProcessorListener {
             if (responseItem == null
                     || !responseItem.hasNonNull("linkToExtractedText")
                     || responseItem.get("linkToExtractedText").asText().isBlank()) {
-                LOG.warn("Incomplete response item, missing linkToExtractedText: {}", payload);
+                LOG.error("Incomplete response item (should not happen); missing linkToExtractedText: {}", payload);
                 responseItemsIncompleteTotal++;
                 return;
             }
@@ -136,6 +136,7 @@ public class TextProcessorListener {
             kafkaPublisher.send(articleToExtractEmbeddding);
             responseItemsSentToKafkaTotal++;
             metricService.updateValue("arquivo_image_processor_response_items_sent_to_kafka_total", responseItemsSentToKafkaTotal);
+            LOG.trace("Sent to Kafka: {}", articleToExtractEmbeddding.toPrettyString());
 
             printStats();
         } catch (Exception e) {

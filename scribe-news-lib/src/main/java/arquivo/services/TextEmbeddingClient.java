@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.netty.channel.ChannelOption;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
@@ -18,6 +20,9 @@ public class TextEmbeddingClient {
     private final String url;
     private final WebClient webClient;
     private final String type;
+
+    private static final Logger LOG = LoggerFactory.getLogger(TextEmbeddingClient.class);
+
 
     public TextEmbeddingClient(String url, ObjectMapper objectMapper, boolean isQueryTypeClient) {
         this.objectMapper = objectMapper;
@@ -53,6 +58,7 @@ public class TextEmbeddingClient {
                     .bodyToMono(String.class)
                     .block());
         } catch (Exception e) {
+            LOG.error("Error getting embeddings from service: {}", e.getMessage());
             return null;
         }
     }
@@ -69,8 +75,8 @@ public class TextEmbeddingClient {
             throw new IllegalArgumentException("Embedding node is not an array");
         }
 
-        int size = embeddingNode.size();
-        float[] vector = new float[size];
+        final int size = embeddingNode.size();
+        final float[] vector = new float[size];
 
         for (int i = 0; i < size; i++) {
             vector[i] = (float) embeddingNode.get(i).asDouble();
@@ -80,7 +86,7 @@ public class TextEmbeddingClient {
     }
 
     public String toPgVectorLiteral(float[] vector) {
-        StringBuilder sb = new StringBuilder("[");
+        final StringBuilder sb = new StringBuilder("[");
         for (int i = 0; i < vector.length; i++) {
             if (i > 0) sb.append(",");
             sb.append(vector[i]);

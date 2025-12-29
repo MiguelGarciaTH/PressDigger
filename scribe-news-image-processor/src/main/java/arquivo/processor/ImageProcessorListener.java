@@ -86,7 +86,7 @@ public class ImageProcessorListener {
             Files.createDirectories(directory.resolve("original"));
             Files.createDirectories(directory.resolve("small"));
         } catch (IOException e) {
-            LOG.warn("Could not create image directories under {}: {}", directory, e.getMessage());
+            LOG.error("Could not create image directories under {}: {}", directory, e.getMessage());
         }
     }
 
@@ -95,7 +95,7 @@ public class ImageProcessorListener {
             containerFactory = "kafkaListenerContainerFactory",
             concurrency = "${scribe-ref.arquivo.scribe-news-image-processor.kafka.to-listen.concurrency}")
     public void listener(ConsumerRecord<String, String> record, Acknowledgment ack, @Header(KafkaHeaders.RECEIVED_PARTITION) int partition) {
-        LOG.debug("Received on topic {} on partition {} record {}", record.topic(), partition, record.value());
+        LOG.trace("Received on topic {} on partition {} record {}", record.topic(), partition, record.value());
         responseItemsReceivedTotal++;
         try {
             String payload = record.value();
@@ -124,13 +124,14 @@ public class ImageProcessorListener {
                 final BufferedImage image = getImage(responseItem.get("linkToScreenshot").asText());
                 if (image == null) {
                     // either blank or failed to fetch
+                    LOG.warn("Skipping processing for title {} due to blank or fetch failure", responseItem.get("title").asText());
                     return;
                 }
 
                 // process using the already-read BufferedImage (no re-download)
                 processImage(originalOutputPath, image);
                 createSmallImage(smallOutputPath, image);
-                LOG.debug("Processed image stored {}", originalOutputPath);
+                LOG.trace("Processed image stored {}", originalOutputPath);
             }
 
             final ObjectNode articleToTextSummary = objectMapper.createObjectNode()
@@ -145,6 +146,7 @@ public class ImageProcessorListener {
             kafkaPublisher.send(articleToTextSummary);
             responseItemsSentToKafkaTotal++;
             metricService.updateValue("arquivo_image_processor_response_items_sent_to_kafka_total", responseItemsSentToKafkaTotal);
+            LOG.trace("Sent title {} to text summary topic", responseItem.get("title").asText());
 
             printStats();
         } catch (Exception e) {
@@ -154,7 +156,7 @@ public class ImageProcessorListener {
             try {
                 ack.acknowledge();
             } catch (Exception e) {
-                LOG.warn("Failed to acknowledge record: {}", e.getMessage());
+                LOG.error("Failed to acknowledge record: {}", e.getMessage());
             }
         }
     }
@@ -175,7 +177,7 @@ public class ImageProcessorListener {
         try (InputStream in = openUrlStreamWithTimeouts(url)) {
             image = ImageIO.read(in);
         } catch (Exception e) {
-            LOG.warn("Failed to fetch image: {}", e.getMessage());
+            LOG.error("Failed to fetch image: {}", e.getMessage());
             responseItemsIncompleteTotal++;
             return null;
         }
@@ -202,23 +204,23 @@ public class ImageProcessorListener {
         return conn.getInputStream();
     }
 
-    private String processImage(Path originalOutputPath, BufferedImage image) throws Exception {
+    private void processImage(Path originalOutputPath, BufferedImage image) throws Exception {
 
         // write original (ensure parent exists)
         try {
             Files.createDirectories(originalOutputPath.getParent());
             boolean wrote = ImageIO.write(image, "png", originalOutputPath.toFile());
             if (!wrote) {
+                LOG.error("ImageIO.write returned false for {}", originalOutputPath);
                 throw new IOException("ImageIO.write returned false for " + originalOutputPath);
             }
         } catch (IOException e) {
+            LOG.error("Failed to write original image to {}: {}", originalOutputPath, e.getMessage());
             throw new IOException("Failed to write original image to " + originalOutputPath + ": " + e.getMessage(), e);
         }
-
-        return originalOutputPath.toString();
     }
 
-    private String createSmallImage(Path smallOutputPath, BufferedImage image) throws Exception {
+    private void createSmallImage(Path smallOutputPath, BufferedImage image) throws Exception {
 
         // create thumbnail from the already-loaded BufferedImage (avoids re-downloading)
         try {
@@ -230,9 +232,9 @@ public class ImageProcessorListener {
                     .outputQuality(thumbnailQuality)
                     .toFile(smallOutputPath.toFile());
         } catch (IOException e) {
+            LOG.error("Failed to write thumbnail to {}: {}", smallOutputPath, e.getMessage());
             throw new IOException("Failed to write thumbnail to " + smallOutputPath + ": " + e.getMessage(), e);
         }
-        return smallOutputPath.toString();
     }
 
     private void printStats() {

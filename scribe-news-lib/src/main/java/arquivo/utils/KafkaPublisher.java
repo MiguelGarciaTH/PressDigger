@@ -21,13 +21,12 @@ public class KafkaPublisher {
         this.objectMapper = new ObjectMapper();
     }
 
-
     public void send(JsonNode responseItem) {
         try {
             kafkaTemplate.send(topic, objectMapper.writeValueAsString(responseItem));
             LOG.debug("Sent to topic {} and partition value={}", topic, responseItem);
         } catch (JsonProcessingException e) {
-            LOG.warn("Error processing item: {}", responseItem.toPrettyString());
+            LOG.error("Error processing item: {}", responseItem.toPrettyString(), e);
         }
     }
 }

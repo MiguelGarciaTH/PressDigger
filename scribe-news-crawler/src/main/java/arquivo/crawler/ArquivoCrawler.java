@@ -95,7 +95,7 @@ public class ArquivoCrawler {
 
 
         for (String url : urls) {
-            LOG.debug("Request for {}", url);
+            LOG.trace("Request for {}", url);
 
             JsonNode response = getResponseItems(url);
             while (response.has("next_page")) {
@@ -129,8 +129,8 @@ public class ArquivoCrawler {
     }
 
     private JsonNode getResponseItems(String url) {
-        JsonNode response = webClientService.get(url, "arquivo.pt");
-        JsonNode responseItems = response.get("response_items");
+        final JsonNode response = webClientService.get(url, "arquivo.pt");
+        final JsonNode responseItems = response.get("response_items");
         responseItemsCollectedTotal += responseItems.size();
         processResponseItems(responseItems);
         urlRepository.setProcessed(url);
@@ -146,6 +146,7 @@ public class ArquivoCrawler {
             if (!isANewsArticle(title)) {
                 responseItemsNotNewsArticleTotal++;
                 metricService.updateValue("arquivo_crawler_response_items_not_news_article_total", responseItemsNotNewsArticleTotal);
+                LOG.debug("Skipping non-news article: {}", title);
                 continue;
             }
 
@@ -153,6 +154,7 @@ public class ArquivoCrawler {
             if (!UrlValidator.isValid(arquivoUrl)) {
                 responseItemsInvalidUrlTotal++;
                 metricService.updateValue("arquivo_crawler_response_items_invalid_url_total", responseItemsInvalidUrlTotal);
+                LOG.debug("Skipping invalid URL article: {}", arquivoUrl);
                 continue;
             }
 
@@ -160,6 +162,8 @@ public class ArquivoCrawler {
             if (!isResponseComplete(responseItem)) {
                 responseItemsIncompleteTotal++;
                 metricService.updateValue("arquivo_crawler_response_items_incomplete_total", responseItemsIncompleteTotal);
+                LOG.debug("Skipping incomplete article: {}", responseItem.toPrettyString());
+                continue;
             }
 
             // check if is a new article
@@ -182,6 +186,7 @@ public class ArquivoCrawler {
             titleCache.add(articleHash);
             responseItemsSentToKafkaTotal++;
             metricService.updateValue("arquivo_crawler_response_items_sent_to_kafka_total", responseItemsSentToKafkaTotal);
+            LOG.trace("Sent to Kafka: {}", articleToImageProcessor.toPrettyString());
         }
     }
 
@@ -212,7 +217,7 @@ public class ArquivoCrawler {
     private boolean isANewsArticle(String section) {
         if (section == null) return false;
 
-        String normalized = section.trim().toLowerCase();
+        final String normalized = section.trim().toLowerCase();
 
         return !(normalized.contains("opinião")
                 || normalized.contains("opinion")

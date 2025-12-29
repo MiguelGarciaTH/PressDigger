@@ -69,7 +69,7 @@ public class TextEmbeddingListener {
             containerFactory = "kafkaListenerContainerFactory",
             concurrency = "${scribe-ref.arquivo.scribe-news-embeddings-processor.kafka.to-listen.concurrency}")
     public void listener(ConsumerRecord<String, String> record, Acknowledgment ack, @Header(KafkaHeaders.RECEIVED_PARTITION) int partition) {
-        LOG.debug("Received on topic {} on partition {} record {}", record.topic(), partition, record.value());
+        LOG.trace("Received on topic {} on partition {} record {}", record.topic(), partition, record.value());
         responseItemsReceivedTotal++;
 
         try {
@@ -100,6 +100,7 @@ public class TextEmbeddingListener {
             );
             responseItemsStoredTotal++;
             metricService.updateValue("arquivo_embeddings_processor_response_items_stored_total", responseItemsStoredTotal);
+            LOG.trace("Stored article {} with id {}", article.getTitle(), article.getId());
 
             int i = 0;
             for (String paragraph : summaryParagraphs) {
