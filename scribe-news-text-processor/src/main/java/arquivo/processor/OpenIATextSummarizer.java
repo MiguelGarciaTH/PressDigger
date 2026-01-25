@@ -14,43 +14,63 @@ public class OpenIATextSummarizer {
             O texto pode incluir título, subtítulos, corpo da notícia, legendas, colunas laterais, rodapés,
             secções de comentários de leitores, caixas editoriais e textos meta.
             
-            Objetivo:
-            Extrair e resumir **apenas o conteúdo jornalístico principal da notícia**.
+            OBJETIVO:
+            Extrair e resumir apenas o conteúdo jornalístico factual principal da notícia.
             
-            Tarefas (faça tudo em português):
-            1) Extraia a data de publicação, se houver — coloque em ISO 8601 (YYYY-MM-DD) em "publishedDate".
-               - Se não houver uma data clara no conteúdo jornalístico, deixe null.
-            2) Produza um resumo conciso do **conteúdo factual da notícia** com 3–5 pagráfos em "summary".
-            3) Forneça "publishDateConfidence": número entre 0 e 1 (0 = não confiante, 1 = muito confiante).
-            4) Formate a saída **somente** como JSON com as chaves:
-               { "publishedDate": ..., "publishedDateConfidence": ..., "summary": ...}
+            TAREFAS (faça tudo em português):
             
-            Regras de filtragem (OBRIGATÓRIAS):
-            - Ignore completamente:
-              • Comentários, opiniões ou reações de leitores
-              • Secções do tipo “comentários”, “opinião dos leitores”, “cartas ao diretor”
-              • Texto do provedor do leitor, ombudsman ou colunas sobre o próprio jornal
-              • Discussões sobre títulos, escolhas editoriais ou reações ao artigo
-            - Não mencione leitores, comentários, o jornal, o título ou o ato de publicação no resumo.
-            - Considere apenas factos, acontecimentos, declarações e contexto do evento noticiado.
+            1) Extraia a data de publicação, se houver.
+               - Coloque em ISO 8601 (YYYY-MM-DD) em "publishedDate".
+               - Só inclua se estiver explicitamente indicada no conteúdo jornalístico.
+               - Se houver dúvida, use null.
             
-            Regras para o resumo:
-            - Escreva como se estivesse a descrever diretamente os acontecimentos.
-            - NÃO refira que o texto é um artigo, coluna ou notícia.
-            - NÃO use meta-linguagem jornalística (“o artigo analisa”, “o texto explica”).
-            - Use linguagem factual, direta e informativa.
-            - Se possível manter uma estrutura em paragráfos - estes devem ser marcados por quebra de linha (\n)
-            - Em strings JSON, substitua quebras de linha reais por "\\n".
-            - NÃO use quebras de linha literais dentro de strings.
+            2) Produza um resumo factual do acontecimento noticiado em "summary".
+               - 3 a 5 parágrafos.
+               - Cada parágrafo deve ter 2 a 4 frases curtas e diretas.
+               - Cada frase deve expressar uma única ideia principal.
+               - Prefira frases claras e separadas por ponto final. Evite frases longas ligadas por vírgulas.
+               - Evite linguagem opinativa, especulativa ou interpretativa.
             
-            Datas:
-            - Prefira datas encontradas perto do topo do texto (títulos/subtítulos), mas verifique todo o texto.
-            - Se a data for ambígua (ex.: “ontem”, “segunda-feira”), só infira uma data absoluta se houver
-              contexto temporal claro; caso contrário, use publishedDate = null e baixa confiança.
+            3) Forneça "publishDateConfidence": número entre 0 e 1
+               - 1.0 = data explícita e inequívoca
+               - 0.5 = data inferida com contexto forte
+               - 0.0 = nenhuma data confiável encontrada
             
-            Formato:
-            - Produza exclusivamente JSON válido. Valide que não há virgulas finais a mais ou "}" a mais ou em falta.
-            - Não inclua texto explicativo fora do JSON.
+            4) Formate a saída SOMENTE como JSON com as chaves:
+            { "publishedDate": ..., "publishedDateConfidence": ..., "summary": ... }
+            
+            REGRAS DE FILTRAGEM (OBRIGATÓRIAS):
+            Ignore completamente:
+            • Comentários, opiniões ou reações de leitores  
+            • Secções “comentários”, “opinião dos leitores”, “cartas ao diretor”  
+            • Texto do provedor do leitor, ombudsman ou colunas sobre o próprio jornal  
+            • Discussões sobre títulos, escolhas editoriais ou reações ao artigo  
+            
+            Não inclua no resumo:
+            • Referências a leitores ou comentários  
+            • Referências ao jornal, ao artigo ou ao ato de publicação  
+            • Frases como “o artigo diz”, “a notícia relata”, “segundo o jornal”
+            
+            Inclua apenas:
+            • Factos
+            • Acontecimentos
+            • Datas
+            • Locais
+            • Declarações atribuídas
+            • Contexto relevante para entender o evento
+            
+            REGRAS DE ESCRITA DO RESUMO:
+            - Escreva como descrição direta dos acontecimentos.
+            - Use linguagem factual, simples e informativa.
+            - Evite orações excessivamente longas (máx. ~25 palavras por frase).
+            - Evite conjunções encadeadas (como “enquanto”, “onde”, “o que”, “sendo que”) sempre que possível.
+            - Prefira várias frases curtas em vez de uma frase longa.
+            
+            FORMATAÇÃO:
+            - Separe parágrafos com "\\n".
+            - NÃO use quebras de linha reais dentro do JSON.
+            - Produza JSON válido.
+            - Não inclua qualquer texto fora do JSON.
             """;
 
 
