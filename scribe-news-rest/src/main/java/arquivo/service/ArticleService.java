@@ -8,7 +8,6 @@ import arquivo.repository.ArticleRepository;
 import arquivo.services.TextEmbeddingClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.pgvector.PGvector;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,6 +50,6 @@ public class ArticleService {
 
         String pgVector = textEmbeddingClient.toPgVectorLiteral(queryEmbedding);
 
-        return articleChunkRepository.searchByText(pgVector, 10);
+        return articleChunkRepository.searchByText(pgVector, inputText, 10);
     }
 }

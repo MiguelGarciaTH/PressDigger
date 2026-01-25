@@ -13,11 +13,12 @@ public interface ArticleChunkRepository extends JpaRepository<ArticleChunk, Inte
     @Query(nativeQuery = true, value = """
             SELECT ac.*
             FROM article_chunk ac
-            WHERE ac.embedding <=> (:embedding)::vector < 0.25
-            --AND ac.tsv @@ plainto_tsquery('portuguese', :text)
-            ORDER BY ac.embedding <=> (:embedding)::vector
+            WHERE ac.tsv @@ websearch_to_tsquery('portuguese', :text)
+            --AND ac.embedding <=> (:embedding)::vector < :precision
+            ORDER BY ac.embedding <=> (:embedding)::vector ASC
             LIMIT :limit
             """)
     List<ArticleChunk> searchByText(@Param("embedding") String embedding,
+                                    @Param("text") String text,
                                     @Param("limit") int limit);
 }
