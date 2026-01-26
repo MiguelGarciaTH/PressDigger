@@ -219,7 +219,6 @@ public class ArquivoCrawler {
         final String normalized = section.trim().toLowerCase();
 
         return !(normalized.contains("opinião")
-                || normalized.contains("opinion")
                 || normalized.contains("editorial")
                 || normalized.contains("coluna")
                 || normalized.contains("comentário"));
