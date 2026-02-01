@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS article (
     published_date timestamp without time zone,
     published_date_confidence double precision, -- epoch time
     title text NOT NULL,
+    summary text NOT NULL,
     article_hash integer NOT NULL,
     link_to_archive text NOT NULL,
     link_to_archive_trimmed text NOT NULL, -- for duplication lookup
@@ -71,6 +72,28 @@ ON article_chunk USING GIN (tsv);
 
 CREATE INDEX idx_chunks_embedding
 ON article_chunk USING ivfflat (embedding vector_cosine_ops)
+WITH (lists = 100);
+
+CREATE SEQUENCE IF NOT EXISTS article_chunk_medium_seq START WITH 1 INCREMENT BY 1;
+
+
+CREATE TABLE article_chunk_medium (
+    id BIGINT NOT NULL DEFAULT nextval('article_chunk_medium_seq'),
+    article_id BIGINT NOT NULL,
+    chunk_index INT NOT NULL,
+    content TEXT NOT NULL,
+    tsv tsvector GENERATED ALWAYS AS (to_tsvector('portuguese', content)) STORED,
+    embedding vector(768) NOT NULL,
+
+    CONSTRAINT article_chunk_medium_pk PRIMARY KEY (id),
+    CONSTRAINT article_chunk_medium_fk_article_id FOREIGN KEY (article_id) REFERENCES article(id)
+);
+
+CREATE INDEX idx_chunks_medium_tsv
+ON article_chunk_medium USING GIN (tsv);
+
+CREATE INDEX idx_chunks_medium_embedding
+ON article_chunk_medium USING ivfflat (embedding vector_cosine_ops)
 WITH (lists = 100);
 
 CREATE SEQUENCE IF NOT EXISTS url_log_seq START WITH 1 INCREMENT BY 1;

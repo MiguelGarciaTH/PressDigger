@@ -28,6 +28,9 @@ public class Article {
     @Column(columnDefinition = "text")
     private String title;
 
+    @Column(columnDefinition = "text")
+    private String summary;
+
     private int articleHash;
 
     @Column(columnDefinition = "text")
@@ -52,7 +55,7 @@ public class Article {
 
     }
 
-    public Article(int articleHash, Site site, String title, LocalDate publishedDate, double publishedDateConfidence, String linkToArchive,
+    public Article(int articleHash, Site site, String title, String summary, LocalDate publishedDate, double publishedDateConfidence, String linkToArchive,
                    String linkToArchiveTrimmed, String linkToArchiveImage, String originalImagePath,
                    String smallImagePath) {
         this.articleHash = articleHash;
@@ -60,6 +63,7 @@ public class Article {
         this.publishedDate = publishedDate;
         this.publishedDateConfidence = publishedDateConfidence;
         this.title = title;
+        this.summary = summary;
         this.linkToArchive = linkToArchive;
         this.linkToArchiveTrimmed = linkToArchiveTrimmed;
         this.linkToArchiveImage = linkToArchiveImage;
@@ -149,5 +153,13 @@ public class Article {
 
     public void setArticleChunks(List<ArticleChunk> articleChunks) {
         this.articleChunks = articleChunks;
+    }
+
+    public String getSummary() {
+        return summary;
+    }
+
+    public void setSummary(String summary) {
+        this.summary = summary;
     }
 }

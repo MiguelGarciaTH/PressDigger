@@ -1,6 +1,7 @@
 package arquivo.repository;
 
 import arquivo.model.ArticleChunk;
+import arquivo.model.ArticleChunkMedium;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -8,12 +9,12 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 
-public interface ArticleChunkRepository extends JpaRepository<ArticleChunk, Integer> {
+public interface ArticleChunkMediumRepository extends JpaRepository<ArticleChunkMedium, Integer> {
 
     @Query(value = """
             SELECT
                 ac.*
-            FROM article_chunk ac
+            FROM article_chunk_medium ac
             WHERE
                 ac.embedding <=> CAST(:embedding AS vector) < 1.8
                 OR ac.tsv @@ websearch_to_tsquery('portuguese', :text)
