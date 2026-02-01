@@ -215,11 +215,21 @@ public class ImageProcessorListener {
     }
 
     private void processImage(Path originalOutputPath, BufferedImage image) throws Exception {
+        // Auto-crop whitespace borders
+        BufferedImage croppedImage = ImageAutoCropper.autoCrop(
+                image,
+                20,    // tolerance: treat pixels within 20 of background as "background"
+                10,    // margin: keep 10 pixels border after cropping
+                30     // minCropThreshold: only crop if removing at least 30 pixels
+        );
 
-        // write original (ensure parent exists)
+        // Use cropped image if crop was successful, otherwise use original
+        BufferedImage finalImage = (croppedImage != null) ? croppedImage : image;
+
+        // Write to file
         try {
             Files.createDirectories(originalOutputPath.getParent());
-            boolean wrote = ImageIO.write(image, "png", originalOutputPath.toFile());
+            boolean wrote = ImageIO.write(finalImage, "png", originalOutputPath.toFile());
             if (!wrote) {
                 LOG.error("ImageIO.write returned false for {}", originalOutputPath);
                 throw new IOException("ImageIO.write returned false for " + originalOutputPath);
@@ -231,10 +241,23 @@ public class ImageProcessorListener {
     }
 
     private void createSmallImage(Path smallOutputPath, BufferedImage image) throws Exception {
+        // Auto-crop before creating thumbnail
+        BufferedImage croppedImage = ImageAutoCropper.autoCrop(
+                image,
+                20,    // tolerance
+                10,    // margin
+                30     // minCropThreshold
+        );
 
-        // create thumbnail from the already-loaded BufferedImage (avoids re-downloading)
+        BufferedImage finalImage = (croppedImage != null) ? croppedImage : image;
+
+        // Create thumbnail from cropped image
         try {
-            final BufferedImage dest = image.getSubimage(0, 0, image.getWidth(), Math.min(image.getHeight() / 2, (image.getWidth() + (image.getWidth() / 2))));
+            final BufferedImage dest = finalImage.getSubimage(
+                    0, 0,
+                    finalImage.getWidth(),
+                    Math.min(finalImage.getHeight() / 2, (finalImage.getWidth() + (finalImage.getWidth() / 2)))
+            );
             Files.createDirectories(smallOutputPath.getParent());
             Thumbnails.of(dest)
                     .size(dest.getWidth(), dest.getWidth())
