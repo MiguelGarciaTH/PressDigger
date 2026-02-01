@@ -129,8 +129,18 @@ public class ImageProcessorListener {
                 }
 
                 // process using the already-read BufferedImage (no re-download)
-                processImage(originalOutputPath, image);
-                createSmallImage(smallOutputPath, image);
+                BufferedImage croppedImage = ImageAutoCropper.autoCrop(
+                        image,
+                        25,    // tolerance: more permissive for newspaper backgrounds
+                        15,    // margin: 15px border after cropping
+                        50     // minCropThreshold: only crop if removing at least 50 pixels
+                );
+
+                // Use cropped image if crop was successful, otherwise use original
+                BufferedImage finalImage = (croppedImage != null) ? croppedImage : image;
+
+                processImage(originalOutputPath, finalImage);
+                createSmallImage(smallOutputPath, finalImage);
                 LOG.trace("Processed image stored {}", originalOutputPath);
             }
 
@@ -173,7 +183,6 @@ public class ImageProcessorListener {
             return null;
         }
 
-        // open connection with timeouts and read once, reuse the BufferedImage
         BufferedImage image;
         try (InputStream in = openUrlStreamWithTimeouts(url)) {
             image = ImageIO.read(in);
@@ -184,26 +193,75 @@ public class ImageProcessorListener {
         }
 
         if (image == null) {
-            // ImageIO.read may return null for unsupported formats; treat as incomplete
             LOG.warn("ImageIO.read returned null for URL {}", imageUrl);
             responseItemsIncompleteTotal++;
             return null;
         }
 
-        boolean isUseless = ImageBlankDetector.isBlankOrUseless(
+        // Log image dimensions
+        LOG.debug("Image {}x{} from {}", image.getWidth(), image.getHeight(), imageUrl);
+
+        // Check if truly blank (uniform color)
+        boolean isBlank = ImageBlankDetector.isBlank(
                 image,
-                10,    // tolerance for uniform color detection
-                0.05,  // 5% pixels can differ for uniform detection
-                2,     // sample every 2nd pixel
-                0.3,   // at least 30% of height must have content
-                0.15   // ignore top/bottom 15% (headers/footers)
+                30,    // very high tolerance
+                0.20,  // 20% can differ
+                5      // sample every 5th pixel
         );
 
-        if (isUseless) {
+        if (isBlank) {
+            LOG.info("REJECTED (truly blank): {}x{}", image.getWidth(), image.getHeight());
             blankImagesTotal++;
             return null;
         }
+        // Check if has insufficient content
+        boolean hasContent = hasSufficientContentSimple(image);
+
+        if (!hasContent) {
+            LOG.info("REJECTED (no content): {}x{} - {}",
+                    image.getWidth(), image.getHeight(), imageUrl);
+            blankImagesTotal++;
+            return null;
+        }
+
+        LOG.debug("ACCEPTED: {}x{}", image.getWidth(), image.getHeight());
         return image;
+    }
+
+    // Simplified content check - much more permissive
+    private boolean hasSufficientContentSimple(BufferedImage img) {
+        final int w = img.getWidth();
+        final int h = img.getHeight();
+
+        if (w == 0 || h == 0) return false;
+        if (w < 100 || h < 100) return false; // Too small to be useful
+
+        // Just check if there's ANY variance in the middle 50% of the image
+        int startY = h / 4;
+        int endY = 3 * h / 4;
+        int startX = w / 4;
+        int endX = 3 * w / 4;
+
+        int[] pixels = img.getRGB(startX, startY, endX - startX, endY - startY, null, 0, endX - startX);
+
+        // Check for any color variance
+        if (pixels.length < 100) return true; // Very small area, accept it
+
+        int first = pixels[0];
+        int differences = 0;
+
+        // Sample 100 random pixels
+        int step = Math.max(1, pixels.length / 100);
+        for (int i = 0; i < pixels.length; i += step) {
+            if (Math.abs((pixels[i] & 0xFF) - (first & 0xFF)) > 30 ||
+                    Math.abs(((pixels[i] >> 8) & 0xFF) - ((first >> 8) & 0xFF)) > 30 ||
+                    Math.abs(((pixels[i] >> 16) & 0xFF) - ((first >> 16) & 0xFF)) > 30) {
+                differences++;
+                if (differences > 5) return true; // Found enough variance
+            }
+        }
+
+        return false; // Too uniform
     }
 
     // helper to open URL input stream with configured timeouts
@@ -214,22 +272,12 @@ public class ImageProcessorListener {
         return conn.getInputStream();
     }
 
-    private void processImage(Path originalOutputPath, BufferedImage image) throws Exception {
-        // Auto-crop whitespace borders
-        BufferedImage croppedImage = ImageAutoCropper.autoCrop(
-                image,
-                20,    // tolerance: treat pixels within 20 of background as "background"
-                10,    // margin: keep 10 pixels border after cropping
-                30     // minCropThreshold: only crop if removing at least 30 pixels
-        );
-
-        // Use cropped image if crop was successful, otherwise use original
-        BufferedImage finalImage = (croppedImage != null) ? croppedImage : image;
+    private void processImage(Path originalOutputPath, BufferedImage croppedImage) throws Exception {
 
         // Write to file
         try {
             Files.createDirectories(originalOutputPath.getParent());
-            boolean wrote = ImageIO.write(finalImage, "png", originalOutputPath.toFile());
+            boolean wrote = ImageIO.write(croppedImage, "png", originalOutputPath.toFile());
             if (!wrote) {
                 LOG.error("ImageIO.write returned false for {}", originalOutputPath);
                 throw new IOException("ImageIO.write returned false for " + originalOutputPath);
@@ -240,23 +288,13 @@ public class ImageProcessorListener {
         }
     }
 
-    private void createSmallImage(Path smallOutputPath, BufferedImage image) throws Exception {
-        // Auto-crop before creating thumbnail
-        BufferedImage croppedImage = ImageAutoCropper.autoCrop(
-                image,
-                20,    // tolerance
-                10,    // margin
-                30     // minCropThreshold
-        );
-
-        BufferedImage finalImage = (croppedImage != null) ? croppedImage : image;
-
+    private void createSmallImage(Path smallOutputPath, BufferedImage croppedImage) throws Exception {
         // Create thumbnail from cropped image
         try {
-            final BufferedImage dest = finalImage.getSubimage(
+            final BufferedImage dest = croppedImage.getSubimage(
                     0, 0,
-                    finalImage.getWidth(),
-                    Math.min(finalImage.getHeight() / 2, (finalImage.getWidth() + (finalImage.getWidth() / 2)))
+                    croppedImage.getWidth(),
+                    Math.min(croppedImage.getHeight() / 2, (croppedImage.getWidth() + (croppedImage.getWidth() / 2)))
             );
             Files.createDirectories(smallOutputPath.getParent());
             Thumbnails.of(dest)
