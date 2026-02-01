@@ -190,7 +190,16 @@ public class ImageProcessorListener {
             return null;
         }
 
-        if (ImageBlankDetector.isBlank(image, 1, 0.01, 2)) {
+        boolean isUseless = ImageBlankDetector.isBlankOrUseless(
+                image,
+                10,    // tolerance for uniform color detection
+                0.05,  // 5% pixels can differ for uniform detection
+                2,     // sample every 2nd pixel
+                0.3,   // at least 30% of height must have content
+                0.15   // ignore top/bottom 15% (headers/footers)
+        );
+
+        if (isUseless) {
             blankImagesTotal++;
             return null;
         }
