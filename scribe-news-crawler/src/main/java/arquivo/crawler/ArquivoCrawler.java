@@ -37,6 +37,9 @@ public class ArquivoCrawler {
 
     private static final Logger LOG = LoggerFactory.getLogger(ArquivoCrawler.class);
     public static final int SHOW_STATS_INTERVAL_MINS = 1;
+    private final LocalDateTime start = LocalDateTime.now(ZoneOffset.UTC);
+
+    private LocalDateTime nextProgressLog = start.plusMinutes(SHOW_STATS_INTERVAL_MINS);
 
     private final String arquivoBaseUrl = "https://arquivo.pt/textsearch?q=\"%s\"&prettyPrint=false&siteSearch=%s&from=%s&to=%s&maxItems=500&type=html&fields=title,linkToArchive,linkToExtractedText,linkToScreenshot";
 
@@ -87,9 +90,6 @@ public class ArquivoCrawler {
 
     @EventListener(ApplicationReadyEvent.class)
     public void crawl() {
-        final LocalDateTime start = LocalDateTime.now(ZoneOffset.UTC);
-        LocalDateTime nextProgressLog = start.plusMinutes(SHOW_STATS_INTERVAL_MINS);
-
         final List<Url> urls = getUrlsToProcess();
         LOG.info("Number of URLs to hit Arquivo.pt {}", urls.size());
 
@@ -103,30 +103,30 @@ public class ArquivoCrawler {
                 urlRepository.save(new Url(url.getSite(), nextPageUrl));
                 response = getResponseItems(url.getSite().getId(), nextPageUrl);
             }
-
-            // just to show the progress every SHOW_STATS_INTERVAL_MINS minutes
-            LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
-            if (now.isAfter(nextProgressLog)) {
-                printStats();
-                while (!now.isBefore(nextProgressLog)) {
-                    nextProgressLog = nextProgressLog.plusMinutes(SHOW_STATS_INTERVAL_MINS);
-                }
-            }
+            printStats();
         }
 
         final LocalDateTime finished = LocalDateTime.now(ZoneOffset.UTC);
-        LOG.info("Finished crawling: {} results founds in {} mins", responseItemsCollectedTotal, ChronoUnit.MINUTES.between(start, finished));
         printStats();
+        LOG.info("Finished crawling: {} results founds in {} mins", responseItemsCollectedTotal, ChronoUnit.MINUTES.between(start, finished));
     }
 
     private void printStats() {
-        LOG.info("------------------------------------");
-        LOG.info("Total response items collected: {}", responseItemsCollectedTotal);
-        LOG.info("Total response items not news article: {}", responseItemsNotNewsArticleTotal);
-        LOG.info("Total response items invalid URL: {}", responseItemsInvalidUrlTotal);
-        LOG.info("Total response items duplicate: {}", responseItemsDuplicateTotal);
-        LOG.info("Total response items sent to Kafka: {}", responseItemsSentToKafkaTotal);
-        LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal);
+        // just to show the progress every SHOW_STATS_INTERVAL_MINS minutes
+        final LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+        if (now.isAfter(nextProgressLog)) {
+            LOG.info("------------------------------------");
+            LOG.info("Total response items collected: {}", responseItemsCollectedTotal);
+            LOG.info("Total response items not news article: {}", responseItemsNotNewsArticleTotal);
+            LOG.info("Total response items invalid URL: {}", responseItemsInvalidUrlTotal);
+            LOG.info("Total response items duplicate: {}", responseItemsDuplicateTotal);
+            LOG.info("Total response items sent to Kafka: {}", responseItemsSentToKafkaTotal);
+            LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal);
+            LOG.info("Elapsed time: {} minutes", java.time.Duration.between(start, now).toMinutes());
+            while (!now.isBefore(nextProgressLog)) {
+                nextProgressLog = nextProgressLog.plusMinutes(SHOW_STATS_INTERVAL_MINS);
+            }
+        }
     }
 
     private JsonNode getResponseItems(int siteId, String url) {
