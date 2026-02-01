@@ -1,23 +1,23 @@
 package arquivo.processor;
 
-import java.awt.*;
 import java.awt.image.BufferedImage;
 
 /**
- * Utility to automatically crop whitespace/uniform borders from images.
+ * Smart cropper that finds the main content block (text) and crops around it,
+ * preserving the top of the image (headers/banners) while removing side margins.
  */
 public final class ImageAutoCropper {
 
     private ImageAutoCropper() {}
 
     /**
-     * Automatically crop uniform borders (whitespace) from an image.
+     * Smart crop focusing on main content, NEVER cropping the top.
      *
-     * @param img                  BufferedImage to crop
-     * @param tolerance            color tolerance per channel (0-255) for what counts as "background"
-     * @param marginPixels         pixels to keep as margin after cropping
-     * @param minCropThreshold     minimum pixels to crop (avoid cropping tiny amounts)
-     * @return cropped BufferedImage, or original if no significant crop detected
+     * @param img              BufferedImage to crop
+     * @param tolerance        color tolerance for background detection
+     * @param marginPixels     pixels to keep as margin after cropping
+     * @param minCropThreshold minimum pixels to crop
+     * @return cropped BufferedImage
      */
     public static BufferedImage autoCrop(BufferedImage img, int tolerance,
                                          int marginPixels, int minCropThreshold) {
@@ -31,72 +31,205 @@ public final class ImageAutoCropper {
         // Get all pixels once
         final int[] pixels = img.getRGB(0, 0, w, h, null, 0, w);
 
-        // Determine background color (use corners, most screenshots have uniform borders)
+        // Determine background color
         final int bgColor = determineBackgroundColor(pixels, w, h);
         final int bgR = (bgColor >>> 16) & 0xFF;
         final int bgG = (bgColor >>> 8) & 0xFF;
         final int bgB = bgColor & 0xFF;
 
-        // Find content bounds
-        int contentLeft = findLeftBoundary(pixels, w, h, bgR, bgG, bgB, tolerance);
-        int contentRight = findRightBoundary(pixels, w, h, bgR, bgG, bgB, tolerance);
-        int contentTop = findTopBoundary(pixels, w, h, bgR, bgG, bgB, tolerance);
-        int contentBottom = findBottomBoundary(pixels, w, h, bgR, bgG, bgB, tolerance);
+        // Find the main content block
+        // Analyze the middle section (skip top 10% for analysis, but we'll keep it)
+        int analyzeFromY = (int)(h * 0.1);
+        int analyzeToY = (int)(h * 0.95); // Skip bottom 5%
 
-        // Check if crop is significant enough
-        int leftCrop = contentLeft;
-        int rightCrop = w - contentRight - 1;
-        int topCrop = contentTop;
-        int bottomCrop = h - contentBottom - 1;
+        ContentBounds bounds = findMainContentBlock(pixels, w, h, bgR, bgG, bgB, tolerance, analyzeFromY, analyzeToY);
 
-        if (leftCrop < minCropThreshold && rightCrop < minCropThreshold &&
-                topCrop < minCropThreshold && bottomCrop < minCropThreshold) {
-            return img; // Not worth cropping
+        // NEVER crop top - always start from 0
+        bounds.top = 0;
+
+        // Check if crop is significant
+        int leftCrop = bounds.left;
+        int rightCrop = w - bounds.right - 1;
+        int bottomCrop = h - bounds.bottom - 1;
+
+        if (leftCrop < minCropThreshold && rightCrop < minCropThreshold && bottomCrop < minCropThreshold) {
+            return img;
         }
 
-        // Apply margin (but don't exceed original bounds)
-        contentLeft = Math.max(0, contentLeft - marginPixels);
-        contentRight = Math.min(w - 1, contentRight + marginPixels);
-        contentTop = Math.max(0, contentTop - marginPixels);
-        contentBottom = Math.min(h - 1, contentBottom + marginPixels);
+        // Apply margin (but keep top at 0)
+        int contentLeft = Math.max(0, bounds.left - marginPixels);
+        int contentRight = Math.min(w - 1, bounds.right + marginPixels);
+        int contentTop = 0; // NEVER crop top
+        int contentBottom = Math.min(h - 1, bounds.bottom + marginPixels);
 
-        // Validate bounds
+        // Validate
         if (contentLeft >= contentRight || contentTop >= contentBottom) {
-            return img; // Invalid crop, return original
+            return img;
         }
 
-        // Perform crop
         int newWidth = contentRight - contentLeft + 1;
         int newHeight = contentBottom - contentTop + 1;
 
         return img.getSubimage(contentLeft, contentTop, newWidth, newHeight);
     }
 
+    private static class ContentBounds {
+        int left, right, top, bottom;
+
+        ContentBounds(int left, int right, int top, int bottom) {
+            this.left = left;
+            this.right = right;
+            this.top = top;
+            this.bottom = bottom;
+        }
+    }
+
     /**
-     * Determine background color from image corners.
+     * Find main content block by analyzing content density in a specific vertical range.
+     */
+    private static ContentBounds findMainContentBlock(int[] pixels, int w, int h,
+                                                      int bgR, int bgG, int bgB, int tolerance,
+                                                      int analyzeFromY, int analyzeToY) {
+        // Analyze content density in horizontal slices within the analysis range
+        int[] contentPixelsPerRow = new int[h];
+
+        for (int y = analyzeFromY; y < analyzeToY; y++) {
+            int rowOffset = y * w;
+            int contentCount = 0;
+
+            for (int x = 0; x < w; x++) {
+                int pix = pixels[rowOffset + x];
+                int r = (pix >>> 16) & 0xFF;
+                int g = (pix >>> 8) & 0xFF;
+                int b = pix & 0xFF;
+
+                if (Math.abs(r - bgR) > tolerance ||
+                        Math.abs(g - bgG) > tolerance ||
+                        Math.abs(b - bgB) > tolerance) {
+                    contentCount++;
+                }
+            }
+            contentPixelsPerRow[y] = contentCount;
+        }
+
+        // Find bottom bound - where content ends
+        int contentBottom = h - 1;
+
+        // Calculate average content density
+        int avgContentPerRow = 0;
+        int countedRows = 0;
+        for (int y = analyzeFromY; y < analyzeToY; y++) {
+            if (contentPixelsPerRow[y] > w * 0.1) { // At least 10% of width has content
+                avgContentPerRow += contentPixelsPerRow[y];
+                countedRows++;
+            }
+        }
+        if (countedRows > 0) {
+            avgContentPerRow /= countedRows;
+        }
+
+        int densityThreshold = (int)(avgContentPerRow * 0.3); // 30% of average density
+
+        // Find where consistent content ends (from bottom up)
+        for (int y = analyzeToY - 1; y >= analyzeFromY; y--) {
+            if (contentPixelsPerRow[y] >= densityThreshold) {
+                contentBottom = y;
+                break;
+            }
+        }
+
+        // Now find left/right bounds across the ENTIRE height (including top)
+        // This ensures we catch all content including headers
+        int[] contentPixelsPerCol = new int[w];
+
+        for (int x = 0; x < w; x++) {
+            int contentCount = 0;
+
+            // Scan entire height from 0 to contentBottom
+            for (int y = 0; y <= contentBottom; y++) {
+                int pix = pixels[y * w + x];
+                int r = (pix >>> 16) & 0xFF;
+                int g = (pix >>> 8) & 0xFF;
+                int b = pix & 0xFF;
+
+                if (Math.abs(r - bgR) > tolerance ||
+                        Math.abs(g - bgG) > tolerance ||
+                        Math.abs(b - bgB) > tolerance) {
+                    contentCount++;
+                }
+            }
+            contentPixelsPerCol[x] = contentCount;
+        }
+
+        // Calculate average content density per column
+        int avgContentPerCol = 0;
+        int countedCols = 0;
+        for (int x = 0; x < w; x++) {
+            if (contentPixelsPerCol[x] > 0) {
+                avgContentPerCol += contentPixelsPerCol[x];
+                countedCols++;
+            }
+        }
+        if (countedCols > 0) {
+            avgContentPerCol /= countedCols;
+        }
+
+        // Find left/right bounds where there's substantial content
+        int colDensityThreshold = Math.max(3, (int)(avgContentPerCol * 0.15)); // At least 15% of average or 3 pixels
+
+        int contentLeft = 0;
+        for (int x = 0; x < w; x++) {
+            if (contentPixelsPerCol[x] >= colDensityThreshold) {
+                contentLeft = x;
+                break;
+            }
+        }
+
+        int contentRight = w - 1;
+        for (int x = w - 1; x >= contentLeft; x--) {
+            if (contentPixelsPerCol[x] >= colDensityThreshold) {
+                contentRight = x;
+                break;
+            }
+        }
+
+        // Top is always 0 (never crop top)
+        return new ContentBounds(contentLeft, contentRight, 0, contentBottom);
+    }
+
+    /**
+     * Determine background color from image corners and edges.
      */
     private static int determineBackgroundColor(int[] pixels, int w, int h) {
-        // Sample the four corners and use the most common color
-        int[] corners = new int[4];
-        corners[0] = pixels[0];                          // top-left
-        corners[1] = pixels[w - 1];                      // top-right
-        corners[2] = pixels[(h - 1) * w];                // bottom-left
-        corners[3] = pixels[(h - 1) * w + (w - 1)];      // bottom-right
+        // Sample more points for better background detection
+        int[] samples = new int[8];
 
-        // Simple mode: find most frequent corner color
-        int candidate = corners[0];
+        // Four corners
+        samples[0] = pixels[0];                          // top-left
+        samples[1] = pixels[w - 1];                      // top-right
+        samples[2] = pixels[(h - 1) * w];                // bottom-left
+        samples[3] = pixels[(h - 1) * w + (w - 1)];      // bottom-right
+
+        // Edge midpoints
+        samples[4] = pixels[w / 2];                      // top-center
+        samples[5] = pixels[(h / 2) * w];                // left-center
+        samples[6] = pixels[(h / 2) * w + (w - 1)];      // right-center
+        samples[7] = pixels[(h - 1) * w + (w / 2)];      // bottom-center
+
+        // Find the most common color
+        int candidate = samples[0];
         int maxCount = 1;
 
-        for (int i = 0; i < corners.length; i++) {
+        for (int i = 0; i < samples.length; i++) {
             int count = 0;
-            for (int j = 0; j < corners.length; j++) {
-                if (colorMatches(corners[i], corners[j], 10)) {
+            for (int j = 0; j < samples.length; j++) {
+                if (colorMatches(samples[i], samples[j], 15)) {
                     count++;
                 }
             }
             if (count > maxCount) {
                 maxCount = count;
-                candidate = corners[i];
+                candidate = samples[i];
             }
         }
 
@@ -114,100 +247,5 @@ public final class ImageAutoCropper {
         return Math.abs(r1 - r2) <= tolerance &&
                 Math.abs(g1 - g2) <= tolerance &&
                 Math.abs(b1 - b2) <= tolerance;
-    }
-
-    /**
-     * Find leftmost column with non-background content.
-     */
-    private static int findLeftBoundary(int[] pixels, int w, int h,
-                                        int bgR, int bgG, int bgB, int tolerance) {
-        for (int x = 0; x < w; x++) {
-            if (columnHasContent(pixels, w, h, x, bgR, bgG, bgB, tolerance)) {
-                return x;
-            }
-        }
-        return 0;
-    }
-
-    /**
-     * Find rightmost column with non-background content.
-     */
-    private static int findRightBoundary(int[] pixels, int w, int h,
-                                         int bgR, int bgG, int bgB, int tolerance) {
-        for (int x = w - 1; x >= 0; x--) {
-            if (columnHasContent(pixels, w, h, x, bgR, bgG, bgB, tolerance)) {
-                return x;
-            }
-        }
-        return w - 1;
-    }
-
-    /**
-     * Find topmost row with non-background content.
-     */
-    private static int findTopBoundary(int[] pixels, int w, int h,
-                                       int bgR, int bgG, int bgB, int tolerance) {
-        for (int y = 0; y < h; y++) {
-            if (rowHasContent(pixels, w, h, y, bgR, bgG, bgB, tolerance)) {
-                return y;
-            }
-        }
-        return 0;
-    }
-
-    /**
-     * Find bottommost row with non-background content.
-     */
-    private static int findBottomBoundary(int[] pixels, int w, int h,
-                                          int bgR, int bgG, int bgB, int tolerance) {
-        for (int y = h - 1; y >= 0; y--) {
-            if (rowHasContent(pixels, w, h, y, bgR, bgG, bgB, tolerance)) {
-                return y;
-            }
-        }
-        return h - 1;
-    }
-
-    /**
-     * Check if a column has any non-background pixels.
-     */
-    private static boolean columnHasContent(int[] pixels, int w, int h, int x,
-                                            int bgR, int bgG, int bgB, int tolerance) {
-        // Sample every 4th pixel for speed
-        for (int y = 0; y < h; y += 4) {
-            int pix = pixels[y * w + x];
-            int r = (pix >>> 16) & 0xFF;
-            int g = (pix >>> 8) & 0xFF;
-            int b = pix & 0xFF;
-
-            if (Math.abs(r - bgR) > tolerance ||
-                    Math.abs(g - bgG) > tolerance ||
-                    Math.abs(b - bgB) > tolerance) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Check if a row has any non-background pixels.
-     */
-    private static boolean rowHasContent(int[] pixels, int w, int h, int y,
-                                         int bgR, int bgG, int bgB, int tolerance) {
-        int rowOffset = y * w;
-        // Sample every 4th pixel for speed
-        for (int x = 0; x < w; x += 4) {
-            int pix = pixels[rowOffset + x];
-            int r = (pix >>> 16) & 0xFF;
-            int g = (pix >>> 8) & 0xFF;
-            int b = pix & 0xFF;
-
-            if (Math.abs(r - bgR) > tolerance ||
-                    Math.abs(g - bgG) > tolerance ||
-                    Math.abs(b - bgB) > tolerance) {
-                return true;
-            }
-        }
-        return false;
     }
 }
