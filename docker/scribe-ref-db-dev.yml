@@ -55,6 +55,20 @@ services:
       timeout: 10s
       retries: 5
 
+  ocr-service:
+    build: ./ocr-service
+    container_name: ocr-service
+    ports:
+      - "8001:8001"
+    environment:
+      - LOG_LEVEL=INFO
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
 volumes:
   kafka_data:
     driver: local
