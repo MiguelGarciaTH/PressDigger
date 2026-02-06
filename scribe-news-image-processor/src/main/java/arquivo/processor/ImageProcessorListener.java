@@ -46,7 +46,9 @@ public class ImageProcessorListener {
 
     private final MetricService metricService;
 
-    private long responseItemsReceivedTotal, blankImagesTotal, responseItemsIncompleteTotal, duplicateFilesTotal, responseItemsSentToKafkaTotal;
+    private final ImageTextDetector imageTextDetector;
+
+    private long responseItemsReceivedTotal, blankImagesTotal, noTextImageTotal, responseItemsIncompleteTotal, duplicateFilesTotal, responseItemsSentToKafkaTotal;
     private final LocalDateTime start = LocalDateTime.now(ZoneOffset.UTC);
     private LocalDateTime nextProgressLog = start.plusMinutes(SHOW_STATS_INTERVAL_MINS);
 
@@ -64,17 +66,19 @@ public class ImageProcessorListener {
     @Autowired
     public ImageProcessorListener(MetricService metricService,
                                   KafkaTemplate<String, String> kafkaTemplate,
+                                  ImageTextDetector imageTextDetector,
                                   @Value("${scribe-ref.arquivo.scribe-news-image-processor.image-path-directory}") String imagePathDirectory,
                                   @Value("${scribe-ref.arquivo.scribe-news-image-processor.kafka.to-send.topic}") String topic) {
         this.metricService = metricService;
         this.objectMapper = new ObjectMapper();
-
+        this.imageTextDetector = imageTextDetector;
         this.kafkaPublisher = new KafkaPublisher(kafkaTemplate, topic);
 
         responseItemsReceivedTotal = metricService.loadValue("arquivo_image_processor_received_messages_total");
         blankImagesTotal = metricService.loadValue("arquivo_image_processor_blank_images_total");
         responseItemsIncompleteTotal = metricService.loadValue("arquivo_image_processor_response_items_incomplete_total");
         duplicateFilesTotal = metricService.loadValue("arquivo_image_processor_duplicate_files_total");
+        noTextImageTotal = metricService.loadValue("arquivo_image_processor_no_text_images_total");
         responseItemsSentToKafkaTotal = metricService.loadValue("arquivo_image_processor_response_items_sent_to_kafka_total");
 
 
@@ -127,20 +131,20 @@ public class ImageProcessorListener {
                     LOG.warn("Skipping processing for title {} due to blank or fetch failure", responseItem.get("title").asText());
                     return;
                 }
-
+/*
                 // process using the already-read BufferedImage (no re-download)
                 BufferedImage croppedImage = ImageAutoCropper.autoCrop(
                         image,
-                        25,    // tolerance: more permissive for newspaper backgrounds
-                        15,    // margin: 15px border after cropping
-                        50     // minCropThreshold: only crop if removing at least 50 pixels
+                        15,    // Higher tolerance - treat near-white as white
+                        30,    // Smaller margin - only 10px border
+                        50     // Lower threshold - crop even small margins
                 );
 
                 // Use cropped image if crop was successful, otherwise use original
                 BufferedImage finalImage = (croppedImage != null) ? croppedImage : image;
-
-                processImage(originalOutputPath, finalImage);
-                createSmallImage(smallOutputPath, finalImage);
+*/
+                processImage(originalOutputPath, image);
+                createSmallImage(smallOutputPath, image);
                 LOG.trace("Processed image stored {}", originalOutputPath);
             }
 
@@ -214,12 +218,25 @@ public class ImageProcessorListener {
             blankImagesTotal++;
             return null;
         }
+
+        // Check if OCR service is available and use it
+        if (imageTextDetector != null && imageTextDetector.isAvailable()) {
+            boolean hasText = imageTextDetector.hasText(image, 20);
+
+            if (!hasText) {
+                LOG.warn("REJECTED (no text detected by OCR): {}x{}", image.getWidth(), image.getHeight());
+                noTextImageTotal++;
+                return null;
+            }
+        } else {
+            LOG.debug("OCR service not available, skipping text detection");
+        }
+
         // Check if has insufficient content
         boolean hasContent = hasSufficientContentSimple(image);
 
         if (!hasContent) {
-            LOG.info("REJECTED (no content): {}x{} - {}",
-                    image.getWidth(), image.getHeight(), imageUrl);
+            LOG.info("REJECTED (no content): {}x{} - {}", image.getWidth(), image.getHeight(), imageUrl);
             blankImagesTotal++;
             return null;
         }
