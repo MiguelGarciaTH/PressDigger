@@ -143,8 +143,9 @@ public class ImageProcessorListener {
                 // Use cropped image if crop was successful, otherwise use original
                 BufferedImage finalImage = (croppedImage != null) ? croppedImage : image;
 */
+
                 processImage(originalOutputPath, image);
-                createSmallImage(smallOutputPath, image);
+                createSmallImage(smallOutputPath, image.getSubimage(0, 0, image.getWidth(), Math.min(image.getHeight() / 2, (image.getWidth() + (image.getWidth() / 2)))));
                 LOG.trace("Processed image stored {}", originalOutputPath);
             }
 
@@ -202,83 +203,18 @@ public class ImageProcessorListener {
             return null;
         }
 
-        // Log image dimensions
-        LOG.debug("Image {}x{} from {}", image.getWidth(), image.getHeight(), imageUrl);
-
         // Check if truly blank (uniform color)
-        boolean isBlank = ImageBlankDetector.isBlank(
-                image,
-                30,    // very high tolerance
-                0.20,  // 20% can differ
-                5      // sample every 5th pixel
-        );
-
-        if (isBlank) {
-            LOG.info("REJECTED (truly blank): {}x{}", image.getWidth(), image.getHeight());
+        if (ImageBlankDetector.isBlank(image, 30, 0.20, 5)) {
             blankImagesTotal++;
             return null;
         }
 
-        // Check if OCR service is available and use it
-        if (imageTextDetector != null && imageTextDetector.isAvailable()) {
-            boolean hasText = imageTextDetector.hasText(image, 20);
-
-            if (!hasText) {
-                LOG.warn("REJECTED (no text detected by OCR): {}x{}", image.getWidth(), image.getHeight());
-                noTextImageTotal++;
-                return null;
-            }
-        } else {
-            LOG.debug("OCR service not available, skipping text detection");
-        }
-
-        // Check if has insufficient content
-        boolean hasContent = hasSufficientContentSimple(image);
-
-        if (!hasContent) {
-            LOG.info("REJECTED (no content): {}x{} - {}", image.getWidth(), image.getHeight(), imageUrl);
-            blankImagesTotal++;
+        if (!imageTextDetector.hasText(image, 150)) {
+            noTextImageTotal++;
             return null;
         }
 
-        LOG.debug("ACCEPTED: {}x{}", image.getWidth(), image.getHeight());
         return image;
-    }
-
-    // Simplified content check - much more permissive
-    private boolean hasSufficientContentSimple(BufferedImage img) {
-        final int w = img.getWidth();
-        final int h = img.getHeight();
-
-        if (w == 0 || h == 0) return false;
-        if (w < 100 || h < 100) return false; // Too small to be useful
-
-        // Just check if there's ANY variance in the middle 50% of the image
-        int startY = h / 4;
-        int endY = 3 * h / 4;
-        int startX = w / 4;
-        int endX = 3 * w / 4;
-
-        int[] pixels = img.getRGB(startX, startY, endX - startX, endY - startY, null, 0, endX - startX);
-
-        // Check for any color variance
-        if (pixels.length < 100) return true; // Very small area, accept it
-
-        int first = pixels[0];
-        int differences = 0;
-
-        // Sample 100 random pixels
-        int step = Math.max(1, pixels.length / 100);
-        for (int i = 0; i < pixels.length; i += step) {
-            if (Math.abs((pixels[i] & 0xFF) - (first & 0xFF)) > 30 ||
-                    Math.abs(((pixels[i] >> 8) & 0xFF) - ((first >> 8) & 0xFF)) > 30 ||
-                    Math.abs(((pixels[i] >> 16) & 0xFF) - ((first >> 16) & 0xFF)) > 30) {
-                differences++;
-                if (differences > 5) return true; // Found enough variance
-            }
-        }
-
-        return false; // Too uniform
     }
 
     // helper to open URL input stream with configured timeouts
@@ -333,9 +269,11 @@ public class ImageProcessorListener {
             metricService.updateValue("arquivo_image_processor_response_items_incomplete_total", responseItemsIncompleteTotal);
             metricService.updateValue("arquivo_image_processor_duplicate_files_total", duplicateFilesTotal);
             metricService.updateValue("arquivo_image_processor_received_messages_total", responseItemsReceivedTotal);
+            metricService.updateValue("arquivo_image_processor_no_text_images_total", noTextImageTotal);
             LOG.info("------------------------------------");
             LOG.info("Total received messages: {}", responseItemsReceivedTotal);
             LOG.info("Total blank images: {}", blankImagesTotal);
+            LOG.info("Total no-text images: {}", noTextImageTotal);
             LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal);
             LOG.info("Total duplicate files skipped: {}", duplicateFilesTotal);
             LOG.info("Total response items sent to Kafka: {}", responseItemsSentToKafkaTotal);

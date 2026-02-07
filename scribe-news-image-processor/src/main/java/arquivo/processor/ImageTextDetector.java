@@ -75,8 +75,7 @@ public class ImageTextDetector {
                 int wordCount = result.get("word_count").asInt();
                 double confidence = result.get("confidence").asDouble();
 
-                LOG.debug("OCR result: hasText={}, wordCount={}, confidence={}",
-                        hasText, wordCount, confidence);
+                LOG.trace("OCR result: hasText={}, wordCount={}, confidence={}", hasText, wordCount, confidence);
 
                 return hasText;
             } else {

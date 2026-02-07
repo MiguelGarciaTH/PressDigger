@@ -98,10 +98,11 @@ public class ArquivoCrawler {
             LOG.trace("Request for {}", url);
 
             JsonNode response = getResponseItems(url.getSite().getId(), url.getUrl());
-            while (response.has("next_page")) {
+            while (response != null && response.has("next_page")) {
                 final String nextPageUrl = java.net.URLDecoder.decode(response.get("next_page").asText(), StandardCharsets.UTF_8);
                 urlRepository.save(new Url(url.getSite(), nextPageUrl));
                 response = getResponseItems(url.getSite().getId(), nextPageUrl);
+                urlRepository.setProcessed(nextPageUrl);
             }
             printStats();
         }
@@ -131,12 +132,14 @@ public class ArquivoCrawler {
 
     private JsonNode getResponseItems(int siteId, String url) {
         final JsonNode response = webClientService.get(url, "arquivo.pt");
-        final JsonNode responseItems = response.get("response_items");
-        responseItemsCollectedTotal += responseItems.size();
-        processResponseItems(siteId, responseItems);
-        urlRepository.setProcessed(url);
-        metricService.updateValue("arquivo_crawler_response_items_collected_total", responseItemsCollectedTotal);
-        return response;
+        if(response != null && response.has("response_items")) {
+            final JsonNode responseItems = response.get("response_items");
+            responseItemsCollectedTotal += responseItems.size();
+            processResponseItems(siteId, responseItems);
+            metricService.updateValue("arquivo_crawler_response_items_collected_total", responseItemsCollectedTotal);
+            return response;
+        }
+        return null;
     }
 
     private void processResponseItems(int siteId, JsonNode responseItems) {

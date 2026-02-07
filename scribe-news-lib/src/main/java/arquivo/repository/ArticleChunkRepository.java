@@ -13,7 +13,7 @@ public interface ArticleChunkRepository extends JpaRepository<ArticleChunk, Inte
     @Query(value = """
             SELECT
                 ac.*
-            FROM article_chunk ac
+            FROM article_chunk_medium ac
             WHERE
                 ac.embedding <=> CAST(:embedding AS vector) < 1.8
                 OR ac.tsv @@ websearch_to_tsquery('portuguese', :text)
