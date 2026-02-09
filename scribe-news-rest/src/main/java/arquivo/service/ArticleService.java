@@ -9,10 +9,10 @@ import arquivo.services.TextEmbeddingClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.core.env.Environment;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 public class ArticleService {
@@ -41,7 +41,7 @@ public class ArticleService {
     }
 
     @Transactional(readOnly = true)
-    public List<ArticleChunk> search(String inputText) {
+    public Page<ArticleChunk> search(String inputText, Pageable pageable) {
         JsonNode embedded = textEmbeddingClient
                 .getEmbeddings(inputText)
                 .get("embedding");
@@ -50,6 +50,6 @@ public class ArticleService {
 
         String pgVector = textEmbeddingClient.toPgVectorLiteral(queryEmbedding);
 
-        return articleChunkRepository.searchByText(pgVector, inputText, 10);
+        return articleChunkRepository.searchByText(pgVector, inputText, pageable);
     }
 }

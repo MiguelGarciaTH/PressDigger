@@ -3,6 +3,8 @@ package arquivo.controller;
 import arquivo.model.Article;
 import arquivo.model.ArticleChunk;
 import arquivo.service.ArticleService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,8 +25,8 @@ public class ScribeRefController {
     }
 
     @PostMapping("/search")
-    public List<ArticleChunk> search(@RequestBody SearchInputText inputText) {
-        return articleService.search(inputText.text());
+    public Page<ArticleChunk> search(@RequestBody SearchInputText inputText, Pageable pageable) {
+        return articleService.search(inputText.text(), pageable);
     }
 
     record SearchInputText(String text){

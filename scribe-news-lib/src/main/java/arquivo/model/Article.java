@@ -1,5 +1,6 @@
 package arquivo.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
 import java.time.LocalDate;
@@ -49,6 +50,7 @@ public class Article {
     private String smallImagePath;
 
     @OneToMany(mappedBy = "article", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     List<ArticleChunk> articleChunks;
 
     public Article() {

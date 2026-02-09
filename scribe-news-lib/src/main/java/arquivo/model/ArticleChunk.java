@@ -15,7 +15,6 @@ public class ArticleChunk {
     private long id;
 
     @ManyToOne(fetch = FetchType.EAGER)
-    @JsonIgnore
     private Article article;
 
     @NotNull
