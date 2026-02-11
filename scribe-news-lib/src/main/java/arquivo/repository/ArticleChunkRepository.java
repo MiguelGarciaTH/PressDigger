@@ -7,20 +7,19 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.util.List;
-
 
 public interface ArticleChunkRepository extends JpaRepository<ArticleChunk, Integer> {
 
     @Query(
             value = """
-            SELECT
+            SELECT DISTINCT ON (ac.article_id)
                 ac.*
             FROM article_chunk_medium ac
             WHERE
                 ac.embedding <=> CAST(:embedding AS vector) < 1.8
                 OR ac.tsv @@ websearch_to_tsquery('portuguese', :text)
             ORDER BY
+                ac.article_id,
                 CASE
                     WHEN ac.tsv @@ websearch_to_tsquery('portuguese', :text) THEN
                         0.1 * (ac.embedding <=> CAST(:embedding AS vector))
@@ -29,7 +28,7 @@ public interface ArticleChunkRepository extends JpaRepository<ArticleChunk, Inte
                 END ASC
             """,
             countQuery = """
-            SELECT COUNT(*)
+            SELECT COUNT(DISTINCT ac.article_id)
             FROM article_chunk_medium ac
             WHERE
                 ac.embedding <=> CAST(:embedding AS vector) < 1.8
