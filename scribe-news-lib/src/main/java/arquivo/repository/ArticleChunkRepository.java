@@ -12,14 +12,12 @@ public interface ArticleChunkRepository extends JpaRepository<ArticleChunk, Inte
 
     @Query(
             value = """
-            SELECT DISTINCT ON (ac.article_id)
-                ac.*
+            SELECT ac.*
             FROM article_chunk_medium ac
             WHERE
                 ac.embedding <=> CAST(:embedding AS vector) < 1.8
                 OR ac.tsv @@ websearch_to_tsquery('portuguese', :text)
             ORDER BY
-                ac.article_id,
                 CASE
                     WHEN ac.tsv @@ websearch_to_tsquery('portuguese', :text) THEN
                         0.1 * (ac.embedding <=> CAST(:embedding AS vector))
@@ -28,7 +26,7 @@ public interface ArticleChunkRepository extends JpaRepository<ArticleChunk, Inte
                 END ASC
             """,
             countQuery = """
-            SELECT COUNT(DISTINCT ac.article_id)
+            SELECT COUNT(ac.id)
             FROM article_chunk_medium ac
             WHERE
                 ac.embedding <=> CAST(:embedding AS vector) < 1.8
