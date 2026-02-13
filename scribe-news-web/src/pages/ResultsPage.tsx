@@ -49,6 +49,11 @@ export default function ResultsPage() {
   const startXRef = useRef(0)
   const startYRef = useRef(0)
   const originRef = useRef({ x: 0, y: 0 })
+  const stripDraggingRef = useRef(false)
+  const stripStartXRef = useRef(0)
+  const stripScrollLeftRef = useRef(0)
+  const stripClickTargetRef = useRef<number | null>(null)
+  const stripDragDistanceRef = useRef(0)
 
   const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v))
 
@@ -105,6 +110,8 @@ export default function ResultsPage() {
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (e.button !== 0) return
+    // Don't start drag if clicking on a button or interactive element
+    if ((e.target as HTMLElement).closest('button, a, [role="button"]')) return
     e.preventDefault()
     isDraggingRef.current = true
     startXRef.current = e.clientX
@@ -164,6 +171,60 @@ export default function ResultsPage() {
     strip.addEventListener("wheel", onWheel, { passive: false })
     return () => strip.removeEventListener("wheel", onWheel)
   }, [])
+
+  // Mouse drag scrolling for thumbnail strip
+  useEffect(() => {
+    const strip = stripRef.current
+    if (!strip) return
+    
+    const onMouseDown = (e: MouseEvent) => {
+      stripDraggingRef.current = true
+      stripStartXRef.current = e.pageX - strip.offsetLeft
+      stripScrollLeftRef.current = strip.scrollLeft
+      stripDragDistanceRef.current = 0
+      // Check if clicking on a thumbnail
+      const thumbEl = (e.target as HTMLElement).closest('[data-thumb-idx]')
+      stripClickTargetRef.current = thumbEl ? parseInt(thumbEl.getAttribute('data-thumb-idx') || '-1', 10) : null
+      strip.style.cursor = 'grabbing'
+    }
+    
+    const onMouseUp = () => {
+      // If we didn't drag much, treat it as a click
+      if (stripClickTargetRef.current !== null && stripDragDistanceRef.current < 5) {
+        onSelect(stripClickTargetRef.current)
+      }
+      stripDraggingRef.current = false
+      stripClickTargetRef.current = null
+      strip.style.cursor = 'grab'
+    }
+    
+    const onMouseMove = (e: MouseEvent) => {
+      if (!stripDraggingRef.current) return
+      e.preventDefault()
+      const x = e.pageX - strip.offsetLeft
+      const walk = (x - stripStartXRef.current) * 1.5
+      stripDragDistanceRef.current = Math.abs(x - stripStartXRef.current)
+      strip.scrollLeft = stripScrollLeftRef.current - walk
+    }
+    
+    const onMouseLeave = () => {
+      stripDraggingRef.current = false
+      stripClickTargetRef.current = null
+      strip.style.cursor = 'grab'
+    }
+    
+    strip.addEventListener('mousedown', onMouseDown)
+    strip.addEventListener('mouseup', onMouseUp)
+    strip.addEventListener('mousemove', onMouseMove)
+    strip.addEventListener('mouseleave', onMouseLeave)
+    
+    return () => {
+      strip.removeEventListener('mousedown', onMouseDown)
+      strip.removeEventListener('mouseup', onMouseUp)
+      strip.removeEventListener('mousemove', onMouseMove)
+      strip.removeEventListener('mouseleave', onMouseLeave)
+    }
+  }, [onSelect])
 
   // Keyboard navigation
   useEffect(() => {
@@ -269,6 +330,7 @@ export default function ResultsPage() {
               
               return (
                 <div
+                  onPointerDown={(e) => e.stopPropagation()}
                   style={{
                     position: "absolute",
                     right: 8,
@@ -340,6 +402,7 @@ export default function ResultsPage() {
             {/* Go to Top button - centered at top, only visible when scrolled */}
             {(translate.x !== 0 || translate.y !== 0) && (
               <button
+                onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => setTranslate({ x: 0, y: 0 })}
                 style={{
                   position: "absolute",
@@ -366,7 +429,7 @@ export default function ResultsPage() {
             )}
 
             {/* Zoom controls */}
-            <div style={{ position: "absolute", left: "50%", bottom: 12, transform: "translateX(-50%)", display: "flex", gap: 8, background: "rgba(0,0,0,0.75)", padding: "8px 16px", borderRadius: 24 }}>
+            <div onPointerDown={(e) => e.stopPropagation()} style={{ position: "absolute", left: "50%", bottom: 12, transform: "translateX(-50%)", display: "flex", gap: 8, background: "rgba(0,0,0,0.75)", padding: "8px 16px", borderRadius: 24 }}>
               <button onClick={() => zoomAt(scale - 0.3)} style={{ width: 32, height: 32, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 18, cursor: "pointer" }}>−</button>
               <div style={{ minWidth: 60, textAlign: "center", padding: "4px 8px", background: "rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 13, color: "#fff" }}>{Math.round((scale / baselineScale) * 100)}%</div>
               <button onClick={() => zoomAt(scale + 0.3)} style={{ width: 32, height: 32, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 18, cursor: "pointer" }}>+</button>
@@ -383,25 +446,21 @@ export default function ResultsPage() {
 
       <div id="viewer-resizer" style={{ height: 8, cursor: "row-resize", background: "linear-gradient(90deg,#222,#111,#222)", borderRadius: 4, margin: "12px 0" }} />
 
-      <div ref={stripRef} style={{ display: "flex", gap: 12, padding: 12, overflowX: "auto", background: "#060606", borderRadius: 8, height: 160 }}>
-        <div style={{ width: 40, flexShrink: 0 }} />
+      <div ref={stripRef} style={{ display: "flex", gap: 12, padding: 12, overflowX: "auto", background: "#060606", borderRadius: 8, height: 160, cursor: "grab" }}>
+        <div className="strip-spacer" style={{ width: 40, flexShrink: 0 }} />
         {frames.map((it: any, idx: number) => {
           const art = it.article ?? {}
           const thumbUrl = getImageUrl(art.smallImagePath, 'small')
           return (
-            <div key={idx} ref={el => { thumbRefs.current[idx] = el }} onClick={() => onSelect(idx)}
+            <div key={idx} ref={el => { thumbRefs.current[idx] = el }} 
+            data-thumb-idx={idx}
               style={{ flexShrink: 0, width: 200, height: 136, background: "#111", borderRadius: 6, overflow: "hidden", border: selectedIndex === idx ? "2px solid #3aa" : "1px solid #222", cursor: "pointer", position: "relative", transform: selectedIndex === idx ? "scale(1.03)" : "none", transition: "transform 120ms" }}>
-              {thumbUrl && <img src={thumbUrl} alt={art.title ?? "thumb"} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top", filter: "grayscale(1)" }} />}
-              <div style={{ position: "absolute", left: 6, top: 6, fontSize: 11, color: "#fff", background: "rgba(0,0,0,0.6)", padding: "2px 6px", borderRadius: 4, fontWeight: 500 }}>{idx + 1}</div>
+              {thumbUrl && <img src={thumbUrl} alt={art.title ?? "thumb"} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top", filter: "grayscale(1)", pointerEvents: "none" }} />}
+              <div style={{ position: "absolute", left: 6, top: 6, fontSize: 11, color: "#fff", background: "rgba(0,0,0,0.6)", padding: "2px 6px", borderRadius: 4, fontWeight: 500, pointerEvents: "none" }}>{idx + 1}</div>
             </div>
           )
         })}
-        <div style={{ width: 120, flexShrink: 0 }} />
-      </div>
-
-      <div style={{ display: "flex", gap: 12, marginTop: 12 }}>
-        <button onClick={() => onSelect(Math.max(0, selectedIndex - 1))} className="px-3 py-2 bg-gray-800 text-white rounded">◀</button>
-        <button onClick={() => onSelect(Math.min(frames.length - 1, selectedIndex + 1))} className="px-3 py-2 bg-gray-800 text-white rounded">▶</button>
+        <div className="strip-spacer" style={{ width: 120, flexShrink: 0 }} />
       </div>
     </div>
   )
