@@ -54,6 +54,7 @@ export default function ResultsPage() {
   const stripScrollLeftRef = useRef(0)
   const stripClickTargetRef = useRef<number | null>(null)
   const stripDragDistanceRef = useRef(0)
+  const sidebarRef = useRef<HTMLDivElement | null>(null)
 
   const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v))
 
@@ -110,8 +111,8 @@ export default function ResultsPage() {
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (e.button !== 0) return
-    // Don't start drag if clicking on a button or interactive element
-    if ((e.target as HTMLElement).closest('button, a, [role="button"]')) return
+    // Don't start drag if clicking on a button, interactive element, or sidebar
+    if ((e.target as HTMLElement).closest('button, a, [role="button"], [data-sidebar]')) return
     e.preventDefault()
     isDraggingRef.current = true
     startXRef.current = e.clientX
@@ -152,6 +153,8 @@ export default function ResultsPage() {
     const el = viewerRef.current
     if (!el) return
     const onWheel = (e: WheelEvent) => {
+      // Don't zoom if mouse is over sidebar
+      if (sidebarRef.current?.contains(e.target as Node)) return
       e.preventDefault()
       const factor = Math.pow(1.0025, -e.deltaY)
       setScale((current) => clamp(current * factor, 0.3, 20))
@@ -302,9 +305,9 @@ export default function ResultsPage() {
     <div style={{ position: "fixed", inset: 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", padding: 20, color: "#eee", display: "flex", flexDirection: "column", overflow: "hidden", zIndex: 60 }}>
       <h2 className="text-xl font-semibold mb-3">Microfilm — Results for "{query}"</h2>
 
-      <div ref={viewerRef} onPointerDown={handlePointerDown} style={{ flex: 1, height: viewerHeight, display: "flex", gap: 16, overflow: "hidden", cursor: "grab" }}>
+      <div ref={viewerRef} onPointerDown={handlePointerDown} style={{ flex: 1, height: viewerHeight, display: "flex", gap: 0, overflow: "hidden", cursor: "grab" }}>
         <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
-          <div ref={paperRef} style={{ width: "92%", height: "100%", background: "#faf6ef", padding: 12, borderRadius: 6, boxShadow: "0 8px 30px rgba(0,0,0,0.5)", overflow: "hidden", position: "relative" }}>
+          <div ref={paperRef} style={{ width: "100%", height: "100%", background: "#faf6ef", padding: 12, borderRadius: 6, boxShadow: "0 8px 30px rgba(0,0,0,0.5)", overflow: "hidden", position: "relative" }}>
             {viewerSrc ? (
               <img ref={imgRef} src={viewerSrc} alt={article.title ?? "article"} onLoad={onViewerImgLoad} onDoubleClick={onImageDoubleClick} draggable={false}
                 style={{ 
@@ -437,10 +440,55 @@ export default function ResultsPage() {
             </div>
           </div>
         </div>
-        <div style={{ width: 280, display: "flex", flexDirection: "column", gap: 12 }}>
-          <a href={article.linkToArchiveTrimmed ?? article.linkToArchive} target="_blank" rel="noopener noreferrer" style={{ color: "#9bd", fontWeight: 700, fontSize: 15 }}>{article.title ?? "Untitled"}</a>
-          {article.publishedDate && <div style={{ fontSize: 12, color: "#9aa" }}>{article.publishedDate}</div>}
-          <p style={{ fontSize: 12, color: "#ddd", lineHeight: 1.5, flex: 1, overflow: "auto" }}>{selected.content ?? article.summary ?? "No summary."}</p>
+        {/* Sidebar */}
+        <div 
+          ref={sidebarRef}
+          data-sidebar
+          onPointerDown={(e) => e.stopPropagation()}
+          onWheel={(e) => e.stopPropagation()}
+          style={{ width: 320, flexShrink: 0, display: "flex", flexDirection: "column", justifyContent: "center", gap: 12, padding: "16px 16px 16px 24px", cursor: "default" }}
+        >
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+            <span style={{ color: "#eee", fontWeight: 600, fontSize: 16, lineHeight: 1.4, flex: 1 }}>
+              {article.title ?? "Untitled"}
+            </span>
+            <a 
+              href={article.linkToArchiveTrimmed ?? article.linkToArchive} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              title="Open in archive"
+              style={{ 
+                color: "#888", 
+                textDecoration: "none", 
+                flexShrink: 0,
+                padding: 4,
+                borderRadius: 4,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.color = '#aaa'}
+              onMouseLeave={(e) => e.currentTarget.style.color = '#888'}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+              </svg>
+            </a>
+          </div>
+          
+          {article.publishedDate && (
+            <div style={{ fontSize: 13, color: "#888" }}>{article.publishedDate}</div>
+          )}
+          
+          <p style={{ 
+            fontSize: 14, 
+            color: "#ccc", 
+            lineHeight: 1.6, 
+            margin: 0
+          }}>
+            {article.summary ?? "No summary available."}
+          </p>
         </div>
       </div>
 
@@ -453,7 +501,7 @@ export default function ResultsPage() {
           const thumbUrl = getImageUrl(art.smallImagePath, 'small')
           return (
             <div key={idx} ref={el => { thumbRefs.current[idx] = el }} 
-            data-thumb-idx={idx}
+              data-thumb-idx={idx}
               style={{ flexShrink: 0, width: 200, height: 136, background: "#111", borderRadius: 6, overflow: "hidden", border: selectedIndex === idx ? "2px solid #3aa" : "1px solid #222", cursor: "pointer", position: "relative", transform: selectedIndex === idx ? "scale(1.03)" : "none", transition: "transform 120ms" }}>
               {thumbUrl && <img src={thumbUrl} alt={art.title ?? "thumb"} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top", filter: "grayscale(1)", pointerEvents: "none" }} />}
               <div style={{ position: "absolute", left: 6, top: 6, fontSize: 11, color: "#fff", background: "rgba(0,0,0,0.6)", padding: "2px 6px", borderRadius: 4, fontWeight: 500, pointerEvents: "none" }}>{idx + 1}</div>
@@ -465,3 +513,4 @@ export default function ResultsPage() {
     </div>
   )
 }
+
