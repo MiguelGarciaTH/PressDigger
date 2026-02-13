@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react"
 import { useSearchParams, useLocation } from "react-router-dom"
 import { SEARCH_URL } from "../config"
+import { createWorker } from 'tesseract.js'
 
 function isHttpUrl(s?: string) {
   return typeof s === "string" && /^https?:\/\//i.test(s)
@@ -39,6 +40,9 @@ export default function ResultsPage() {
   const [viewerHeight, setViewerHeight] = useState<number>(Math.round(window.innerHeight * 0.68))
   const [baselineScale, setBaselineScale] = useState<number>(0.5)
   const [viewerSrc, setViewerSrc] = useState<string>("")
+  const [ocrText, setOcrText] = useState<string>("")
+  const [ocrLoading, setOcrLoading] = useState(false)
+  const [showOcrModal, setShowOcrModal] = useState(false)
 
   const viewerRef = useRef<HTMLDivElement | null>(null)
   const paperRef = useRef<HTMLDivElement | null>(null)
@@ -255,6 +259,85 @@ export default function ResultsPage() {
     return () => { handle.removeEventListener("pointerdown", onDown); window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp) }
   }, [viewerHeight])
 
+  const extractText = useCallback(async () => {
+    if (!viewerSrc || ocrLoading || !imgRef.current || !paperRef.current) return
+    setOcrLoading(true)
+    setShowOcrModal(true)
+    setOcrText("")
+    
+    try {
+      const img = imgRef.current
+      const paper = paperRef.current
+      const paperRect = paper.getBoundingClientRect()
+      
+      // Calculate visible area in image coordinates
+      const scaledW = img.naturalWidth * scale
+      const scaledH = img.naturalHeight * scale
+      
+      // Image position relative to paper (centered + translate)
+      const imgLeft = (paperRect.width - scaledW) / 2 + translate.x
+      const imgTop = translate.y
+      
+      // Visible bounds in scaled image coordinates
+      const visibleLeft = Math.max(0, -imgLeft)
+      const visibleTop = Math.max(0, -imgTop)
+      const visibleRight = Math.min(scaledW, paperRect.width - imgLeft)
+      const visibleBottom = Math.min(scaledH, paperRect.height - imgTop)
+      
+      // Convert to original image coordinates
+      const cropX = visibleLeft / scale
+      const cropY = visibleTop / scale
+      const cropW = (visibleRight - visibleLeft) / scale
+      const cropH = (visibleBottom - visibleTop) / scale
+      
+      // Create canvas with cropped visible area
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.max(1, Math.round(cropW))
+      canvas.height = Math.max(1, Math.round(cropH))
+      const ctx = canvas.getContext('2d')
+      
+      if (!ctx) throw new Error("Could not get canvas context")
+      
+      // Draw the cropped image
+      ctx.drawImage(
+        img,
+        Math.round(cropX), Math.round(cropY), Math.round(cropW), Math.round(cropH),
+        0, 0, canvas.width, canvas.height
+      )
+      
+      // Preprocess: increase contrast and apply threshold for better OCR
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      const data = imageData.data
+      
+      for (let i = 0; i < data.length; i += 4) {
+        // Convert to grayscale
+        const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114
+        // Apply contrast enhancement
+        const contrast = 1.5
+        const adjusted = ((gray / 255 - 0.5) * contrast + 0.5) * 255
+        // Threshold to make text sharper (binarization)
+        const final = adjusted > 140 ? 255 : 0
+        data[i] = final
+        data[i + 1] = final
+        data[i + 2] = final
+      }
+      
+      ctx.putImageData(imageData, 0, 0)
+      
+      const croppedDataUrl = canvas.toDataURL('image/png')
+      
+      const worker = await createWorker('eng')
+      const { data: { text } } = await worker.recognize(croppedDataUrl)
+      setOcrText(text)
+      await worker.terminate()
+    } catch (error) {
+      console.error("OCR error:", error)
+      setOcrText("Failed to extract text. Please try again.")
+    } finally {
+      setOcrLoading(false)
+    }
+  }, [viewerSrc, ocrLoading, scale, translate.x, translate.y])
+
   const loadMore = useCallback(async () => {
     if (loading || last || !query) return
     setLoading(true)
@@ -433,10 +516,15 @@ export default function ResultsPage() {
 
             {/* Zoom controls */}
             <div onPointerDown={(e) => e.stopPropagation()} style={{ position: "absolute", left: "50%", bottom: 24, transform: "translateX(-50%)", display: "flex", gap: 8, background: "rgba(0,0,0,0.75)", padding: "8px 16px", borderRadius: 24 }}>
+              <button onClick={extractText} disabled={ocrLoading} style={{ padding: "4px 10px", borderRadius: 12, border: "none", background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 12, cursor: ocrLoading ? "wait" : "pointer", opacity: ocrLoading ? 0.5 : 1 }}>
+                📝 Text
+              </button>
               <button onClick={() => zoomAt(scale - 0.3)} style={{ width: 32, height: 32, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 18, cursor: "pointer" }}>−</button>
               <div style={{ minWidth: 60, textAlign: "center", padding: "4px 8px", background: "rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 13, color: "#fff" }}>{Math.round((scale / baselineScale) * 100)}%</div>
               <button onClick={() => zoomAt(scale + 0.3)} style={{ width: 32, height: 32, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 18, cursor: "pointer" }}>+</button>
-              <button onClick={() => zoomAt(baselineScale)} style={{ padding: "4px 10px", borderRadius: 12, border: "none", background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 12, cursor: "pointer" }}>Fit</button>
+              <button onClick={() => zoomAt(baselineScale)} style={{ padding: "4px 10px", borderRadius: 12, border: "none", background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 12, cursor: "pointer" }}>
+                ⛶ Fit
+              </button>
             </div>
           </div>
         </div>
@@ -491,6 +579,70 @@ export default function ResultsPage() {
           </p>
         </div>
       </div>
+
+      {/* OCR Modal */}
+      {showOcrModal && (
+        <div 
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}
+          onClick={() => !ocrLoading && setShowOcrModal(false)}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: "#1a1a1a", borderRadius: 12, padding: 24, width: "90%", maxWidth: 700, maxHeight: "80vh", display: "flex", flexDirection: "column", color: "#eee" }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ margin: 0, fontSize: 18 }}>Extracted Text</h3>
+              <button 
+                onClick={() => setShowOcrModal(false)} 
+                disabled={ocrLoading}
+                style={{ background: "none", border: "none", color: "#888", fontSize: 24, cursor: "pointer", padding: 0, lineHeight: 1 }}
+              >
+                ×
+              </button>
+            </div>
+            {ocrLoading ? (
+              <div style={{ textAlign: "center", padding: 60 }}>
+                <div style={{ fontSize: 32, marginBottom: 16 }}>⏳</div>
+                <div style={{ color: "#aaa" }}>Extracting text from image...</div>
+                <div style={{ color: "#666", fontSize: 12, marginTop: 8 }}>This may take 10-30 seconds on first use</div>
+              </div>
+            ) : (
+              <>
+                <pre style={{ 
+                  flex: 1, 
+                  whiteSpace: "pre-wrap", 
+                  wordBreak: "break-word",
+                  fontSize: 13, 
+                  lineHeight: 1.6, 
+                  background: "#111", 
+                  padding: 16, 
+                  borderRadius: 8, 
+                  overflow: "auto", 
+                  userSelect: "text",
+                  margin: 0,
+                  minHeight: 200
+                }}>
+                  {ocrText || "No text found."}
+                </pre>
+                <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+                  <button 
+                    onClick={() => navigator.clipboard.writeText(ocrText)}
+                    style={{ padding: "10px 20px", background: "#333", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 14 }}
+                  >
+                    📋 Copy to Clipboard
+                  </button>
+                  <button 
+                    onClick={() => setShowOcrModal(false)}
+                    style={{ padding: "10px 20px", background: "#222", border: "1px solid #444", borderRadius: 8, color: "#aaa", cursor: "pointer", fontSize: 14 }}
+                  >
+                    Close
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       <div id="viewer-resizer" style={{ height: 8, cursor: "row-resize", background: "linear-gradient(90deg,#222,#111,#222)", borderRadius: 4, margin: "12px 0" }} />
 
