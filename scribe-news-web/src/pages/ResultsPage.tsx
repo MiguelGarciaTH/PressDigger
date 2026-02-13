@@ -337,6 +337,34 @@ export default function ResultsPage() {
               )
             })()}
 
+            {/* Go to Top button - centered at top, only visible when scrolled */}
+            {(translate.x !== 0 || translate.y !== 0) && (
+              <button
+                onClick={() => setTranslate({ x: 0, y: 0 })}
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: 12,
+                  transform: "translateX(-50%)",
+                  background: "rgba(0,0,0,0.75)",
+                  border: "none",
+                  borderRadius: 24,
+                  padding: "10px 20px",
+                  color: "#fff",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  backdropFilter: "blur(10px)",
+                }}
+                title="Go to top"
+              >
+                <span style={{ fontSize: 16 }}>↑</span> Top
+              </button>
+            )}
+
             {/* Zoom controls */}
             <div style={{ position: "absolute", left: "50%", bottom: 12, transform: "translateX(-50%)", display: "flex", gap: 8, background: "rgba(0,0,0,0.75)", padding: "8px 16px", borderRadius: 24 }}>
               <button onClick={() => zoomAt(scale - 0.3)} style={{ width: 32, height: 32, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 18, cursor: "pointer" }}>−</button>
