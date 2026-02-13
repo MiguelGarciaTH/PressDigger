@@ -27,8 +27,10 @@ export default function ResultsPage() {
   const location = useLocation()
   const state = (location.state || {}) as any
 
-  const query = state.query ?? params.get("q") ?? ""
+  const initialQuery = state.query ?? params.get("q") ?? ""
   const initialItems = (state.results as any)?.content ?? []
+
+  const [query, setQuery] = useState<string>(initialQuery)
 
   const [frames, setFrames] = useState<any[]>(initialItems)
   const [page, setPage] = useState<number>(0)
@@ -43,6 +45,10 @@ export default function ResultsPage() {
   const [ocrText, setOcrText] = useState<string>("")
   const [ocrLoading, setOcrLoading] = useState(false)
   const [showOcrModal, setShowOcrModal] = useState(false)
+  const [searchExpanded, setSearchExpanded] = useState(false)
+  const [searchInput, setSearchInput] = useState("")
+  const [searching, setSearching] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
 
   const viewerRef = useRef<HTMLDivElement | null>(null)
   const paperRef = useRef<HTMLDivElement | null>(null)
@@ -61,6 +67,42 @@ export default function ResultsPage() {
   const sidebarRef = useRef<HTMLDivElement | null>(null)
 
   const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v))
+
+  const handleSearch = useCallback(async (e?: React.FormEvent) => {
+    e?.preventDefault()
+    if (!searchInput.trim() || searching) return
+    setSearching(true)
+    const queryText = searchInput.trim()
+    try {
+      const res = await fetch(`${SEARCH_URL}?page=0&size=20`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: queryText }),
+      })
+      if (!res.ok) throw new Error(`Failed: ${res.status}`)
+      const data = await res.json()
+      setFrames(data.content ?? [])
+      setPage(0)
+      setLast(!!data.last)
+      setSelectedIndex(0)
+      setTranslate({ x: 0, y: 0 })
+      setQuery(queryText)
+      setSearchExpanded(false)
+      setSearchInput("")
+      window.history.replaceState({}, '', `/results?q=${encodeURIComponent(queryText)}`)
+    } catch (error) {
+      console.error("Search error:", error)
+    } finally {
+      setSearching(false)
+    }
+  }, [searchInput, searching])
+
+  // Focus input when expanded
+  useEffect(() => {
+    if (searchExpanded && searchInputRef.current) {
+      searchInputRef.current.focus()
+    }
+  }, [searchExpanded])
 
   // Zoom function
   const zoomAt = useCallback((nextScale: number) => {
@@ -386,7 +428,90 @@ export default function ResultsPage() {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", padding: 20, color: "#eee", display: "flex", flexDirection: "column", overflow: "hidden", zIndex: 60 }}>
-      <h2 className="text-xl font-semibold mb-3">Microfilm — Results for "{query}"</h2>
+      
+      {/* Header with Search and Results label */}
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 12 }}>
+        <form 
+          onSubmit={handleSearch}
+          onMouseEnter={() => setSearchExpanded(true)}
+          onMouseLeave={() => !searchInput && setSearchExpanded(false)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            background: searchExpanded ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.1)",
+            borderRadius: 24,
+            padding: "8px 12px",
+            width: searchExpanded ? 360 : 40,
+            minWidth: 40,
+            height: 40,
+            transition: "all 300ms cubic-bezier(0.4, 0, 0.2, 1)",
+            overflow: "hidden",
+            cursor: searchExpanded ? "text" : "pointer",
+            flexShrink: 0,
+          }}
+          onClick={() => setSearchExpanded(true)}
+        >
+          <svg 
+            width="20" 
+            height="20" 
+            viewBox="0 0 24 24" 
+            fill="none" 
+            stroke={searchExpanded ? "#333" : "#fff"} 
+            strokeWidth="2" 
+            strokeLinecap="round" 
+            strokeLinejoin="round"
+            style={{ flexShrink: 0, transition: "stroke 200ms" }}
+          >
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" />
+          </svg>
+          <input
+            ref={searchInputRef}
+            type="text"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onFocus={() => setSearchExpanded(true)}
+            onBlur={() => !searchInput && setTimeout(() => setSearchExpanded(false), 200)}
+            placeholder="Search articles..."
+            style={{
+              flex: 1,
+              border: "none",
+              outline: "none",
+              background: "transparent",
+              fontSize: 14,
+              color: "#333",
+              marginLeft: 12,
+              width: searchExpanded ? "100%" : 0,
+              opacity: searchExpanded ? 1 : 0,
+              transition: "opacity 200ms",
+              minWidth: 0,
+            }}
+          />
+          {searchExpanded && searchInput && (
+            <button
+              type="submit"
+              disabled={searching}
+              style={{
+                background: "#333",
+                border: "none",
+                borderRadius: 16,
+                padding: "6px 14px",
+                color: "#fff",
+                fontSize: 12,
+                cursor: searching ? "wait" : "pointer",
+                opacity: searching ? 0.6 : 1,
+                flexShrink: 0,
+              }}
+            >
+              {searching ? "..." : "Go"}
+            </button>
+          )}
+        </form>
+        
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 500, color: "#888", transition: "opacity 200ms", opacity: searchExpanded && searchInput ? 0.4 : 1 }}>
+          Results for <span style={{ color: "#eee", fontWeight: 600 }}>"{searchInput && searchExpanded ? searchInput : query}"</span>
+        </h2>
+      </div>
 
       <div ref={viewerRef} onPointerDown={handlePointerDown} style={{ flex: 1, height: viewerHeight, display: "flex", gap: 0, overflow: "hidden", cursor: "grab" }}>
         <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
