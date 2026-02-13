@@ -429,7 +429,7 @@ export default function ResultsPage() {
             )}
 
             {/* Zoom controls */}
-            <div onPointerDown={(e) => e.stopPropagation()} style={{ position: "absolute", left: "50%", bottom: 12, transform: "translateX(-50%)", display: "flex", gap: 8, background: "rgba(0,0,0,0.75)", padding: "8px 16px", borderRadius: 24 }}>
+            <div onPointerDown={(e) => e.stopPropagation()} style={{ position: "absolute", left: "50%", bottom: 24, transform: "translateX(-50%)", display: "flex", gap: 8, background: "rgba(0,0,0,0.75)", padding: "8px 16px", borderRadius: 24 }}>
               <button onClick={() => zoomAt(scale - 0.3)} style={{ width: 32, height: 32, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 18, cursor: "pointer" }}>−</button>
               <div style={{ minWidth: 60, textAlign: "center", padding: "4px 8px", background: "rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 13, color: "#fff" }}>{Math.round((scale / baselineScale) * 100)}%</div>
               <button onClick={() => zoomAt(scale + 0.3)} style={{ width: 32, height: 32, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 18, cursor: "pointer" }}>+</button>
