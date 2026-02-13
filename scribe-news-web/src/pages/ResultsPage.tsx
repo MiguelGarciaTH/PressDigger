@@ -260,62 +260,82 @@ export default function ResultsPage() {
             ) : <div style={{ color: "#666" }}>No image</div>}
 
             {/* Minimap */}
-            {viewerSrc && (
-              <div
-                style={{
-                  position: "absolute",
-                  right: 8,
-                  top: 8,
-                  width: 120,
-                  height: 80,
-                  background: "rgba(0, 0, 0, 0.7)",
-                  border: "1px solid rgba(255, 255, 255, 0.3)",
-                  borderRadius: 4,
-                  overflow: "hidden",
-                  cursor: "pointer",
-                }}
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect()
-                  const ratioX = (e.clientX - rect.left) / rect.width
-                  const ratioY = (e.clientY - rect.top) / rect.height
-                  const paperEl = paperRef.current
-                  const img = imgRef.current
-                  if (paperEl && img) {
-                    const imgW = img.naturalWidth * scale
-                    const imgH = img.naturalHeight * scale
-                    const targetX = -(imgW * ratioX - paperEl.clientWidth / 2)
-                    const targetY = -(imgH * ratioY - paperEl.clientHeight / 2)
-                    setTranslate({ x: Math.round(targetX), y: Math.round(targetY) })
-                  }
-                }}
-              >
+            {viewerSrc && imgRef.current && (() => {
+              const img = imgRef.current
+              const aspectRatio = img.naturalHeight / img.naturalWidth
+              // Dynamic height: min 80px, max 160px, based on aspect ratio
+              const minimapW = 120
+              const minimapH = Math.min(160, Math.max(80, minimapW * aspectRatio))
+              
+              return (
                 <div
                   style={{
                     position: "absolute",
-                    inset: 0,
-                    backgroundImage: `url(${viewerSrc})`,
-                    backgroundSize: "contain",
-                    backgroundRepeat: "no-repeat",
-                    backgroundPosition: "center",
-                    opacity: 0.6,
+                    right: 8,
+                    top: 8,
+                    width: minimapW,
+                    height: minimapH,
+                    background: "rgba(0, 0, 0, 0.7)",
+                    border: "1px solid rgba(255, 255, 255, 0.3)",
+                    borderRadius: 4,
+                    overflow: "hidden",
+                    cursor: "pointer",
                   }}
-                />
-                {paperRef.current && imgRef.current && (
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect()
+                    const ratioX = (e.clientX - rect.left) / rect.width
+                    const ratioY = (e.clientY - rect.top) / rect.height
+                    const paperEl = paperRef.current
+                    if (paperEl && img) {
+                      const imgW = img.naturalWidth * scale
+                      const imgH = img.naturalHeight * scale
+                      const targetX = -(imgW * ratioX - paperEl.clientWidth / 2)
+                      const targetY = -(imgH * ratioY - paperEl.clientHeight / 2)
+                      setTranslate({ x: Math.round(targetX), y: Math.round(targetY) })
+                    }
+                  }}
+                >
                   <div
                     style={{
                       position: "absolute",
-                      border: "2px solid #0f0",
-                      pointerEvents: "none",
-                      left: `${clamp(50 - (translate.x / (imgRef.current.naturalWidth * scale)) * 100, 0, 100)}%`,
-                      top: `${clamp(50 - (translate.y / (imgRef.current.naturalHeight * scale)) * 100, 0, 100)}%`,
-                      width: `${clamp((paperRef.current.clientWidth / (imgRef.current.naturalWidth * scale)) * 100, 5, 100)}%`,
-                      height: `${clamp((paperRef.current.clientHeight / (imgRef.current.naturalHeight * scale)) * 100, 5, 100)}%`,
-                      transform: "translate(-50%, -50%)",
+                      inset: 0,
+                      backgroundImage: `url(${viewerSrc})`,
+                      backgroundSize: "contain",
+                      backgroundRepeat: "no-repeat",
+                      backgroundPosition: "center",
+                      opacity: 0.6,
                     }}
                   />
-                )}
-              </div>
-            )}
+                  {paperRef.current && (() => {
+                    const paper = paperRef.current
+                    const scaledW = img.naturalWidth * scale
+                    const scaledH = img.naturalHeight * scale
+                    
+                    const vpW = Math.min((paper.clientWidth / scaledW) * 100, 100)
+                    const vpH = Math.min((paper.clientHeight / scaledH) * 100, 100)
+                    
+                    const centerX = 50 - (translate.x / scaledW) * 100
+                    const centerY = (vpH / 2) - (translate.y / scaledH) * 100
+                    
+                    return (
+                      <div
+                        style={{
+                          position: "absolute",
+                          border: "2px solid #0f0",
+                          pointerEvents: "none",
+                          left: `${clamp(centerX, vpW / 2, 100 - vpW / 2)}%`,
+                          top: `${clamp(centerY, vpH / 2, 100 - vpH / 2)}%`,
+                          width: `${vpW}%`,
+                          height: `${Math.max(vpH, 8)}%`,
+                          transform: "translate(-50%, -50%)",
+                          boxSizing: "border-box",
+                        }}
+                      />
+                    )
+                  })()}
+                </div>
+              )
+            })()}
 
             {/* Zoom controls */}
             <div style={{ position: "absolute", left: "50%", bottom: 12, transform: "translateX(-50%)", display: "flex", gap: 8, background: "rgba(0,0,0,0.75)", padding: "8px 16px", borderRadius: 24 }}>
