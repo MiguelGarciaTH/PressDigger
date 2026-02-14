@@ -49,23 +49,74 @@ export default function SearchPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-6">
-      <h1 className="text-3xl font-semibold">Scribe</h1>
+    <div style={{ position: "fixed", inset: 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24 }}>
+      <h1 style={{ fontSize: 28, fontWeight: 600, color: "#eee", letterSpacing: 1 }}>Scribe</h1>
 
-      <form onSubmit={onSubmit} className="w-full max-w-xl">
+      <form onSubmit={onSubmit} style={{
+        display: "flex",
+        alignItems: "center",
+        background: "rgba(255,255,255,0.95)",
+        borderRadius: 24,
+        padding: "8px 12px",
+        width: 420,
+        maxWidth: "90vw",
+        height: 44,
+      }}>
+        <svg 
+          width="20" 
+          height="20" 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          stroke="#333" 
+          strokeWidth="2" 
+          strokeLinecap="round" 
+          strokeLinejoin="round"
+          style={{ flexShrink: 0 }}
+        >
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.35-4.35" />
+        </svg>
         <input
           autoFocus
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search newspapers…"
-          className="w-full border border-gray-300 rounded-full px-5 py-3 text-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           disabled={loading}
+          style={{
+            flex: 1,
+            border: "none",
+            outline: "none",
+            background: "transparent",
+            fontSize: 14,
+            color: "#333",
+            marginLeft: 12,
+            minWidth: 0,
+          }}
         />
+        {query && (
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              background: "#333",
+              border: "none",
+              borderRadius: 16,
+              padding: "6px 14px",
+              color: "#fff",
+              fontSize: 12,
+              cursor: loading ? "wait" : "pointer",
+              opacity: loading ? 0.6 : 1,
+              flexShrink: 0,
+            }}
+          >
+            {loading ? "..." : "Go"}
+          </button>
+        )}
       </form>
 
-      {loading && <div aria-live="polite">Searching…</div>}
-      {error && <div role="alert" className="text-red-600">{error}</div>}
+      {loading && <div style={{ color: "#aaa", fontSize: 14 }}>Searching…</div>}
+      {error && <div style={{ color: "#e55", fontSize: 14 }}>{error}</div>}
     </div>
   )
 }
