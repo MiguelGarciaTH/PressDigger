@@ -48,6 +48,7 @@ export default function ResultsPage() {
   const [searchExpanded, setSearchExpanded] = useState(false)
   const [searchInput, setSearchInput] = useState("")
   const [searching, setSearching] = useState(false)
+  const tooltipRef = useRef<HTMLDivElement | null>(null)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
   const viewerRef = useRef<HTMLDivElement | null>(null)
@@ -274,6 +275,87 @@ export default function ResultsPage() {
       strip.removeEventListener('mouseleave', onMouseLeave)
     }
   }, [onSelect])
+
+  // Thumbnail hover preview — pure DOM, no React state, no re-renders
+  useEffect(() => {
+    const strip = stripRef.current
+    if (!strip) return
+
+    // Create tooltip element once, append to document.body
+    const tip = document.createElement('div')
+    tip.style.cssText = 'position:fixed;width:280px;background:rgba(10,10,10,0.95);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:12px;box-shadow:0 8px 32px rgba(0,0,0,0.6);z-index:100000;pointer-events:none;opacity:0;transition:opacity 120ms;'
+    const arrow = document.createElement('div')
+    arrow.style.cssText = 'position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:6px solid rgba(10,10,10,0.95);'
+    tip.appendChild(arrow)
+    document.body.appendChild(tip)
+    tooltipRef.current = tip
+
+    let currentIdx: number | null = null
+
+    const show = (thumbEl: Element, idx: number) => {
+      const f = frames[idx]
+      const art = f?.article ?? {}
+      const summary = art.summary || 'No summary available.'
+      const trimmed = summary.length > 180 ? summary.substring(0, 180) + '...' : summary
+
+      // Build content (keep arrow as last child)
+      while (tip.childNodes.length > 1) tip.removeChild(tip.firstChild!)
+      const titleEl = document.createElement('div')
+      titleEl.style.cssText = 'font-size:13px;font-weight:600;color:#eee;margin-bottom:6px;line-height:1.3;'
+      titleEl.textContent = art.title || 'Untitled'
+      tip.insertBefore(titleEl, arrow)
+
+      if (art.publishedDate) {
+        const dateEl = document.createElement('div')
+        dateEl.style.cssText = 'font-size:11px;color:#999;margin-bottom:8px;'
+        dateEl.textContent = art.publishedDate
+        tip.insertBefore(dateEl, arrow)
+      }
+
+      const sumEl = document.createElement('div')
+      sumEl.style.cssText = 'font-size:12px;color:#ccc;line-height:1.5;'
+      sumEl.textContent = trimmed
+      tip.insertBefore(sumEl, arrow)
+
+      const rect = thumbEl.getBoundingClientRect()
+      tip.style.left = (rect.left + rect.width / 2) + 'px'
+      tip.style.bottom = (window.innerHeight - rect.top + 12) + 'px'
+      tip.style.transform = 'translateX(-50%)'
+      tip.style.opacity = '1'
+    }
+
+    const hide = () => {
+      tip.style.opacity = '0'
+      currentIdx = null
+    }
+
+    const onOver = (e: MouseEvent) => {
+      const thumbEl = (e.target as HTMLElement).closest('[data-thumb-idx]')
+      if (thumbEl) {
+        const idx = parseInt(thumbEl.getAttribute('data-thumb-idx') || '-1', 10)
+        if (idx >= 0 && idx !== currentIdx) {
+          currentIdx = idx
+          show(thumbEl, idx)
+        }
+      } else if (currentIdx !== null) {
+        hide()
+      }
+    }
+
+    const onOut = (e: MouseEvent) => {
+      if (!strip.contains(e.relatedTarget as Node)) hide()
+    }
+
+    strip.addEventListener('mouseover', onOver)
+    strip.addEventListener('mouseout', onOut)
+
+    return () => {
+      strip.removeEventListener('mouseover', onOver)
+      strip.removeEventListener('mouseout', onOut)
+      if (tip.parentNode) tip.parentNode.removeChild(tip)
+      tooltipRef.current = null
+    }
+  }, [frames])
 
   // Keyboard navigation
   useEffect(() => {
