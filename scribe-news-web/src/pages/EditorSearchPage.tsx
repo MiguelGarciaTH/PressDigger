@@ -494,6 +494,21 @@ export default function EditorSearchPage() {
                                       display: "block",
                                     }} 
                                   />
+                                  {/* Card number */}
+                                  <div style={{
+                                    position: "absolute",
+                                    left: 6,
+                                    top: 6,
+                                    fontSize: 11,
+                                    color: "#fff",
+                                    background: "rgba(0,0,0,0.6)",
+                                    padding: "2px 6px",
+                                    borderRadius: 4,
+                                    fontWeight: 500,
+                                    pointerEvents: "none",
+                                  }}>
+                                    {idx + 1}
+                                  </div>
                                   {/* Small hint overlay */}
                                   <div style={{
                                     position: "absolute",
