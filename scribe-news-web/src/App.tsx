@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom"
 // replace direct imports with lazy imports
 const SearchPage = lazy(() => import("./pages/SearchPage"))
 const ResultsPage = lazy(() => import("./pages/ResultsPage"))
+const EditorSearchPage = lazy(() => import("./pages/EditorSearchPage"))
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -36,6 +37,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<SearchPage />} />
             <Route path="/results" element={<ResultsPage />} />
+            <Route path="/editor-search" element={<EditorSearchPage />} />
           </Routes>
         </Suspense>
       </main>
