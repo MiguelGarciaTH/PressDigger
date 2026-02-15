@@ -42,14 +42,18 @@ public class ArticleService {
 
     @Transactional(readOnly = true)
     public Page<Article> search(String inputText, Pageable pageable) {
+        // Normalize input text: trim, remove trailing punctuation
+        String normalizedText = inputText.trim().replaceAll("[.,;:!?]+$", "");
+
         JsonNode embedded = textEmbeddingClient
-                .getEmbeddings(inputText)
+                .getEmbeddings(normalizedText)
                 .get("embedding");
 
         float[] queryEmbedding = textEmbeddingClient.toFloatArray(embedded);
 
         String pgVector = textEmbeddingClient.toPgVectorLiteral(queryEmbedding);
 
+        // Use original input text for full-text search (it handles punctuation well)
         return articleChunkRepository.searchByText(pgVector, inputText, pageable);
     }
 }
