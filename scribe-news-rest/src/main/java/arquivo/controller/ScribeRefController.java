@@ -43,9 +43,9 @@ public class ScribeRefController {
     @PostMapping("/search")
     public Page<Article> search(@RequestBody SearchInputText inputText,
                                      @RequestParam(defaultValue = "0") int page,
-                                     @RequestParam(defaultValue = "20") int pageSize) {
+                                     @RequestParam(defaultValue = "20") int size) {
 
-        Pageable pageable = PageRequest.of(page, pageSize);
+        Pageable pageable = PageRequest.of(page, size);
         return articleService.search(inputText.text(), pageable);
     }
 

@@ -30,7 +30,7 @@ public interface ArticleChunkRepository extends JpaRepository<ArticleChunk, Inte
                   ) * 0.35
                   +
                   /* 3. Title match boost */
-                  CASE 
+                  CASE
                     WHEN to_tsvector('portuguese', COALESCE(a.title, '')) @@ websearch_to_tsquery('portuguese', :text)
                     THEN 0.15
                     ELSE 0.0
@@ -39,9 +39,8 @@ public interface ArticleChunkRepository extends JpaRepository<ArticleChunk, Inte
               FROM article_chunk_medium ac
               INNER JOIN article a ON a.id = ac.article_id
               WHERE
-                /* Keep OR logic but tighter distance threshold */
-                (ac.embedding <=> CAST(:embedding AS vector) < 1.0
-                 OR ac.tsv @@ websearch_to_tsquery('portuguese', :text))
+                /* Very strict filtering: excellent semantic match only */
+                ac.embedding <=> CAST(:embedding AS vector) < 0.15
               ORDER BY a.id, score DESC
             ) t
             /* final ordering: most relevant (highest score) first */
@@ -52,8 +51,7 @@ public interface ArticleChunkRepository extends JpaRepository<ArticleChunk, Inte
             FROM article_chunk_medium ac
             INNER JOIN article a ON a.id = ac.article_id
             WHERE
-              (ac.embedding <=> CAST(:embedding AS vector) < 1.0
-               OR ac.tsv @@ websearch_to_tsquery('portuguese', :text))
+              ac.embedding <=> CAST(:embedding AS vector) < 0.15
             """,
             nativeQuery = true
     )
