@@ -41,7 +41,7 @@ public class ArticleService {
     }
 
     @Transactional(readOnly = true)
-    public Page<ArticleChunk> search(String inputText, Pageable pageable) {
+    public Page<Article> search(String inputText, Pageable pageable) {
         JsonNode embedded = textEmbeddingClient
                 .getEmbeddings(inputText)
                 .get("embedding");

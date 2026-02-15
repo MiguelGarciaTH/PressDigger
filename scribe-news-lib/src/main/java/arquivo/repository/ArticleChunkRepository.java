@@ -1,5 +1,6 @@
 package arquivo.repository;
 
+import arquivo.model.Article;
 import arquivo.model.ArticleChunk;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -12,29 +13,51 @@ public interface ArticleChunkRepository extends JpaRepository<ArticleChunk, Inte
 
     @Query(
             value = """
-            SELECT ac.*
-            FROM article_chunk_medium ac
-            WHERE
-                ac.embedding <=> CAST(:embedding AS vector) < 1.8
-                OR ac.tsv @@ websearch_to_tsquery('portuguese', :text)
-            ORDER BY
-                CASE
-                    WHEN ac.tsv @@ websearch_to_tsquery('portuguese', :text) THEN
-                        0.1 * (ac.embedding <=> CAST(:embedding AS vector))
-                    ELSE
-                        ac.embedding <=> CAST(:embedding AS vector)
-                END ASC
+            SELECT t.*
+            FROM (
+              SELECT DISTINCT ON (a.id)
+                a.*,
+                /* Balanced relevance: semantic + lexical + title */
+                (
+                  /* 1. Semantic similarity - still primary but reduced */
+                  (1.0 / (1.0 + (ac.embedding <=> CAST(:embedding AS vector)))) * 0.50
+                  +
+                  /* 2. Full-text relevance - increased for exact word matches */
+                  (
+                    COALESCE(ts_rank_cd(ac.tsv, websearch_to_tsquery('portuguese', :text), 32), 0.0)
+                    /
+                    (1.0 + COALESCE(ts_rank_cd(ac.tsv, websearch_to_tsquery('portuguese', :text), 32), 0.0))
+                  ) * 0.35
+                  +
+                  /* 3. Title match boost */
+                  CASE 
+                    WHEN to_tsvector('portuguese', COALESCE(a.title, '')) @@ websearch_to_tsquery('portuguese', :text)
+                    THEN 0.15
+                    ELSE 0.0
+                  END
+                ) AS score
+              FROM article_chunk_medium ac
+              INNER JOIN article a ON a.id = ac.article_id
+              WHERE
+                /* Keep OR logic but tighter distance threshold */
+                (ac.embedding <=> CAST(:embedding AS vector) < 1.0
+                 OR ac.tsv @@ websearch_to_tsquery('portuguese', :text))
+              ORDER BY a.id, score DESC
+            ) t
+            /* final ordering: most relevant (highest score) first */
+            ORDER BY t.score DESC
             """,
             countQuery = """
-            SELECT COUNT(ac.id)
+            SELECT COUNT(DISTINCT a.id)
             FROM article_chunk_medium ac
+            INNER JOIN article a ON a.id = ac.article_id
             WHERE
-                ac.embedding <=> CAST(:embedding AS vector) < 1.8
-                OR ac.tsv @@ websearch_to_tsquery('portuguese', :text)
+              (ac.embedding <=> CAST(:embedding AS vector) < 1.0
+               OR ac.tsv @@ websearch_to_tsquery('portuguese', :text))
             """,
             nativeQuery = true
     )
-    Page<ArticleChunk> searchByText(@Param("embedding") String embedding,
-                                    @Param("text") String text,
-                                    Pageable pageable);
+    Page<Article> searchByText(@Param("embedding") String embedding,
+                               @Param("text") String text,
+                               Pageable pageable);
 }

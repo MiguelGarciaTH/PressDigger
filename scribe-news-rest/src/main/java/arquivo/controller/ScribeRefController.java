@@ -41,7 +41,7 @@ public class ScribeRefController {
     }
 
     @PostMapping("/search")
-    public Page<ArticleChunk> search(@RequestBody SearchInputText inputText,
+    public Page<Article> search(@RequestBody SearchInputText inputText,
                                      @RequestParam(defaultValue = "0") int page,
                                      @RequestParam(defaultValue = "20") int pageSize) {
 
