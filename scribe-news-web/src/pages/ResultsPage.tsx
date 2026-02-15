@@ -182,8 +182,7 @@ export default function ResultsPage() {
 
   // Update viewer source when selection changes
   useEffect(() => {
-    const sel = frames[selectedIndex] ?? {}
-    const art = sel.article ?? {}
+    const art = frames[selectedIndex] ?? {}
     const url = art.originalImagePath ?? art.smallImagePath
     if (url) {
       setViewerSrc(getImageUrl(url, 'original'))
@@ -293,8 +292,7 @@ export default function ResultsPage() {
     let currentIdx: number | null = null
 
     const show = (thumbEl: Element, idx: number) => {
-      const f = frames[idx]
-      const art = f?.article ?? {}
+      const art = frames[idx] ?? {}
       const summary = art.summary || 'No summary available.'
       const trimmed = summary.length > 180 ? summary.substring(0, 180) + '...' : summary
 
@@ -506,7 +504,7 @@ export default function ResultsPage() {
   if (frames.length === 0) return <div className="max-w-3xl mx-auto p-6"><h2 className="text-xl font-semibold mb-4">Results for "{query}"</h2><p className="text-gray-500">No results available.</p></div>
 
   const selected = frames[selectedIndex] ?? {}
-  const article = selected.article ?? {}
+  const article = selected
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", padding: 20, color: "#eee", display: "flex", flexDirection: "column", overflow: "hidden", zIndex: 60 }}>
@@ -748,7 +746,7 @@ export default function ResultsPage() {
               {article.title ?? "Untitled"}
             </span>
             <a 
-              href={article.linkToArchiveTrimmed ?? article.linkToArchive} 
+              href={article.linkToArchive} 
               target="_blank" 
               rel="noopener noreferrer" 
               title="Open in archive"
@@ -856,13 +854,12 @@ export default function ResultsPage() {
       <div ref={stripRef} style={{ display: "flex", gap: 12, padding: 12, overflowX: "auto", background: "#060606", borderRadius: 8, height: 160, cursor: "grab" }}>
         <div className="strip-spacer" style={{ width: 40, flexShrink: 0 }} />
         {frames.map((it: any, idx: number) => {
-          const art = it.article ?? {}
-          const thumbUrl = getImageUrl(art.smallImagePath, 'small')
+          const thumbUrl = getImageUrl(it.smallImagePath, 'small')
           return (
             <div key={idx} ref={el => { thumbRefs.current[idx] = el }} 
               data-thumb-idx={idx}
               style={{ flexShrink: 0, width: 200, height: 136, background: "#111", borderRadius: 6, overflow: "hidden", border: selectedIndex === idx ? "2px solid #3aa" : "1px solid #222", cursor: "pointer", position: "relative", transform: selectedIndex === idx ? "scale(1.03)" : "none", transition: "transform 120ms" }}>
-              {thumbUrl && <img src={thumbUrl} alt={art.title ?? "thumb"} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top", filter: "grayscale(1)", pointerEvents: "none" }} />}
+              {thumbUrl && <img src={thumbUrl} alt={it.title ?? "thumb"} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top", filter: "grayscale(1)", pointerEvents: "none" }} />}
               <div style={{ position: "absolute", left: 6, top: 6, fontSize: 11, color: "#fff", background: "rgba(0,0,0,0.6)", padding: "2px 6px", borderRadius: 4, fontWeight: 500, pointerEvents: "none" }}>{idx + 1}</div>
             </div>
           )
