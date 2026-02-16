@@ -36,6 +36,8 @@ export default function EditorSearchPage() {
   const [scale, setScale] = useState<number>(1)
   const [translate, setTranslate] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
   const [baselineScale, setBaselineScale] = useState<number>(0.5)
+  const [showTopFade, setShowTopFade] = useState(false)
+  const [showBottomFade, setShowBottomFade] = useState(false)
   
   const editorRef = useRef<HTMLDivElement | null>(null)
   const searchTimeoutsRef = useRef<Map<number, number>>(new Map())
@@ -281,17 +283,17 @@ export default function EditorSearchPage() {
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
-            gap: 6,
+            gap: 4,
           }}
         >
-          <span style={{ fontSize: 16 }}>←</span> Back
+          <span style={{ fontSize: 20, fontWeight: 900, textShadow: "0 0 2px rgba(238,238,238,0.8)" }}>←</span>
         </button>
         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 500 }}>Editor Search</h2>
         {isSearching && <div style={{ color: "#888", fontSize: 13 }}>Searching...</div>}
       </div>
 
       {/* Main Content */}
-      <div style={{ flex: 1, display: "flex", overflow: "hidden", padding: 20, position: "relative" }}>
+      <div style={{ flex: 1, display: "flex", overflow: "hidden", padding: 20, paddingTop: 60, position: "relative" }}>
         {/* Editor Area - Absolutely centered */}
         <div style={{ 
           position: "absolute",
@@ -306,7 +308,7 @@ export default function EditorSearchPage() {
             contentEditable
             onInput={handleInput}
             style={{
-              minHeight: 500,
+              height: 850,
               padding: 40,
               background: "#111",
               borderRadius: 12,
@@ -316,6 +318,7 @@ export default function EditorSearchPage() {
               lineHeight: 1.8,
               color: "#ddd",
               fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+              overflow: "auto",
             }}
             data-placeholder="Start typing your search query... (minimum 4 words per paragraph)"
           />
@@ -342,7 +345,7 @@ export default function EditorSearchPage() {
             alignItems: "flex-start",
           }}>
             {/* Compact boxes for each paragraph */}
-            <div style={{ width: 180, display: "flex", flexDirection: "column", gap: 12, overflow: "auto", maxHeight: "calc(100vh - 120px)" }}>
+            <div style={{ width: 180, display: "flex", flexDirection: "column", gap: 12, overflow: "auto", maxHeight: 850 }}>
               {paragraphResults.map((paraResult) => {
                 if (paraResult.results.length === 0 && !paraResult.searching) return null
                 
@@ -410,21 +413,32 @@ export default function EditorSearchPage() {
                 if (isNearBottom && !expandedPara.searching && expandedPara.results.length < expandedPara.totalResults) {
                   loadMoreResults(expandedPara.paragraphIndex)
                 }
+                
+                // Update fade flags based on scroll position
+                const { scrollTop, scrollHeight, clientHeight } = target
+                setShowTopFade(scrollTop > 8)
+                setShowBottomFade(scrollHeight - (scrollTop + clientHeight) > 8)
               }
 
               return (
-                <div style={{ position: "relative", display: "flex", gap: 16 }}>
-                  <div 
-                    ref={resultsContainerRef}
-                    onScroll={handleScroll}
-                    style={{ 
-                      width: 420, 
-                      flexShrink: 0,
-                      maxHeight: "calc(100vh - 120px)",
-                    overflow: "auto",
-                    animation: "slideIn 200ms ease-out",
-                  }}
-                >
+                <div style={{ 
+                  position: "relative", 
+                  display: "flex", 
+                  gap: 16,
+                  height: 850,
+                }}>
+                  <div style={{ position: "relative", height: "100%" }}>
+                    <div 
+                      ref={resultsContainerRef}
+                      onScroll={handleScroll}
+                      style={{ 
+                        width: 420, 
+                        flexShrink: 0,
+                        height: 850,
+                        overflow: "auto",
+                        animation: "slideIn 200ms ease-out",
+                      }}
+                    >
                   <style>{`
                     @keyframes slideIn {
                       from {
@@ -584,6 +598,37 @@ export default function EditorSearchPage() {
                       )}
                     </div>
                   </div>
+                    </div>
+                    
+                    {/* Scroll indicator */}
+                    {expandedPara.results.length < expandedPara.totalResults && (
+                      <div style={{
+                        position: "absolute",
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        height: 60,
+                        background: "linear-gradient(to bottom, transparent, rgba(10, 10, 10, 0.95))",
+                        pointerEvents: "none",
+                        display: "flex",
+                        alignItems: "flex-end",
+                        justifyContent: "center",
+                        paddingBottom: 12,
+                      }}>
+                        <div style={{
+                          fontSize: 11,
+                          color: "#ddd",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                          fontWeight: 500,
+                        }}>
+                          <span>↓</span>
+                          <span>Scroll for more</span>
+                          <span>↓</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   
                   {/* Expanded text summary - appears to the right */}
@@ -596,13 +641,21 @@ export default function EditorSearchPage() {
                     
                     if (!article) return null
                     
+                    // Calculate visibility based on position relative to container bounds (0 to 850)
+                    // Hide completely if scrolled significantly out of view
+                    if (summaryTopOffset < -200 || summaryTopOffset > 950) return null
+                    
+                    // Apply gradient fade when summary scrolls near boundaries
+                    const showSummaryTopFade = summaryTopOffset < 40
+                    const showSummaryBottomFade = summaryTopOffset > 810
+                    
                     return (
                       <div style={{
                         position: "absolute",
                         left: 436,
                         top: summaryTopOffset,
                         width: 400,
-                        maxHeight: "calc(100vh - 120px)",
+                        maxHeight: 850,
                         overflow: "auto",
                         padding: 16,
                         background: "#0a0a0a",
@@ -611,10 +664,66 @@ export default function EditorSearchPage() {
                         boxShadow: "0 0 12px rgba(58, 170, 170, 0.3)",
                         animation: "slideIn 200ms ease-out",
                       }}>
+                  {/* Gradient fade overlay when scrolling near top - aligns with card list fade */}
+                  {showSummaryTopFade && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: 80,
+                        background:
+                          "linear-gradient(to bottom, rgba(7,7,7,0.98), transparent)",
+                        pointerEvents: "none",
+                        zIndex: 10,
+                        borderRadius: "12px 12px 0 0",
+                      }}
+                    />
+                  )}
+                  {/* Gradient fade overlay when scrolling near bottom */}
+                  {showSummaryBottomFade && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        height: 80,
+                        background:
+                          "linear-gradient(to top, rgba(7,7,7,0.98), transparent)",
+                        pointerEvents: "none",
+                        zIndex: 10,
+                        borderRadius: "0 0 12px 12px",
+                      }}
+                    />
+                  )}
                   <div style={{ marginBottom: 12, paddingBottom: 12, borderBottom: "1px solid #222" }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: "#eee", marginBottom: 4, lineHeight: 1.3 }}>
+                    <a
+                      href={article.linkToArchive}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: "#eee",
+                        textDecoration: "none",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        transition: "color 150ms",
+                        marginBottom: 4,
+                        lineHeight: 1.3,
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.color = "#3aa"}
+                      onMouseLeave={(e) => e.currentTarget.style.color = "#eee"}
+                    >
                       {article.title ?? "Untitled"}
-                    </div>
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                      </svg>
+                    </a>
                     {article.publishedDate && (
                       <div style={{ fontSize: 11, color: "#888" }}>{article.publishedDate}</div>
                     )}
@@ -629,6 +738,38 @@ export default function EditorSearchPage() {
                 </div>
                     )
                   })()}
+                  
+                  {/* Top/Bottom fade overlays - cover both card list and summary */}
+                  {showTopFade && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: 40,
+                        background:
+                          "linear-gradient(to bottom, rgba(7,7,7,0.95), transparent)",
+                        pointerEvents: "none",
+                        zIndex: 10,
+                      }}
+                    />
+                  )}
+                  {showBottomFade && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        height: 40,
+                        background:
+                          "linear-gradient(to top, rgba(7,7,7,0.95), transparent)",
+                        pointerEvents: "none",
+                        zIndex: 10,
+                      }}
+                    />
+                  )}
                 </div>
               )
             })()}

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from "react"
-import { useSearchParams, useLocation } from "react-router-dom"
+import { useSearchParams, useLocation, useNavigate } from "react-router-dom"
 import { SEARCH_URL } from "../config"
 import { createWorker } from 'tesseract.js'
 
@@ -25,6 +25,7 @@ function getImageUrl(filePath?: string, size: 'small' | 'original' = 'original')
 export default function ResultsPage() {
   const [params] = useSearchParams()
   const location = useLocation()
+  const navigate = useNavigate()
   const state = (location.state || {}) as any
 
   const initialQuery = state.query ?? params.get("q") ?? ""
@@ -511,6 +512,23 @@ export default function ResultsPage() {
       
       {/* Header with Search and Results label */}
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 12 }}>
+        <button
+          onClick={() => navigate("/")}
+          style={{
+            background: "rgba(255,255,255,0.1)",
+            border: "1px solid rgba(255,255,255,0.2)",
+            borderRadius: 8,
+            padding: "8px 12px",
+            color: "#eee",
+            fontSize: 14,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+          }}
+        >
+          <span style={{ fontSize: 20, fontWeight: 900, textShadow: "0 0 2px rgba(238,238,238,0.8)" }}>←</span>
+        </button>
         <form 
           onSubmit={handleSearch}
           onMouseEnter={() => setSearchExpanded(true)}
