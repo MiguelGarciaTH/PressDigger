@@ -131,18 +131,6 @@ public class ImageProcessorListener {
                     LOG.warn("Skipping processing for title {} due to blank or fetch failure", responseItem.get("title").asText());
                     return;
                 }
-/*
-                // process using the already-read BufferedImage (no re-download)
-                BufferedImage croppedImage = ImageAutoCropper.autoCrop(
-                        image,
-                        15,    // Higher tolerance - treat near-white as white
-                        30,    // Smaller margin - only 10px border
-                        50     // Lower threshold - crop even small margins
-                );
-
-                // Use cropped image if crop was successful, otherwise use original
-                BufferedImage finalImage = (croppedImage != null) ? croppedImage : image;
-*/
 
                 processImage(originalOutputPath, image);
                 createSmallImage(smallOutputPath, image.getSubimage(0, 0, image.getWidth(), Math.min(image.getHeight() / 2, (image.getWidth() + (image.getWidth() / 2)))));
@@ -209,7 +197,7 @@ public class ImageProcessorListener {
             return null;
         }
 
-        if (!imageTextDetector.hasText(image, 150)) {
+        if (!imageTextDetector.hasText(image, 250)) {
             noTextImageTotal++;
             return null;
         }
