@@ -77,42 +77,51 @@ public class OpenIAIntegration {
 
 
     private final String promptIsAbout = """
-            Você é um classificador binário.
+            Você é um classificador binário ESTRITO.
             
             OBJETIVO:
             Determinar se o resumo fornecido é principalmente sobre a pessoa indicada.
             
-            ENTRADAS:
-            - "personName": nome completo da pessoa a verificar
-            - "summary": resumo factual da notícia
+            REGRA OBRIGATÓRIA PRIMÁRIA:
+            Se o nome da pessoa NÃO aparecer explicitamente no resumo, responda false IMEDIATAMENTE.
+            Não faça inferências. Não assuma conexões. Não use conhecimento externo.
             
-            CRITÉRIO DE DECISÃO:
+            CRITÉRIO DE DECISÃO (apenas se o nome aparecer):
             
-            Responda true se:
-            - A pessoa for o sujeito principal do acontecimento descrito.
-            - O resumo girar principalmente em torno das ações, declarações ou situação dessa pessoa.
-            - A notícia tratar diretamente dessa pessoa como figura central.
+            Responda true SOMENTE se TODAS estas condições forem verdadeiras:
+            1. O nome completo ou sobrenome distintivo da pessoa aparece no resumo
+            2. A pessoa é o sujeito principal do acontecimento (não apenas mencionada)
+            3. O resumo descreve principalmente ações, declarações ou situações dessa pessoa
+            4. A notícia trata diretamente dessa pessoa como figura central
             
-            Responda false se:
-            - A pessoa for apenas mencionada de forma secundária.
-            - A pessoa aparecer apenas em contexto histórico ou comparativo.
-            - O foco principal da notícia for outro indivíduo, entidade ou evento.
-            - O nome aparecer apenas uma vez sem relevância central.
+            Responda false se QUALQUER destas for verdadeira:
+            1. O nome da pessoa não aparece no resumo
+            2. A pessoa é mencionada apenas de forma secundária ou contextual
+            3. A pessoa aparece apenas em comparação histórica
+            4. O foco principal é outro indivíduo, entidade ou evento
+            5. O nome aparece uma vez sem ser o tema central
+            6. A pessoa é apenas citada como fonte ou comentarista
             
-            REGRAS:
-            - Seja rigoroso.
-            - Não faça inferências externas.
-            - Baseie-se apenas no texto do resumo.
-            - Ignore conhecimento externo.
-            - Não explique sua decisão.
+            REGRAS DE PROCESSAMENTO:
+            - Seja EXTREMAMENTE rigoroso
+            - Baseie-se EXCLUSIVAMENTE no texto do resumo fornecido
+            - IGNORE completamente conhecimento externo ou contexto histórico
+            - Em caso de DÚVIDA, responda false
+            - Não explique, não justifique
             
-            FORMATAÇÃO:
-            Responda SOMENTE com JSON válido no formato:
+            FORMATO DE ENTRADA E SAÍDA:
+            Você receberá um JSON com:
+            {
+              "personName": "nome completo da pessoa",
+              "summary": "texto do resumo"
+            }
+            
+            Responda SOMENTE com JSON válido:
             { "isAboutPerson": true }
-            
             ou
-            
             { "isAboutPerson": false }
+            
+            Não inclua nenhum texto adicional fora do JSON.
             """;
 
     public OpenIAIntegration(String apiKey) {
@@ -131,15 +140,25 @@ public class OpenIAIntegration {
     }
 
     public boolean isAbout(String summary, String personName) throws Exception {
+        // Pre-check: if name doesn't appear at all in summary, return false immediately
+        if (!containsPersonName(summary, personName)) {
+            return false;
+        }
 
-        String input = promptIsAbout +
-                "\n\npersonName: " + personName +
-                "\n\nsummary:\n" + summary;
+        // Construct structured JSON input
+        ObjectMapper mapper = new ObjectMapper();
+        String inputJson = mapper.writeValueAsString(
+            mapper.createObjectNode()
+                .put("personName", personName)
+                .put("summary", summary)
+        );
+
+        String fullPrompt = promptIsAbout + "\n\nINPUT:\n" + inputJson;
 
         final ResponseCreateParams params = ResponseCreateParams.builder()
                 .model("gpt-4o-mini")
                 .temperature(0.0)
-                .input(input)
+                .input(fullPrompt)
                 .build();
 
         final Response response = client.responses().create(params);
@@ -155,10 +174,39 @@ public class OpenIAIntegration {
                 .replaceAll("^```json\\s*|```\\s*$", "")
                 .trim();
 
-        ObjectMapper mapper = new ObjectMapper();
         JsonNode node = mapper.readTree(json);
 
         return node.get("isAboutPerson").asBoolean();
+    }
+
+    /**
+     * Quick pre-check to see if person name appears in summary.
+     * Handles partial matches (e.g., "Costa" matching "António Costa").
+     */
+    private boolean containsPersonName(String summary, String personName) {
+        if (summary == null || personName == null) {
+            return false;
+        }
+
+        String summaryLower = summary.toLowerCase();
+        String nameLower = personName.toLowerCase();
+
+        // Check if full name appears
+        if (summaryLower.contains(nameLower)) {
+            return true;
+        }
+
+        // Check if last name appears (assuming Western name format)
+        String[] nameParts = nameLower.split("\\s+");
+        if (nameParts.length > 1) {
+            String lastName = nameParts[nameParts.length - 1];
+            // Only match if last name is distinctive (more than 3 chars)
+            if (lastName.length() > 3 && summaryLower.contains(lastName)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
 }
