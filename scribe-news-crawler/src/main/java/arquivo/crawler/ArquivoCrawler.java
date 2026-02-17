@@ -35,16 +35,21 @@ import java.util.*;
 @ConditionalOnProperty(name = "scribe-ref.arquivo.scribe-news-crawler.enable", havingValue = "true")
 public class ArquivoCrawler {
 
+    public static final String ARQUIVO_CRAWLER_RESPONSE_ITEMS_COLLECTED_TOTAL = "arquivo_crawler_response_items_collected_total";
+    public static final String ARQUIVO_CRAWLER_RESPONSE_ITEMS_SENT_TO_KAFKA_TOTAL = "arquivo_crawler_response_items_sent_to_kafka_total";
+    public static final String ARQUIVO_CRAWLER_RESPONSE_ITEMS_INCOMPLETE_TOTAL = "arquivo_crawler_response_items_incomplete_total";
+    public static final String ARQUIVO_CRAWLER_RESPONSE_ITEMS_DUPLICATE_TOTAL = "arquivo_crawler_response_items_duplicate_total";
+    public static final String ARQUIVO_CRAWLER_RESPONSE_ITEMS_NOT_NEWS_ARTICLE_TOTAL = "arquivo_crawler_response_items_not_news_article_total";
+    public static final String ARQUIVO_CRAWLER_RESPONSE_ITEMS_INVALID_URL_TOTAL = "arquivo_crawler_response_items_invalid_url_total";
+
     private static final Logger LOG = LoggerFactory.getLogger(ArquivoCrawler.class);
     public static final int SHOW_STATS_INTERVAL_MINS = 1;
+
     private final LocalDateTime start = LocalDateTime.now(ZoneOffset.UTC);
 
     private LocalDateTime nextProgressLog = start.plusMinutes(SHOW_STATS_INTERVAL_MINS);
 
-    private final String arquivoBaseUrl = "https://arquivo.pt/textsearch?q=\"%s\"&prettyPrint=false&siteSearch=%s&from=%s&to=%s&maxItems=500&type=html&fields=title,linkToArchive,linkToExtractedText,linkToScreenshot";
-
     private final DateTimeFormatter arquivoFormatter = DateTimeFormatter.ofPattern("uuuuMMddHHmmss");
-    private final KafkaPublisher kafkaPublisher;
 
     private final KeywordRepository keywordRepository;
     private final SiteRepository siteRepository;
@@ -52,10 +57,10 @@ public class ArquivoCrawler {
     private final UrlRepository urlRepository;
     private final WebClientService webClientService;
     private final MetricService metricService;
+
     private final Set<Integer> titleCache;
-
     private final ObjectMapper objectMapper;
-
+    private final KafkaPublisher kafkaPublisher;
 
     private long responseItemsCollectedTotal, responseItemsSentToKafkaTotal, responseItemsIncompleteTotal, responseItemsDuplicateTotal,
             responseItemsNotNewsArticleTotal, responseItemsInvalidUrlTotal;
@@ -69,23 +74,25 @@ public class ArquivoCrawler {
                           MetricService metricService,
                           KafkaTemplate<String, String> kafkaTemplate,
                           @Value("${scribe-ref.arquivo.scribe-news-crawler.kafka.to-send.topic}") String topic) {
+
         this.keywordRepository = keywordRepository;
         this.siteRepository = siteRepository;
         this.articleRepository = articleRepository;
         this.urlRepository = urlRepository;
         this.metricService = metricService;
-        this.webClientService = new WebClientService(rateLimiterRepository);
         this.titleCache = new HashSet<>();
         this.objectMapper = new ObjectMapper();
+        this.webClientService = new WebClientService(rateLimiterRepository);
 
         this.kafkaPublisher = new KafkaPublisher(kafkaTemplate, topic);
 
-        responseItemsCollectedTotal = metricService.loadValue("arquivo_crawler_response_items_collected_total");
-        responseItemsSentToKafkaTotal = metricService.loadValue("arquivo_crawler_response_items_sent_to_kafka_total");
-        responseItemsIncompleteTotal = metricService.loadValue("arquivo_crawler_response_items_incomplete_total");
-        responseItemsDuplicateTotal = metricService.loadValue("arquivo_crawler_response_items_duplicate_total");
-        responseItemsNotNewsArticleTotal = metricService.loadValue("arquivo_crawler_response_items_not_news_article_total");
-        responseItemsInvalidUrlTotal = metricService.loadValue("arquivo_crawler_response_items_invalid_url_total");
+        // read metrics values, in case the crawler was restarted, to not lose the progress
+        responseItemsCollectedTotal = metricService.loadValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_COLLECTED_TOTAL);
+        responseItemsSentToKafkaTotal = metricService.loadValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_SENT_TO_KAFKA_TOTAL);
+        responseItemsIncompleteTotal = metricService.loadValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_INCOMPLETE_TOTAL);
+        responseItemsDuplicateTotal = metricService.loadValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_DUPLICATE_TOTAL);
+        responseItemsNotNewsArticleTotal = metricService.loadValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_NOT_NEWS_ARTICLE_TOTAL);
+        responseItemsInvalidUrlTotal = metricService.loadValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_INVALID_URL_TOTAL);
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -112,31 +119,13 @@ public class ArquivoCrawler {
         LOG.info("Finished crawling: {} results founds in {} mins", responseItemsCollectedTotal, ChronoUnit.MINUTES.between(start, finished));
     }
 
-    private void printStats() {
-        // just to show the progress every SHOW_STATS_INTERVAL_MINS minutes
-        final LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
-        if (now.isAfter(nextProgressLog)) {
-            LOG.info("------------------------------------");
-            LOG.info("Total response items collected: {}", responseItemsCollectedTotal);
-            LOG.info("Total response items not news article: {}", responseItemsNotNewsArticleTotal);
-            LOG.info("Total response items invalid URL: {}", responseItemsInvalidUrlTotal);
-            LOG.info("Total response items duplicate: {}", responseItemsDuplicateTotal);
-            LOG.info("Total response items sent to Kafka: {}", responseItemsSentToKafkaTotal);
-            LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal);
-            LOG.info("Elapsed time: {} minutes", java.time.Duration.between(start, now).toMinutes());
-            while (!now.isBefore(nextProgressLog)) {
-                nextProgressLog = nextProgressLog.plusMinutes(SHOW_STATS_INTERVAL_MINS);
-            }
-        }
-    }
-
     private JsonNode getResponseItems(int siteId, String url) {
         final JsonNode response = webClientService.get(url, "arquivo.pt");
         if(response != null && response.has("response_items")) {
             final JsonNode responseItems = response.get("response_items");
             responseItemsCollectedTotal += responseItems.size();
             processResponseItems(siteId, responseItems);
-            metricService.updateValue("arquivo_crawler_response_items_collected_total", responseItemsCollectedTotal);
+            metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_COLLECTED_TOTAL, responseItemsCollectedTotal);
             return response;
         }
         return null;
@@ -149,7 +138,7 @@ public class ArquivoCrawler {
             final String title = responseItem.get("title").asText();
             if (!isANewsArticle(title)) {
                 responseItemsNotNewsArticleTotal++;
-                metricService.updateValue("arquivo_crawler_response_items_not_news_article_total", responseItemsNotNewsArticleTotal);
+                metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_NOT_NEWS_ARTICLE_TOTAL, responseItemsNotNewsArticleTotal);
                 LOG.debug("Skipping non-news article: {}", title);
                 continue;
             }
@@ -157,7 +146,7 @@ public class ArquivoCrawler {
             final String arquivoUrl = responseItem.get("linkToArchive").asText();
             if (!UrlValidator.isValid(arquivoUrl)) {
                 responseItemsInvalidUrlTotal++;
-                metricService.updateValue("arquivo_crawler_response_items_invalid_url_total", responseItemsInvalidUrlTotal);
+                metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_INVALID_URL_TOTAL, responseItemsInvalidUrlTotal);
                 LOG.debug("Skipping invalid URL article: {}", arquivoUrl);
                 continue;
             }
@@ -165,7 +154,7 @@ public class ArquivoCrawler {
             // check if the response item is complete
             if (!isResponseComplete(responseItem)) {
                 responseItemsIncompleteTotal++;
-                metricService.updateValue("arquivo_crawler_response_items_incomplete_total", responseItemsIncompleteTotal);
+                metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_INCOMPLETE_TOTAL, responseItemsIncompleteTotal);
                 LOG.debug("Skipping incomplete article: {}", responseItem.toPrettyString());
                 continue;
             }
@@ -173,9 +162,9 @@ public class ArquivoCrawler {
             // check if is a new article
             final String normalizedTitle = normalizeTitle(title);
             final int articleHash = (normalizedTitle.hashCode() & Integer.MAX_VALUE);
-            if (!isNewArticle(articleHash)) {
+            if (!isNew(articleHash)) {
                 responseItemsDuplicateTotal++;
-                metricService.updateValue("arquivo_crawler_response_items_duplicate_total", responseItemsDuplicateTotal);
+                metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_DUPLICATE_TOTAL, responseItemsDuplicateTotal);
                 continue;
             }
 
@@ -190,12 +179,12 @@ public class ArquivoCrawler {
             kafkaPublisher.send(articleToImageProcessor);
             titleCache.add(articleHash);
             responseItemsSentToKafkaTotal++;
-            metricService.updateValue("arquivo_crawler_response_items_sent_to_kafka_total", responseItemsSentToKafkaTotal);
+            metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_SENT_TO_KAFKA_TOTAL, responseItemsSentToKafkaTotal);
             LOG.trace("Sent to Kafka: {}", articleToImageProcessor.toPrettyString());
         }
     }
 
-    private boolean isNewArticle(int articleHash) {
+    private boolean isNew(int articleHash) {
         return !titleCache.contains(articleHash) && !articleRepository.existsByArticleHash(articleHash);
     }
 
@@ -253,15 +242,35 @@ public class ArquivoCrawler {
         for (Site site : sites) {
             for (Keyword keyword : keywords) {
                 for (var date : dates) {
+                    final String arquivoBaseUrl = "https://arquivo.pt/textsearch?q=\"%s\"&prettyPrint=false&siteSearch=%s&from=%s&to=%s&maxItems=500&type=html&fields=title,linkToArchive,linkToExtractedText,linkToScreenshot";
                     String url = String.format(arquivoBaseUrl, keyword.getName(), site.getUrl(), date.starDate.format(arquivoFormatter), date.endDate.format(arquivoFormatter));
-                    urls.add(new UrlSite(site, url));
+                    urls.add(new UrlSite(site, keyword.getName(), url));
                 }
             }
         }
         return urls;
     }
 
-    private record UrlSite(Site site, String siteUrl) {
+    private record UrlSite(Site site, String keyword, String siteUrl) {
+    }
+
+
+    private void printStats() {
+        // just to show the progress every SHOW_STATS_INTERVAL_MINS minutes
+        final LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+        if (now.isAfter(nextProgressLog)) {
+            LOG.info("------------------------------------");
+            LOG.info("Total response items collected: {}", responseItemsCollectedTotal);
+            LOG.info("Total response items not news article: {}", responseItemsNotNewsArticleTotal);
+            LOG.info("Total response items invalid URL: {}", responseItemsInvalidUrlTotal);
+            LOG.info("Total response items duplicate: {}", responseItemsDuplicateTotal);
+            LOG.info("Total response items sent to Kafka: {}", responseItemsSentToKafkaTotal);
+            LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal);
+            LOG.info("Elapsed time: {} minutes", java.time.Duration.between(start, now).toMinutes());
+            while (!now.isBefore(nextProgressLog)) {
+                nextProgressLog = nextProgressLog.plusMinutes(SHOW_STATS_INTERVAL_MINS);
+            }
+        }
     }
 
     private List<DateInterval> createDateIntervals() {
