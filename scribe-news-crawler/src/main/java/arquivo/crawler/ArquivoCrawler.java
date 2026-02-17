@@ -130,7 +130,9 @@ public class ArquivoCrawler {
             final int beforeUniqueCount = responseItems.size();
             final List<JsonNode> uniqueResponseItems = getUniqueResponseItems(url.getSite().getName(), responseItems);
             final int afterUniqueCount = uniqueResponseItems.size();
-            LOG.info("Removed {} duplicate response items for site: {} and person: {}", beforeUniqueCount - afterUniqueCount, url.getSite().getName(), url.getPersonName());
+            if (beforeUniqueCount != afterUniqueCount) {
+                LOG.info("Removed {} duplicate response items for site: {} and person: {}", beforeUniqueCount - afterUniqueCount, url.getSite().getName(), url.getPersonName());
+            }
 
             // process response items
             for (JsonNode responseItem : uniqueResponseItems) {
