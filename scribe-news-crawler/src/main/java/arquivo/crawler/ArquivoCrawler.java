@@ -123,15 +123,16 @@ public class ArquivoCrawler {
                 urlRepository.save(new Url(url.getSite(), url.getPersonName(), nextPageUrl));
             }
 
-            LOG.info("Collected {} response items for site: {} and person: {}", responseItems.size(), url.getSite().getName(), url.getPersonName());
-            metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_COLLECTED_TOTAL, responseItems.size());
+            responseItemsCollectedTotal += responseItems.size();
+            LOG.debug("Collected {} response items for site: {} and person: {}", responseItems.size(), url.getSite().getName(), url.getPersonName());
+            metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_COLLECTED_TOTAL, responseItemsCollectedTotal);
 
-            // remove duplicates from the same title + site name
             final int beforeUniqueCount = responseItems.size();
+            // remove duplicates from the same title + site name
             final List<JsonNode> uniqueResponseItems = getUniqueResponseItems(url.getSite().getName(), responseItems);
             final int afterUniqueCount = uniqueResponseItems.size();
             if (beforeUniqueCount != afterUniqueCount) {
-                LOG.info("Removed {} duplicate response items for site: {} and person: {}", beforeUniqueCount - afterUniqueCount, url.getSite().getName(), url.getPersonName());
+                LOG.info("Removed {} duplicates from {} response items for site: {} and person: {}", (beforeUniqueCount - afterUniqueCount), beforeUniqueCount, url.getSite().getName(), url.getPersonName());
             }
 
             // process response items
