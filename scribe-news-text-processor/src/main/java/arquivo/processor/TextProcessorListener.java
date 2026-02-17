@@ -40,13 +40,13 @@ public class TextProcessorListener {
 
     private final MetricService metricService;
 
-    private long responseItemsReceivedTotal, responseItemsIncompleteTotal, openIaResponseErrorsTotal, responseItemsSentToKafkaTotal;
+    private long responseItemsReceivedTotal, responseItemsIncompleteTotal, openIaResponseErrorsTotal, responseItemsSentToKafkaTotal, notRelevantTotal;
     private final LocalDateTime start = LocalDateTime.now(ZoneOffset.UTC);
     private LocalDateTime nextProgressLog = start.plusMinutes(SHOW_STATS_INTERVAL_MINS);
 
     private final HttpClient httpClient;
 
-    private final OpenIATextSummarizer textSummarizer;
+    private final OpenIAIntegration openIaIntegration;
 
     @Autowired
     public TextProcessorListener(Environment environment,
@@ -61,10 +61,11 @@ public class TextProcessorListener {
         responseItemsReceivedTotal = metricService.loadValue("arquivo_text_processor_response_items_received_total");
         openIaResponseErrorsTotal = metricService.loadValue("arquivo_text_processor_open_ia_response_errors_total");
         responseItemsSentToKafkaTotal = metricService.loadValue("arquivo_text_processor_response_items_sent_to_kafka_total");
+        notRelevantTotal = metricService.loadValue("arquivo_text_processor_summary_is_not_relevant");
 
         final String apiKey = environment.getProperty("scribe-ref.arquivo.scribe-news-text-processor.open-ai.api-key");
 
-        this.textSummarizer = new OpenIATextSummarizer(apiKey);
+        this.openIaIntegration = new OpenIAIntegration(apiKey);
 
         httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
@@ -104,7 +105,7 @@ public class TextProcessorListener {
             final String rawText = fetchExtractedText(responseItem.get("linkToExtractedText").asText());
 
             // use open IA to sumerize the text could be done here
-            final String openAiResponseString = textSummarizer.summarizeTextWithOpenAI(rawText);
+            final String openAiResponseString = openIaIntegration.summarizeText(rawText);
             JsonNode openIaResponse = null;
             try {
                 openIaResponse = objectMapper.readTree(sanitizeJson(openAiResponseString));
@@ -119,13 +120,19 @@ public class TextProcessorListener {
                 metricService.updateValue("arquivo_text_processor_open_ia_response_errors_total", openIaResponseErrorsTotal);
                 return;
             }
+            final String personName = responseItem.get("keyword").asText();
+            if(!openIaIntegration.isAbout(openIaResponse.get("summary").asText(), personName)) {
+                LOG.error("Summary is not about: {}", personName);
+                notRelevantTotal++;
+                metricService.updateValue("arquivo_text_processor_summary_is_not_relevant", notRelevantTotal);
+                return;
+            }
 
             //LOG.debug("OpenAI response: {}", openIaResponse.toPrettyString());
 
             final ObjectNode articleToExtractEmbeddding = objectMapper.createObjectNode()
                     .put("title", responseItem.get("title").asText())
                     .put("siteId", responseItem.get("siteId").asInt())
-                    .put("keyword", responseItem.get("keywords").asInt())
                     .put("articleHash", responseItem.get("articleHash").asInt())
                     .put("originalImagePath", responseItem.get("originalImagePath").asText())
                     .put("smallImagePath", responseItem.get("smallImagePath").asText())
