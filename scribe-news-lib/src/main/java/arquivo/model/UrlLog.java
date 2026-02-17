@@ -13,7 +13,7 @@ public class UrlLog {
     private Site site;
 
     @ManyToOne(fetch = FetchType.EAGER)
-    private Keyword keyword;
+    private Person person;
 
     private int offset;
 
@@ -21,9 +21,9 @@ public class UrlLog {
 
     }
 
-    public UrlLog(Site site, Keyword keyword, int offset){
+    public UrlLog(Site site, Person person, int offset){
         this.site = site;
-        this.keyword = keyword;
+        this.person = person;
         this.offset = offset;
     }
 
@@ -39,12 +39,12 @@ public class UrlLog {
         return id;
     }
 
-    public Keyword getKeyword() {
-        return keyword;
+    public Person getPerson() {
+        return person;
     }
 
-    public void setKeyword(Keyword keyword) {
-        this.keyword = keyword;
+    public void setPerson(Person person) {
+        this.person = person;
     }
 
     public int getOffset() {

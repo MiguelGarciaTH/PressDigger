@@ -120,7 +120,7 @@ public class TextProcessorListener {
                 metricService.updateValue("arquivo_text_processor_open_ia_response_errors_total", openIaResponseErrorsTotal);
                 return;
             }
-            final String personName = responseItem.get("keyword").asText();
+            final String personName = responseItem.get("person").asText();
             if(!openIaIntegration.isAbout(openIaResponse.get("summary").asText(), personName)) {
                 LOG.error("Summary is not about: {}", personName);
                 notRelevantTotal++;

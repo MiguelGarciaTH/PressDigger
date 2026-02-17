@@ -140,7 +140,7 @@ public class ImageProcessorListener {
             final ObjectNode articleToTextSummary = objectMapper.createObjectNode()
                     .put("title", responseItem.get("title").asText())
                     .put("siteId", responseItem.get("siteId").asInt())
-                    .put("keyword", responseItem.get("keywords").asInt())
+                    .put("person", responseItem.get("person").asInt())
                     .put("articleHash", responseItem.get("articleHash").asInt())
                     .put("linkToArchive", responseItem.get("linkToArchive").asText())
                     .put("linkToExtractedText", responseItem.get("linkToExtractedText").asText())

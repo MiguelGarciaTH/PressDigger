@@ -3,7 +3,7 @@ package arquivo.model;
 import jakarta.persistence.*;
 
 @Entity
-public class Keyword {
+public class Person {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -12,7 +12,7 @@ public class Keyword {
     @Column(length = 255)
     private String name;
 
-    public Keyword(){
+    public Person(){
 
     }
 

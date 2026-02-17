@@ -11,13 +11,13 @@ CREATE TABLE IF NOT EXISTS site (
     CONSTRAINT site_pk PRIMARY KEY (id)
 );
 
-CREATE SEQUENCE IF NOT EXISTS keyword_seq START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE IF NOT EXISTS person_seq START WITH 1 INCREMENT BY 1;
 
-CREATE TABLE IF NOT EXISTS keyword (
-    id integer NOT NULL DEFAULT nextval('keyword_seq'),
+CREATE TABLE IF NOT EXISTS person (
+    id integer NOT NULL DEFAULT nextval('person_seq'),
     name varchar(255) NOT NULL,
 
-    CONSTRAINT keyword_pk PRIMARY KEY (id)
+    CONSTRAINT person_pk PRIMARY KEY (id)
 );
 
 CREATE SEQUENCE IF NOT EXISTS url_seq START WITH 1 INCREMENT BY 1;
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS url (
     id integer NOT NULL DEFAULT nextval('url_seq'),
     "date" timestamp without time zone,
     site_id integer NOT NULL,
-    keyword text,
+    person_name text,
     url text NOT NULL,
     processed boolean,
 
@@ -102,12 +102,12 @@ CREATE SEQUENCE IF NOT EXISTS url_log_seq START WITH 1 INCREMENT BY 1;
 CREATE TABLE IF NOT EXISTS url_log (
     id integer NOT NULL DEFAULT nextval('url_log_seq'),
     site_id integer NOT NULL,
-    keyword_id integer NOT NULL,
+    person_id integer NOT NULL,
     "timestamp" timestamp without time zone NOT NULL DEFAULT LOCALTIMESTAMP,
 
     CONSTRAINT url_log_pk PRIMARY KEY (id),
     CONSTRAINT url_log_fk_site_id FOREIGN KEY (site_id) REFERENCES site(id),
-    CONSTRAINT url_log_fk_keyword_id FOREIGN KEY (keyword_id) REFERENCES keyword(id)
+    CONSTRAINT url_log_fk_person_id FOREIGN KEY (person_id) REFERENCES person(id)
 );
 
 CREATE SEQUENCE IF NOT EXISTS rate_limiter_seq START WITH 1 INCREMENT BY 1;

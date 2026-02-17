@@ -14,7 +14,7 @@ public class Url {
     @ManyToOne(fetch = FetchType.EAGER)
     private Site site;
 
-    private String keyword;
+    private String person;
 
     private LocalDateTime date;
 
@@ -27,9 +27,9 @@ public class Url {
 
     }
 
-    public Url(Site site, String keyword, String url) {
+    public Url(Site site, String person, String url) {
         this.url = url;
-        this.keyword = keyword;
+        this.person = person;
         this.processed = false;
         this.site = site;
     }
@@ -70,11 +70,11 @@ public class Url {
         this.site = site;
     }
 
-    public String getKeyword() {
-        return keyword;
+    public String getPerson() {
+        return person;
     }
 
-    public void setKeyword(String keyword) {
-        this.keyword = keyword;
+    public void setPerson(String person) {
+        this.person = person;
     }
 }
