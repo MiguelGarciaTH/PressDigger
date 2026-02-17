@@ -10,6 +10,7 @@ export default function SearchPage() {
   const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
+    document.title = "PressDigger"
     return () => {
       abortRef.current?.abort()
     }
@@ -49,8 +50,8 @@ export default function SearchPage() {
   }
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24 }}>
-      <h1 style={{ fontSize: 28, fontWeight: 600, color: "#eee", letterSpacing: 1 }}>Scribe</h1>
+    <div style={{ position: "fixed", inset: 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
+      <h1 style={{ fontSize: 32, fontWeight: 700, color: "#eee", letterSpacing: 1, fontFamily: "Georgia, 'Times New Roman', serif" }}>PressDigger</h1>
 
       <form onSubmit={onSubmit} style={{
         display: "flex",

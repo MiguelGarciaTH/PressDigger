@@ -191,24 +191,21 @@ public class ArquivoCrawler {
         // check if is a news article (not opinion/editorial)
         final String title = responseItem.get("title").asText();
         if (!isANewsArticle(title)) {
-            responseItemsNotNewsArticleTotal++;
-            metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_NOT_NEWS_ARTICLE_TOTAL, responseItemsNotNewsArticleTotal);
+            metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_NOT_NEWS_ARTICLE_TOTAL, responseItemsNotNewsArticleTotal++);
             LOG.debug("Skipping non-news article: {}", title);
             return false;
         }
 
         final String arquivoUrl = responseItem.get("linkToArchive").asText();
         if (!UrlValidator.isValid(arquivoUrl)) {
-            responseItemsInvalidUrlTotal++;
-            metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_INVALID_URL_TOTAL, responseItemsInvalidUrlTotal);
+            metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_INVALID_URL_TOTAL, responseItemsInvalidUrlTotal++);
             LOG.debug("Skipping invalid URL article: {}", arquivoUrl);
             return false;
         }
 
         // check if the response item is complete
         if (!isResponseComplete(responseItem)) {
-            responseItemsIncompleteTotal++;
-            metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_INCOMPLETE_TOTAL, responseItemsIncompleteTotal);
+            metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_INCOMPLETE_TOTAL, responseItemsIncompleteTotal++);
             LOG.debug("Skipping incomplete article: {}", responseItem.toPrettyString());
             return false;
         }
@@ -227,8 +224,7 @@ public class ArquivoCrawler {
                 .put("linkToScreenshot", responseItem.get("linkToScreenshot").asText());
 
         kafkaPublisher.send(articleToImageProcessor);
-        responseItemsSentToKafkaTotal++;
-        metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_SENT_TO_KAFKA_TOTAL, responseItemsSentToKafkaTotal);
+        metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_SENT_TO_KAFKA_TOTAL, responseItemsSentToKafkaTotal++);
         LOG.trace("Sent to Kafka: {}", articleToImageProcessor.toPrettyString());
     }
 
