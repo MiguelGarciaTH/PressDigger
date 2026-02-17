@@ -111,7 +111,7 @@ public class ArquivoCrawler {
 
             // get response items
             final List<JsonNode> responseItems = getResponseItems(arquivoResponse);
-            urlRepository.save(new Url(url.getSite(), url.getPerson(), url.getUrl()));
+            urlRepository.save(new Url(url.getSite(), url.getPersonName(), url.getUrl()));
 
             // fetch all items for the next pages (pagination loop)
             while (arquivoResponse.has("next_page")) {
@@ -120,22 +120,22 @@ public class ArquivoCrawler {
                 final List<JsonNode> responseItemsNextPages = getResponseItems(arquivoResponseNextPages);
                 responseItems.addAll(responseItemsNextPages);
                 // set as processed all to avoid future duplicates
-                urlRepository.save(new Url(url.getSite(), url.getPerson(), nextPageUrl));
+                urlRepository.save(new Url(url.getSite(), url.getPersonName(), nextPageUrl));
             }
 
-            LOG.info("Collected {} response items for site: {} and person: {}", responseItems.size(), url.getSite().getName(), url.getPerson());
+            LOG.info("Collected {} response items for site: {} and person: {}", responseItems.size(), url.getSite().getName(), url.getPersonName());
             metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_COLLECTED_TOTAL, responseItems.size());
 
             // remove duplicates from the same title + site name
             final int beforeUniqueCount = responseItems.size();
             final List<JsonNode> uniqueResponseItems = getUniqueResponseItems(url.getSite().getName(), responseItems);
             final int afterUniqueCount = uniqueResponseItems.size();
-            LOG.info("Removed {} duplicate response items for site: {} and person: {}", beforeUniqueCount - afterUniqueCount, url.getSite().getName(), url.getPerson());
+            LOG.info("Removed {} duplicate response items for site: {} and person: {}", beforeUniqueCount - afterUniqueCount, url.getSite().getName(), url.getPersonName());
 
             // process response items
             for (JsonNode responseItem : uniqueResponseItems) {
                 if (shouldProcesseResponseItem(responseItem)) {
-                    processResponseItem(url.getSite().getId(), url.getPerson(), url.getSite().getName(), responseItem);
+                    processResponseItem(url.getSite().getId(), url.getPersonName(), url.getSite().getName(), responseItem);
                 }
 
             }
