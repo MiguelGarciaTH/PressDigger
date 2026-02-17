@@ -52,7 +52,11 @@ async def extract_keywords(req: ExtractionRequest):
         raw = extractor.extract_keywords(req.text)
 
         # YAKE returns (keyword, score) — lower score = more relevant
-        keywords = [Keyword(keyword=kw, score=round(score, 6)) for kw, score in raw]
+        keywords = [
+            Keyword(keyword=kw, score=round(score, 6))
+            for kw, score in raw
+            if score < 0.3  # ← add this filter
+        ]
         keywords.sort(key=lambda k: k.score)
 
         logger.info(f"Extracted {len(keywords)} keywords")
