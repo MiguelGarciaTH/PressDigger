@@ -110,21 +110,18 @@ public class TextProcessorListener {
             try {
                 openIaResponse = objectMapper.readTree(sanitizeJson(openAiResponseString));
             } catch (Exception ex) {
-                openIaResponseErrorsTotal++;
                 LOG.error("Failed to parse JSON from OpenIA: {}", openAiResponseString, ex);
-                metricService.updateValue("arquivo_text_processor_open_ia_response_errors_total", openIaResponseErrorsTotal);
+                metricService.updateValue("arquivo_text_processor_open_ia_response_errors_total", openIaResponseErrorsTotal++);
             }
             if (openIaResponse == null) {
                 LOG.error("Incomplete response item, missing linkToExtractedText: {}", payload);
-                openIaResponseErrorsTotal++;
-                metricService.updateValue("arquivo_text_processor_open_ia_response_errors_total", openIaResponseErrorsTotal);
+                metricService.updateValue("arquivo_text_processor_open_ia_response_errors_total", openIaResponseErrorsTotal++);
                 return;
             }
             final String personName = responseItem.get("person").asText();
             if(!openIaIntegration.isAbout(openIaResponse.get("summary").asText(), personName)) {
-                LOG.error("Summary is not about: {}", personName);
-                notRelevantTotal++;
-                metricService.updateValue("arquivo_text_processor_summary_is_not_relevant", notRelevantTotal);
+                LOG.debug("Summary is not about: {}", personName);
+                metricService.updateValue("arquivo_text_processor_summary_is_not_relevant", notRelevantTotal++);
                 return;
             }
 
@@ -198,6 +195,7 @@ public class TextProcessorListener {
             LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal);
             LOG.info("Total OpenIA response errors: {}", openIaResponseErrorsTotal);
             LOG.info("Total response items sent to Kafka: {}", responseItemsSentToKafkaTotal);
+            LOG.info("Total summaries not relevant: {}", notRelevantTotal);
             LOG.info("Elapsed time: {} minutes", Duration.between(start, now).toMinutes());
             while (!now.isBefore(nextProgressLog)) {
                 nextProgressLog = nextProgressLog.plusMinutes(SHOW_STATS_INTERVAL_MINS);
