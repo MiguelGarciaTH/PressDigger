@@ -53,6 +53,9 @@ public class Article {
     @JsonIgnore
     List<ArticleChunk> articleChunks;
 
+    @OneToMany(mappedBy = "article", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<ArticleKeywordScore> articleKeywordsScore;
+
     public Article() {
 
     }
@@ -163,5 +166,13 @@ public class Article {
 
     public void setSummary(String summary) {
         this.summary = summary;
+    }
+
+    public List<ArticleKeywordScore> getArticleKeywordsScore() {
+        return articleKeywordsScore;
+    }
+
+    public void setArticleKeywordsScore(List<ArticleKeywordScore> articleKeywordsScore) {
+        this.articleKeywordsScore = articleKeywordsScore;
     }
 }

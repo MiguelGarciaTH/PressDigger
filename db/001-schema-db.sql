@@ -97,6 +97,28 @@ CREATE INDEX idx_chunks_medium_embedding
 ON article_chunk_medium USING ivfflat (embedding vector_cosine_ops)
 WITH (lists = 100);
 
+
+CREATE SEQUENCE IF NOT EXISTS keyword_seq START WITH 1 INCREMENT BY 1;
+
+CREATE TABLE IF NOT EXISTS keyword (
+    id integer NOT NULL DEFAULT nextval('keyword_seq'),
+    name varchar(255) NOT NULL,
+
+    CONSTRAINT keyword_pk PRIMARY KEY (id)
+);
+
+CREATE TABLE article_keyword_score (
+    id integer NOT NULL DEFAULT nextval('article_chunk_seq'),
+    article_id BIGINT NOT NULL,
+    keyword_id integer NOT NULL,
+    score DOUBLE PRECISION,
+
+    CONSTRAINT article_keyword_score PRIMARY KEY (id),
+    CONSTRAINT article_keyword_score_fk_article_id FOREIGN KEY (article_id) REFERENCES article(id),
+    CONSTRAINT article_keyword_score_fk_keyword_id FOREIGN KEY (keyword_id) REFERENCES keyword(id),
+);
+
+
 CREATE SEQUENCE IF NOT EXISTS url_log_seq START WITH 1 INCREMENT BY 1;
 
 CREATE TABLE IF NOT EXISTS url_log (
