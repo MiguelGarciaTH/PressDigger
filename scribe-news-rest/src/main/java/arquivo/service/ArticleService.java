@@ -2,8 +2,7 @@ package arquivo.service;
 
 import arquivo.exceptions.ResourceNotFoundException;
 import arquivo.model.Article;
-import arquivo.model.ArticleChunk;
-import arquivo.repository.ArticleChunkRepository;
+import arquivo.repository.ArticleChunkMediumRepository;
 import arquivo.repository.ArticleRepository;
 import arquivo.services.TextEmbeddingClient;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -18,15 +17,15 @@ import org.springframework.transaction.annotation.Transactional;
 public class ArticleService {
 
     private final ArticleRepository articleRepository;
-    private final ArticleChunkRepository articleChunkRepository;
+    private final ArticleChunkMediumRepository articleChunkMediumRepository;
     private final TextEmbeddingClient textEmbeddingClient;
 
     public ArticleService(Environment environment,
                           ArticleRepository articleRepository,
-                          ArticleChunkRepository articleChunkRepository) {
+                          ArticleChunkMediumRepository articleChunkMediumRepository) {
 
         this.articleRepository = articleRepository;
-        this.articleChunkRepository = articleChunkRepository;
+        this.articleChunkMediumRepository = articleChunkMediumRepository;
         final String url = environment.getProperty("scribe-ref.arquivo.scribe-rest.embedding-service-url");
         this.textEmbeddingClient = new TextEmbeddingClient(url, new ObjectMapper(), true);
     }
@@ -54,6 +53,6 @@ public class ArticleService {
         String pgVector = textEmbeddingClient.toPgVectorLiteral(queryEmbedding);
 
         // Use original input text for full-text search (it handles punctuation well)
-        return articleChunkRepository.searchByText(pgVector, inputText, pageable);
+        return articleChunkMediumRepository.searchByText(pgVector, inputText, pageable);
     }
 }
