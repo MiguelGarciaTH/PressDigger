@@ -11,8 +11,10 @@ public class Url {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     private Site site;
+
+    private String keyword;
 
     private LocalDateTime date;
 
@@ -25,8 +27,9 @@ public class Url {
 
     }
 
-    public Url(Site site, String url) {
+    public Url(Site site, String keyword, String url) {
         this.url = url;
+        this.keyword = keyword;
         this.processed = false;
         this.site = site;
     }
@@ -65,5 +68,13 @@ public class Url {
 
     public void setSite(Site site) {
         this.site = site;
+    }
+
+    public String getKeyword() {
+        return keyword;
+    }
+
+    public void setKeyword(String keyword) {
+        this.keyword = keyword;
     }
 }

@@ -100,16 +100,44 @@ public class ArquivoCrawler {
         final List<Url> urls = getUrlsToProcess();
         LOG.info("Number of URLs to hit Arquivo.pt {}", urls.size());
 
+        // shufle the URLs to avoid hitting the same site/keyword/date intervals at the same time, to have a better distribution of the requests
+        Collections.shuffle(urls);
 
         for (Url url : urls) {
             LOG.trace("Request for {}", url);
 
-            JsonNode response = getResponseItems(url.getSite().getId(), url.getUrl());
-            while (response != null && response.has("next_page")) {
-                final String nextPageUrl = java.net.URLDecoder.decode(response.get("next_page").asText(), StandardCharsets.UTF_8);
-                urlRepository.save(new Url(url.getSite(), nextPageUrl));
-                response = getResponseItems(url.getSite().getId(), nextPageUrl);
-                urlRepository.setProcessed(nextPageUrl);
+            // first page
+            final JsonNode arquivoResponse = webClientService.get(url.getUrl(), "arquivo.pt");
+
+            // get response items
+            final List<JsonNode> responseItems = getResponseItems(arquivoResponse);
+            urlRepository.save(new Url(url.getSite(), url.getKeyword(), url.getUrl()));
+
+            // fetch all items for the next pages (pagination loop)
+            while (arquivoResponse.has("next_page")) {
+                final String nextPageUrl = java.net.URLDecoder.decode(arquivoResponse.get("next_page").asText(), StandardCharsets.UTF_8);
+                final JsonNode arquivoResponseNextPages = webClientService.get(nextPageUrl, "arquivo.pt");
+                final List<JsonNode> responseItemsNextPages = getResponseItems(arquivoResponseNextPages);
+                responseItems.addAll(responseItemsNextPages);
+                // set as processed all to avoid future duplicates
+                urlRepository.save(new Url(url.getSite(), url.getKeyword(), nextPageUrl));
+            }
+
+            LOG.info("Collected {} response items for site: {} and keyword: {}", responseItems.size(), url.getSite().getName(), url.getKeyword());
+            metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_COLLECTED_TOTAL, responseItems.size());
+
+            // remove duplicates from the same title + site name
+            final int beforeUniqueCount = responseItems.size();
+            final List<JsonNode> uniqueResponseItems = getUniqueResponseItems(url.getSite().getName(), responseItems);
+            final int afterUniqueCount = uniqueResponseItems.size();
+            LOG.info("Removed {} duplicate response items for site: {} and keyword: {}", beforeUniqueCount - afterUniqueCount, url.getSite().getName(), url.getKeyword());
+
+            // process response items
+            for (JsonNode responseItem : uniqueResponseItems) {
+                if (shouldProcesseResponseItem(responseItem)) {
+                    processResponseItem(url.getSite().getId(), url.getSite().getName(), responseItem);
+                }
+
             }
             printStats();
         }
@@ -119,86 +147,98 @@ public class ArquivoCrawler {
         LOG.info("Finished crawling: {} results founds in {} mins", responseItemsCollectedTotal, ChronoUnit.MINUTES.between(start, finished));
     }
 
-    private JsonNode getResponseItems(int siteId, String url) {
-        final JsonNode response = webClientService.get(url, "arquivo.pt");
-        if(response != null && response.has("response_items")) {
-            final JsonNode responseItems = response.get("response_items");
-            responseItemsCollectedTotal += responseItems.size();
-            processResponseItems(siteId, responseItems);
-            metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_COLLECTED_TOTAL, responseItemsCollectedTotal);
-            return response;
-        }
-        return null;
-    }
-
-    private void processResponseItems(int siteId, JsonNode responseItems) {
-        for (var responseItem : responseItems) {
-
-            // check if is a news article (not opinion/editorial)
-            final String title = responseItem.get("title").asText();
-            if (!isANewsArticle(title)) {
-                responseItemsNotNewsArticleTotal++;
-                metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_NOT_NEWS_ARTICLE_TOTAL, responseItemsNotNewsArticleTotal);
-                LOG.debug("Skipping non-news article: {}", title);
-                continue;
-            }
-
-            final String arquivoUrl = responseItem.get("linkToArchive").asText();
-            if (!UrlValidator.isValid(arquivoUrl)) {
-                responseItemsInvalidUrlTotal++;
-                metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_INVALID_URL_TOTAL, responseItemsInvalidUrlTotal);
-                LOG.debug("Skipping invalid URL article: {}", arquivoUrl);
-                continue;
-            }
-
-            // check if the response item is complete
-            if (!isResponseComplete(responseItem)) {
-                responseItemsIncompleteTotal++;
-                metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_INCOMPLETE_TOTAL, responseItemsIncompleteTotal);
-                LOG.debug("Skipping incomplete article: {}", responseItem.toPrettyString());
-                continue;
-            }
-
-            // check if is a new article
-            final String normalizedTitle = normalizeTitle(title);
-            final int articleHash = (normalizedTitle.hashCode() & Integer.MAX_VALUE);
-            if (!isNew(articleHash)) {
+    private List<JsonNode> getUniqueResponseItems(String siteName, List<JsonNode> responseItems) {
+        final List<JsonNode> uniqueResponseItems = new ArrayList<>();
+        for (var item : responseItems) {
+            String title = item.get("title").asText();
+            if (!articleExists(title, siteName)) {
+                uniqueResponseItems.add(item);
+            } else {
                 responseItemsDuplicateTotal++;
-                metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_DUPLICATE_TOTAL, responseItemsDuplicateTotal);
-                continue;
             }
-
-            final ObjectNode articleToImageProcessor = objectMapper.createObjectNode()
-                    .put("title", responseItem.get("title").asText())
-                    .put("siteId", siteId)
-                    .put("articleHash", articleHash)
-                    .put("linkToArchive", responseItem.get("linkToArchive").asText())
-                    .put("linkToExtractedText", responseItem.get("linkToExtractedText").asText())
-                    .put("linkToScreenshot", responseItem.get("linkToScreenshot").asText());
-
-            kafkaPublisher.send(articleToImageProcessor);
-            titleCache.add(articleHash);
-            responseItemsSentToKafkaTotal++;
-            metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_SENT_TO_KAFKA_TOTAL, responseItemsSentToKafkaTotal);
-            LOG.trace("Sent to Kafka: {}", articleToImageProcessor.toPrettyString());
         }
+        metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_DUPLICATE_TOTAL, responseItemsDuplicateTotal);
+        return uniqueResponseItems;
     }
 
-    private boolean isNew(int articleHash) {
-        return !titleCache.contains(articleHash) && !articleRepository.existsByArticleHash(articleHash);
+    private boolean articleExists(String title, String siteName) {
+        final String normalizedTitle = normalizeTitle(title);
+        final int articleHash = getArticleHash(normalizedTitle, siteName);
+        if (titleCache.contains(articleHash) || articleRepository.existsByArticleHash(articleHash)) {
+            return true;
+        } else {
+            titleCache.add(articleHash);
+        }
+        return false;
+    }
+
+    private static int getArticleHash(String normalizedTitle, String siteName) {
+        return (normalizedTitle + siteName).hashCode() & Integer.MAX_VALUE;
+    }
+
+    private List<JsonNode> getResponseItems(JsonNode response) {
+        final List<JsonNode> responseItemsList = new ArrayList<>();
+        if (response != null && response.has("response_items")) {
+            final JsonNode responseItems = response.get("response_items");
+            if (responseItems.isArray()) {
+                responseItems.forEach(responseItemsList::add);
+            }
+        }
+        return responseItemsList;
+    }
+
+    private boolean shouldProcesseResponseItem(JsonNode responseItem) {
+        // check if is a news article (not opinion/editorial)
+        final String title = responseItem.get("title").asText();
+        if (!isANewsArticle(title)) {
+            responseItemsNotNewsArticleTotal++;
+            metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_NOT_NEWS_ARTICLE_TOTAL, responseItemsNotNewsArticleTotal);
+            LOG.debug("Skipping non-news article: {}", title);
+            return false;
+        }
+
+        final String arquivoUrl = responseItem.get("linkToArchive").asText();
+        if (!UrlValidator.isValid(arquivoUrl)) {
+            responseItemsInvalidUrlTotal++;
+            metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_INVALID_URL_TOTAL, responseItemsInvalidUrlTotal);
+            LOG.debug("Skipping invalid URL article: {}", arquivoUrl);
+            return false;
+        }
+
+        // check if the response item is complete
+        if (!isResponseComplete(responseItem)) {
+            responseItemsIncompleteTotal++;
+            metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_INCOMPLETE_TOTAL, responseItemsIncompleteTotal);
+            LOG.debug("Skipping incomplete article: {}", responseItem.toPrettyString());
+            return false;
+        }
+        return true;
+    }
+
+    private void processResponseItem(int siteId, String siteName, JsonNode responseItem) {
+        int articleHash = getArticleHash(normalizeTitle(responseItem.get("title").asText()), siteName);
+        final ObjectNode articleToImageProcessor = objectMapper.createObjectNode()
+                .put("title", responseItem.get("title").asText())
+                .put("siteId", siteId)
+                .put("articleHash", articleHash)
+                .put("linkToArchive", responseItem.get("linkToArchive").asText())
+                .put("linkToExtractedText", responseItem.get("linkToExtractedText").asText())
+                .put("linkToScreenshot", responseItem.get("linkToScreenshot").asText());
+
+        kafkaPublisher.send(articleToImageProcessor);
+        responseItemsSentToKafkaTotal++;
+        metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_SENT_TO_KAFKA_TOTAL, responseItemsSentToKafkaTotal);
+        LOG.trace("Sent to Kafka: {}", articleToImageProcessor.toPrettyString());
     }
 
     private List<Url> getUrlsToProcess() {
         // first time, no results
         if (urlRepository.count() == 0) {
             // Generate all URL to fetch from arquivo.pt API
-            List<UrlSite> urls = generateUrls();
-            Collections.shuffle(urls);
-            List<Url> urlToProcess = urls.stream()
-                    .map(us -> new Url(us.site, us.siteUrl))
+            final List<ArquivoPtUrl> urls = generateArquivoPtUrls();
+            final List<Url> urlToProcess = urls.stream()
+                    .map(us -> new Url(us.site, us.keyword, us.siteUrl))
                     .toList();
-            // Shuffle them, this reduces the number of duplicate processing, since it increases that duplicate results
-            // (arquivo urls) are processed after the first equal url is processed
             return urlRepository.saveAll(urlToProcess);
         }
 
@@ -234,24 +274,24 @@ public class ArquivoCrawler {
                 .trim();
     }
 
-    private List<UrlSite> generateUrls() {
+    private List<ArquivoPtUrl> generateArquivoPtUrls() {
         final List<Site> sites = siteRepository.findAll();
         final List<Keyword> keywords = keywordRepository.findAll();
         final List<DateInterval> dates = createDateIntervals();
-        final List<UrlSite> urls = new ArrayList<>(dates.size() * keywords.size() * sites.size());
+        final List<ArquivoPtUrl> urls = new ArrayList<>(dates.size() * keywords.size() * sites.size());
+        final String arquivoBaseUrl = "https://arquivo.pt/textsearch?q=%s&prettyPrint=false&siteSearch=%s&from=%s&to=%s&maxItems=500&type=html&fields=title,linkToArchive,linkToExtractedText,linkToScreenshot";
         for (Site site : sites) {
             for (Keyword keyword : keywords) {
                 for (var date : dates) {
-                    final String arquivoBaseUrl = "https://arquivo.pt/textsearch?q=\"%s\"&prettyPrint=false&siteSearch=%s&from=%s&to=%s&maxItems=500&type=html&fields=title,linkToArchive,linkToExtractedText,linkToScreenshot";
                     String url = String.format(arquivoBaseUrl, keyword.getName(), site.getUrl(), date.starDate.format(arquivoFormatter), date.endDate.format(arquivoFormatter));
-                    urls.add(new UrlSite(site, keyword.getName(), url));
+                    urls.add(new ArquivoPtUrl(site, keyword.getName(), url));
                 }
             }
         }
         return urls;
     }
 
-    private record UrlSite(Site site, String keyword, String siteUrl) {
+    private record ArquivoPtUrl(Site site, String keyword, String siteUrl) {
     }
 
 

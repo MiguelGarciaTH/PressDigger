@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS url (
     id integer NOT NULL DEFAULT nextval('url_seq'),
     "date" timestamp without time zone,
     site_id integer NOT NULL,
+    keyword text,
     url text NOT NULL,
     processed boolean,
 
