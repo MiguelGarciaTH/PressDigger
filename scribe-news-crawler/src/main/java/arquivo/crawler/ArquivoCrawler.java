@@ -135,7 +135,7 @@ public class ArquivoCrawler {
             // process response items
             for (JsonNode responseItem : uniqueResponseItems) {
                 if (shouldProcesseResponseItem(responseItem)) {
-                    processResponseItem(url.getSite().getId(), url.getSite().getName(), responseItem);
+                    processResponseItem(url.getSite().getId(), url.getKeyword(), url.getSite().getName(), responseItem);
                 }
 
             }
@@ -215,11 +215,12 @@ public class ArquivoCrawler {
         return true;
     }
 
-    private void processResponseItem(int siteId, String siteName, JsonNode responseItem) {
+    private void processResponseItem(int siteId, String keyword, String siteName, JsonNode responseItem) {
         int articleHash = getArticleHash(normalizeTitle(responseItem.get("title").asText()), siteName);
         final ObjectNode articleToImageProcessor = objectMapper.createObjectNode()
                 .put("title", responseItem.get("title").asText())
                 .put("siteId", siteId)
+                .put("keyword", keyword)
                 .put("articleHash", articleHash)
                 .put("linkToArchive", responseItem.get("linkToArchive").asText())
                 .put("linkToExtractedText", responseItem.get("linkToExtractedText").asText())
