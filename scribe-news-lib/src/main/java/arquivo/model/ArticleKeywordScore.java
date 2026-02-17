@@ -1,6 +1,7 @@
 package arquivo.model;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
 @Entity
@@ -11,6 +12,7 @@ public class ArticleKeywordScore {
     private long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JsonIgnore
     private Article article;
 
     @ManyToOne(fetch = FetchType.LAZY)
