@@ -12,8 +12,12 @@ public class Keyword {
     @Column(length = 255)
     private String name;
 
-    public Keyword(){
+    public Keyword() {
 
+    }
+
+    public Keyword(String name) {
+        this.name = name;
     }
 
     public String getName() {

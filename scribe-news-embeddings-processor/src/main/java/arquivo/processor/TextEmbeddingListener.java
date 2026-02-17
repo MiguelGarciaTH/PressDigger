@@ -1,13 +1,7 @@
 package arquivo.processor;
 
-import arquivo.model.Article;
-import arquivo.model.ArticleChunk;
-import arquivo.model.ArticleChunkMedium;
-import arquivo.model.Site;
-import arquivo.repository.ArticleChunkMediumRepository;
-import arquivo.repository.ArticleChunkRepository;
-import arquivo.repository.ArticleRepository;
-import arquivo.repository.SiteRepository;
+import arquivo.model.*;
+import arquivo.repository.*;
 import arquivo.services.MetricService;
 import arquivo.services.TextEmbeddingClient;
 import arquivo.utils.UrlNormalizer;
@@ -49,11 +43,14 @@ public class TextEmbeddingListener {
     private final LocalDateTime start = LocalDateTime.now(ZoneOffset.UTC);
     private LocalDateTime nextProgressLog = start.plusMinutes(SHOW_STATS_INTERVAL_MINS);
     private final TextEmbeddingClient textEmbeddingClient;
+    private final YakeClient yakeClient;
 
     private final ArticleRepository articleRepository;
     private final ArticleChunkRepository articleChunkRepository;
     private final ArticleChunkMediumRepository articleChunkMediumRepository;
     private final SiteRepository siteRepository;
+    private final KeywordRepository keywordRepository;
+    private final ArticleKeywordScoreRepository articleKeywordScoreRepository;
 
     @Autowired
     public TextEmbeddingListener(Environment environment,
@@ -61,15 +58,20 @@ public class TextEmbeddingListener {
                                  ArticleRepository articleRepository,
                                  ArticleChunkRepository articleChunkRepository,
                                  ArticleChunkMediumRepository articleChunkMediumRepository,
-                                 SiteRepository siteRepository) {
+                                 SiteRepository siteRepository,
+                                 KeywordRepository keywordRepository,
+                                 ArticleKeywordScoreRepository articleKeywordScoreRepository) {
         this.metricService = metricService;
         this.objectMapper = new ObjectMapper();
         this.articleRepository = articleRepository;
         this.articleChunkRepository = articleChunkRepository;
         this.articleChunkMediumRepository = articleChunkMediumRepository;
         this.siteRepository = siteRepository;
+        this.keywordRepository = keywordRepository;
+        this.articleKeywordScoreRepository = articleKeywordScoreRepository;
         final String url = environment.getProperty("scribe-ref.arquivo.scribe-embeddings-processor.embedding-service-url");
         this.textEmbeddingClient = new TextEmbeddingClient(url, objectMapper, false);
+        this.yakeClient = new YakeClient("http://localhost:8002");
 
         responseItemsIncompleteTotal = metricService.loadValue("arquivo_embeddings_processor_response_items_incomplete_total");
         responseItemsReceivedTotal = metricService.loadValue("arquivo_embeddings_processor_response_items_received_total");
@@ -121,6 +123,20 @@ public class TextEmbeddingListener {
             responseItemsStoredTotal++;
             metricService.updateValue("arquivo_embeddings_processor_response_items_stored_total", responseItemsStoredTotal);
             LOG.trace("Stored article {} with id {}", article.getTitle(), article.getId());
+
+            // create keywords for the article using YAKE
+            final List<YakeClient.Keyword> extractedKeywords = yakeClient.extract(summary, "pt", 5, 2);
+            if (!extractedKeywords.isEmpty()) {
+                final List<ArticleKeywordScore> articleKeywordScores = new ArrayList<>(extractedKeywords.size());
+                for (YakeClient.Keyword extractedKeyword : extractedKeywords) {
+                    Keyword keyword = keywordRepository.findByName(extractedKeyword.keyword()).orElse(null);
+                    if (keyword == null) {
+                        keyword = keywordRepository.save(new Keyword(extractedKeyword.keyword()));
+                    }
+                    articleKeywordScores.add(new ArticleKeywordScore(article, keyword, extractedKeyword.score()));
+                }
+                articleKeywordScoreRepository.saveAll(articleKeywordScores);
+            }
 
 
             // Create both chunk lists first

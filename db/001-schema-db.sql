@@ -107,15 +107,17 @@ CREATE TABLE IF NOT EXISTS keyword (
     CONSTRAINT keyword_pk PRIMARY KEY (id)
 );
 
+CREATE SEQUENCE IF NOT EXISTS article_keyword_score_seq START WITH 1 INCREMENT BY 1;
+
 CREATE TABLE article_keyword_score (
-    id integer NOT NULL DEFAULT nextval('article_chunk_seq'),
+    id integer NOT NULL DEFAULT nextval('article_keyword_score_seq'),
     article_id BIGINT NOT NULL,
     keyword_id integer NOT NULL,
     score DOUBLE PRECISION,
 
-    CONSTRAINT article_keyword_score PRIMARY KEY (id),
+    CONSTRAINT article_keyword_score_pk PRIMARY KEY (id),
     CONSTRAINT article_keyword_score_fk_article_id FOREIGN KEY (article_id) REFERENCES article(id),
-    CONSTRAINT article_keyword_score_fk_keyword_id FOREIGN KEY (keyword_id) REFERENCES keyword(id),
+    CONSTRAINT article_keyword_score_fk_keyword_id FOREIGN KEY (keyword_id) REFERENCES keyword(id)
 );
 
 

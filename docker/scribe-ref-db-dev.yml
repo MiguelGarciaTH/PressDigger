@@ -69,6 +69,19 @@ services:
       retries: 3
     restart: unless-stopped
 
+  yake-service:
+    build:
+      context: ./yake-service   # path to the folder with Dockerfile
+    container_name: yake-service
+    restart: unless-stopped
+    ports:
+      - "8002:8002"             # remove this if you don't need external access
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
 volumes:
   kafka_data:
     driver: local
