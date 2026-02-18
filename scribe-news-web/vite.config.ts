@@ -6,7 +6,11 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/scribe-ref': {
+      '/articles': {
+        target: 'http://localhost:8085',
+        changeOrigin: true,
+      },
+      '/images': {
         target: 'http://localhost:8085',
         changeOrigin: true,
       }

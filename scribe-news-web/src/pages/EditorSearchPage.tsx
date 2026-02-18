@@ -8,11 +8,11 @@ function getImageUrl(filePath?: string, size: 'small' | 'original' = 'original')
   const match = filePath.match(/images\/(small|original)\/([^/]+)$/)
   if (match) {
     const [, folder, filename] = match
-    return `/scribe-ref/images/${folder}/${filename}`
+    return `/images/${folder}/${filename}`
   }
   const filename = filePath.split('/').pop()
   if (filename) {
-    return `/scribe-ref/images/${size}/${filename}`
+    return `/images/${size}/${filename}`
   }
   return ""
 }

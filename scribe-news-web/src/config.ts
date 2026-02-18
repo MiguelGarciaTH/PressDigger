@@ -18,4 +18,4 @@ function getApiBase() {
 }
 
 export const API_BASE = getApiBase().replace(/\/$/, "")
-export const SEARCH_URL = `${API_BASE}/scribe-ref/search`
+export const SEARCH_URL = `${API_BASE}/articles/search`
