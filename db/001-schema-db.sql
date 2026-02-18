@@ -159,3 +159,38 @@ CREATE TABLE IF NOT EXISTS metric (
     CONSTRAINT metric_pk PRIMARY KEY (id),
     CONSTRAINT metric_uq_key UNIQUE("key")
 );
+
+CREATE SEQUENCE IF NOT EXISTS user_seq START WITH 1 INCREMENT BY 1;
+
+CREATE TABLE "user" (
+    id integer NOT NULL DEFAULT nextval('user_seq'),
+    google_id   VARCHAR(255) NOT NULL,  -- from OAuth "sub"
+    email       VARCHAR(255),
+    name        VARCHAR(255),
+    created_at  TIMESTAMP DEFAULT NOW(),
+
+    CONSTRAINT user_pk PRIMARY KEY (id)
+);
+
+CREATE SEQUENCE IF NOT EXISTS collection_seq START WITH 1 INCREMENT BY 1;
+
+CREATE TABLE collection (
+    id integer NOT NULL DEFAULT nextval('collection_seq'),
+    user_id     integer NOT NULL,
+    name        VARCHAR(255) NOT NULL,
+    created_at  TIMESTAMP DEFAULT NOW(),
+
+    CONSTRAINT collection_pk PRIMARY KEY (id),
+    CONSTRAINT collection_fk_user_id FOREIGN KEY (user_id) REFERENCES "user"(id)
+);
+
+CREATE SEQUENCE IF NOT EXISTS collection_article_seq START WITH 1 INCREMENT BY 1;
+
+CREATE TABLE collection_article (
+    collection_id integer NOT NULL,
+    article_id    integer NOT NULL,
+
+    CONSTRAINT collection_article_pk PRIMARY KEY (collection_id, article_id),
+    CONSTRAINT collection_article_fk_collection_id FOREIGN KEY (collection_id) REFERENCES collection(id),
+    CONSTRAINT collection_article_fk_article_id FOREIGN KEY (article_id) REFERENCES article(id)
+);
