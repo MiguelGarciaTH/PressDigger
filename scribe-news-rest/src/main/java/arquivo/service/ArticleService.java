@@ -13,6 +13,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 public class ArticleService {
 
@@ -40,7 +42,7 @@ public class ArticleService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Article> search(String inputText, Pageable pageable) {
+    public Page<Article> search(String inputText, List<Integer> siteIds, Pageable pageable) {
         // Normalize input text: trim, remove trailing punctuation
         String normalizedText = inputText.trim().replaceAll("[.,;:!?]+$", "");
 
@@ -53,6 +55,6 @@ public class ArticleService {
         String pgVector = textEmbeddingClient.toPgVectorLiteral(queryEmbedding);
 
         // Use original input text for full-text search (it handles punctuation well)
-        return articleChunkMediumRepository.searchByText(pgVector, inputText, pageable);
+        return articleChunkMediumRepository.searchByText(siteIds, pgVector, inputText, pageable);
     }
 }

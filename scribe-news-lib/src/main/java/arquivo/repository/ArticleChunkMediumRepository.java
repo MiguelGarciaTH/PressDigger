@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
+
 
 public interface ArticleChunkMediumRepository extends JpaRepository<ArticleChunkMedium, Integer> {
 
@@ -41,6 +43,7 @@ public interface ArticleChunkMediumRepository extends JpaRepository<ArticleChunk
                       WHERE
                         /* Very strict filtering: excellent semantic match only */
                         ac.embedding <=> CAST(:embedding AS vector) < 0.15
+                        and a.site_id in :siteIds
                       ORDER BY a.id, score DESC
                     ) t
                     /* final ordering: most relevant (highest score) first */
@@ -52,10 +55,12 @@ public interface ArticleChunkMediumRepository extends JpaRepository<ArticleChunk
                     INNER JOIN article a ON a.id = ac.article_id
                     WHERE
                       ac.embedding <=> CAST(:embedding AS vector) < 0.15
+                      and a.site_id in :siteIds
                     """,
             nativeQuery = true
     )
-    Page<Article> searchByText(@Param("embedding") String embedding,
+    Page<Article> searchByText(@Param("siteIds") List<Integer> siteIds,
+                               @Param("embedding") String embedding,
                                @Param("text") String text,
                                Pageable pageable);
 }
