@@ -1,15 +1,14 @@
 package arquivo.controller;
 
-import arquivo.model.Article;
 import arquivo.service.ArticleService;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.io.IOException;
@@ -20,36 +19,17 @@ import java.nio.file.Paths;
 import java.util.concurrent.TimeUnit;
 
 @RestController
-@RequestMapping("/scribe-ref")
-public class ScribeRefController {
-
-    private final ArticleService articleService;
+@RequestMapping("/images")
+public class ImageController {
 
     private static final String IMAGE_BASE_PATH = "/home/miguel/github/ScribeRef/images/";
 
-    public ScribeRefController(ArticleService articleService) {
-        this.articleService = articleService;
-    }
 
-    @GetMapping("/article/{articleId}")
-    public Article getArticle(@PathVariable int articleId) {
-        return articleService.getArticle(articleId);
-    }
-
-    @PostMapping("/search")
-    public Page<Article> search(@RequestBody SearchInputText inputText,
-                                     @RequestParam(defaultValue = "0") int page,
-                                     @RequestParam(defaultValue = "20") int size) {
-
-        Pageable pageable = PageRequest.of(page, size);
-        return articleService.search(inputText.text(), pageable);
-    }
-
-    record SearchInputText(String text) {
+    public ImageController(ArticleService articleService) {
 
     }
 
-    @GetMapping("/images/{size}/{filename}")
+    @GetMapping("/{size}/{filename}")
     public ResponseEntity<StreamingResponseBody> getImageStreaming(
             @PathVariable String size,
             @PathVariable String filename) throws IOException {
