@@ -176,8 +176,9 @@ CREATE SEQUENCE IF NOT EXISTS collection_seq START WITH 1 INCREMENT BY 1;
 
 CREATE TABLE collection (
     id integer NOT NULL DEFAULT nextval('collection_seq'),
-    user_id     integer NOT NULL,
+    user_id     integer,
     name        VARCHAR(255) NOT NULL,
+    is_public   BOOLEAN NOT NULL DEFAULT FALSE,
     created_at  TIMESTAMP DEFAULT NOW(),
 
     CONSTRAINT collection_pk PRIMARY KEY (id),

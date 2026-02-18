@@ -19,8 +19,11 @@ public class Collection {
     @Column(length = 255, nullable = false)
     private String name;
 
+    @Column(nullable = false)
+    private boolean isPublic = false;
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id")
     @JsonIgnore
     private User user;
 
@@ -40,6 +43,14 @@ public class Collection {
     public Collection(String name, User user) {
         this.name = name;
         this.user = user;
+        this.isPublic = false;
+        this.createdAt = LocalDateTime.now(ZoneOffset.UTC);
+    }
+
+    public Collection(String name, boolean isPublic) {
+        this.name = name;
+        this.user = null;
+        this.isPublic = isPublic;
         this.createdAt = LocalDateTime.now(ZoneOffset.UTC);
     }
 
@@ -53,6 +64,14 @@ public class Collection {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public boolean isPublic() {
+        return isPublic;
+    }
+
+    public void setPublic(boolean isPublic) {
+        this.isPublic = isPublic;
     }
 
     public User getUser() {
