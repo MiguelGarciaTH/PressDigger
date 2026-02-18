@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { SEARCH_URL } from "../config"
+import SiteFilter from "../components/SiteFilter"
 
 export default function SearchPage() {
   const [query, setQuery] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedSiteIds, setSelectedSiteIds] = useState<number[]>([])
   const navigate = useNavigate()
   const abortRef = useRef<AbortController | null>(null)
 
@@ -26,7 +28,8 @@ export default function SearchPage() {
     abortRef.current = controller
 
     try {
-      const res = await fetch(SEARCH_URL, {
+      const siteParam = selectedSiteIds.length > 0 ? `?siteIds=${selectedSiteIds.join(',')}` : ''
+      const res = await fetch(`${SEARCH_URL}${siteParam}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: query }),
@@ -39,7 +42,7 @@ export default function SearchPage() {
       }
 
       const data = await res.json()
-      navigate("/results", { state: { query, results: data } })
+      navigate("/results", { state: { query, results: data, selectedSiteIds } })
     } catch (err: any) {
       if (err?.name === "AbortError") return
       setError(err?.message ?? "Unknown error")
@@ -53,6 +56,7 @@ export default function SearchPage() {
     <div style={{ position: "fixed", inset: 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
       <h1 style={{ fontSize: 32, fontWeight: 700, color: "#eee", letterSpacing: 1, fontFamily: "Georgia, 'Times New Roman', serif" }}>PressDigger</h1>
 
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
       <form onSubmit={onSubmit} style={{
         display: "flex",
         alignItems: "center",
@@ -115,6 +119,8 @@ export default function SearchPage() {
           </button>
         )}
       </form>
+      <SiteFilter selectedSiteIds={selectedSiteIds} onChangeSelection={setSelectedSiteIds} variant="dark" />
+      </div>
 
       <button
         onClick={() => navigate("/editor-search")}

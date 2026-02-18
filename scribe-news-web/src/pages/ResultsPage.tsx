@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react"
 import { useSearchParams, useLocation, useNavigate } from "react-router-dom"
 import { SEARCH_URL } from "../config"
 import { createWorker } from 'tesseract.js'
+import SiteFilter from "../components/SiteFilter"
 
 function isHttpUrl(s?: string) {
   return typeof s === "string" && /^https?:\/\//i.test(s)
@@ -49,6 +50,7 @@ export default function ResultsPage() {
   const [searchExpanded, setSearchExpanded] = useState(false)
   const [searchInput, setSearchInput] = useState("")
   const [searching, setSearching] = useState(false)
+  const [selectedSiteIds, setSelectedSiteIds] = useState<number[]>(state.selectedSiteIds ?? [])
   const tooltipRef = useRef<HTMLDivElement | null>(null)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -76,7 +78,8 @@ export default function ResultsPage() {
     setSearching(true)
     const queryText = searchInput.trim()
     try {
-      const res = await fetch(`${SEARCH_URL}?page=0&size=20`, {
+      const siteParam = selectedSiteIds.length > 0 ? `&siteIds=${selectedSiteIds.join(',')}` : ''
+      const res = await fetch(`${SEARCH_URL}?page=0&size=20${siteParam}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: queryText }),
@@ -97,7 +100,7 @@ export default function ResultsPage() {
     } finally {
       setSearching(false)
     }
-  }, [searchInput, searching])
+  }, [searchInput, searching, selectedSiteIds])
 
   // Focus input when expanded
   useEffect(() => {
@@ -466,7 +469,8 @@ export default function ResultsPage() {
     setLoading(true)
     const nextPage = page + 1
     try {
-      const res = await fetch(`${SEARCH_URL}?page=${nextPage}&size=20`, {
+      const siteParam = selectedSiteIds.length > 0 ? `&siteIds=${selectedSiteIds.join(',')}` : ''
+      const res = await fetch(`${SEARCH_URL}?page=${nextPage}&size=20${siteParam}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: query }),
@@ -481,7 +485,7 @@ export default function ResultsPage() {
     } finally {
       setLoading(false)
     }
-  }, [query, page, last, loading])
+  }, [query, page, last, loading, selectedSiteIds])
 
   // Load initial
   useEffect(() => {
@@ -500,6 +504,34 @@ export default function ResultsPage() {
     strip.addEventListener("scroll", handleScroll, { passive: true })
     return () => strip.removeEventListener("scroll", handleScroll)
   }, [loading, last, loadMore])
+
+  // Re-search when site filter changes
+  useEffect(() => {
+    if (!query) return
+    const doSearch = async () => {
+      setLoading(true)
+      try {
+        const siteParam = selectedSiteIds.length > 0 ? `&siteIds=${selectedSiteIds.join(',')}` : ''
+        const res = await fetch(`${SEARCH_URL}?page=0&size=20${siteParam}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: query }),
+        })
+        if (!res.ok) throw new Error(`Failed: ${res.status}`)
+        const data = await res.json()
+        setFrames(data.content ?? [])
+        setPage(0)
+        setLast(!!data.last)
+        setSelectedIndex(0)
+        setTranslate({ x: 0, y: 0 })
+      } catch (error) {
+        console.error("Filter search error:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    doSearch()
+  }, [selectedSiteIds])
 
   if (!query) return <div className="max-w-3xl mx-auto p-6"><h2 className="text-xl font-semibold mb-4">Microfilm</h2><p className="text-gray-500">No query provided.</p></div>
   if (frames.length === 0) return <div className="max-w-3xl mx-auto p-6"><h2 className="text-xl font-semibold mb-4">Results for "{query}"</h2><p className="text-gray-500">No results available.</p></div>
@@ -529,6 +561,7 @@ export default function ResultsPage() {
         >
           <span style={{ fontSize: 20, fontWeight: 900, textShadow: "0 0 2px rgba(238,238,238,0.8)" }}>←</span>
         </button>
+        <SiteFilter selectedSiteIds={selectedSiteIds} onChangeSelection={setSelectedSiteIds} variant="dark" />
         <form 
           onSubmit={handleSearch}
           onMouseEnter={() => setSearchExpanded(true)}

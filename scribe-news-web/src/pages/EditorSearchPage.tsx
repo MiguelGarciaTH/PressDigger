@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { SEARCH_URL } from "../config"
+import SiteFilter from "../components/SiteFilter"
 
 function getImageUrl(filePath?: string, size: 'small' | 'original' = 'original') {
   if (!filePath) return ""
@@ -38,6 +39,7 @@ export default function EditorSearchPage() {
   const [baselineScale, setBaselineScale] = useState<number>(0.5)
   const [showTopFade, setShowTopFade] = useState(false)
   const [showBottomFade, setShowBottomFade] = useState(false)
+  const [selectedSiteIds, setSelectedSiteIds] = useState<number[]>([])
   
   const editorRef = useRef<HTMLDivElement | null>(null)
   const searchTimeoutsRef = useRef<Map<number, number>>(new Map())
@@ -73,7 +75,8 @@ export default function EditorSearchPage() {
     ))
 
     try {
-      const res = await fetch(`${SEARCH_URL}?page=0&size=20`, {
+      const siteParam = selectedSiteIds.length > 0 ? `&siteIds=${selectedSiteIds.join(',')}` : ''
+      const res = await fetch(`${SEARCH_URL}?page=0&size=20${siteParam}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: query }),
@@ -92,7 +95,7 @@ export default function EditorSearchPage() {
         p.paragraphIndex === paragraphIndex ? { ...p, searching: false } : p
       ))
     }
-  }, [])
+  }, [selectedSiteIds])
 
   const handleInput = useCallback(() => {
     const text = editorRef.current?.innerText ?? ""
@@ -238,7 +241,8 @@ export default function EditorSearchPage() {
     ))
 
     try {
-      const res = await fetch(`${SEARCH_URL}?page=${currentPage}&size=20`, {
+      const siteParam = selectedSiteIds.length > 0 ? `&siteIds=${selectedSiteIds.join(',')}` : ''
+      const res = await fetch(`${SEARCH_URL}?page=${currentPage}&size=20${siteParam}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: queryText }),
@@ -257,7 +261,19 @@ export default function EditorSearchPage() {
         p.paragraphIndex === paraIndex ? { ...p, searching: false } : p
       ))
     }
-  }, [paragraphResults])
+  }, [paragraphResults, selectedSiteIds])
+
+  // Re-search all paragraphs when site filter changes
+  useEffect(() => {
+    if (paragraphResults.length === 0) return
+    // Clear cached queries so performSearch will re-run
+    lastQueriesRef.current.clear()
+    paragraphResults.forEach(p => {
+      if (p.paragraphText.trim().split(/\s+/).length >= 4) {
+        performSearch(p.paragraphIndex, p.paragraphText)
+      }
+    })
+  }, [selectedSiteIds])
 
   const selectedArticle = expandedIndex !== null && expandedParagraphIndex !== null 
     ? paragraphResults.find(p => p.paragraphIndex === expandedParagraphIndex)?.results[expandedIndex]
@@ -294,6 +310,16 @@ export default function EditorSearchPage() {
 
       {/* Main Content */}
       <div style={{ flex: 1, display: "flex", overflow: "hidden", padding: 20, paddingTop: 60, position: "relative" }}>
+        {/* Site Filter - left of editor, aligned top */}
+        <div style={{
+          position: "absolute",
+          left: "50%",
+          marginLeft: -(1100 / 2) - 52,
+          top: 60,
+        }}>
+          <SiteFilter selectedSiteIds={selectedSiteIds} onChangeSelection={setSelectedSiteIds} variant="dark" />
+        </div>
+
         {/* Editor Area - Absolutely centered */}
         <div style={{ 
           position: "absolute",
