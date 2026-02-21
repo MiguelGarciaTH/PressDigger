@@ -582,7 +582,7 @@ export default function ResultsPage() {
   const article = selected
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", padding: 20, color: "#eee", display: "flex", flexDirection: "column", overflow: "hidden", zIndex: 60, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
+    <div style={{ position: "fixed", inset: 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", padding: "20px 72px 20px 20px", color: "#eee", display: "flex", flexDirection: "column", overflow: "hidden", zIndex: 60, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
       
       {/* Header with Search and Results label */}
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 12 }}>
