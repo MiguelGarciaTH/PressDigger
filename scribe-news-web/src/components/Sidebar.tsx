@@ -384,10 +384,10 @@ export default function Sidebar() {
           <div style={{ height: 1, background: "rgba(255,255,255,0.06)", margin: "10px 4px" }} />
 
           <button
-            style={rowStyle(activePanel === "public")}
-            onClick={() => handleCollectionClick("public")}
-            onMouseEnter={(e) => { if (activePanel !== "public") e.currentTarget.style.background = "rgba(255,255,255,0.06)" }}
-            onMouseLeave={(e) => { if (activePanel !== "public") e.currentTarget.style.background = "transparent" }}
+            style={rowStyle(isActivePath("/collections/public"))}
+            onClick={() => handleNav("/collections/public")}
+            onMouseEnter={(e) => { if (!isActivePath("/collections/public")) e.currentTarget.style.background = "rgba(255,255,255,0.06)" }}
+            onMouseLeave={(e) => { if (!isActivePath("/collections/public")) e.currentTarget.style.background = "transparent" }}
           >
             <span style={iconWrap}><PublicCollectionIcon /></span>
             {expanded && <span>Public</span>}

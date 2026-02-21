@@ -6,6 +6,7 @@ import Sidebar from "./components/Sidebar"
 const SearchPage = lazy(() => import("./pages/SearchPage"))
 const ResultsPage = lazy(() => import("./pages/ResultsPage"))
 const EditorSearchPage = lazy(() => import("./pages/EditorSearchPage"))
+const PublicCollectionsPage = lazy(() => import("./pages/PublicCollectionsPage"))
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -40,6 +41,7 @@ export default function App() {
             <Route path="/" element={<SearchPage />} />
             <Route path="/results" element={<ResultsPage />} />
             <Route path="/editor-search" element={<EditorSearchPage />} />
+            <Route path="/collections/public" element={<PublicCollectionsPage />} />
           </Routes>
         </Suspense>
       </main>
