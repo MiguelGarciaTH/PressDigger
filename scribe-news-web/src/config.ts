@@ -23,3 +23,11 @@ export const SITES_URL = `${API_BASE}/sites`
 export const PUBLIC_COLLECTIONS_URL = `${API_BASE}/collections/public`
 export const PRIVATE_COLLECTIONS_URL = `${API_BASE}/collections`
 export const JOURNALIST_COLLECTIONS_URL = `${API_BASE}/collections/journalists`
+
+export function publicCollectionArticlesUrl(collectionId: number, page = 0, size = 20) {
+  return `${API_BASE}/collections/public/${collectionId}/articles?page=${page}&size=${size}`
+}
+
+export function privateCollectionArticlesUrl(collectionId: number, page = 0, size = 20) {
+  return `${API_BASE}/collections/${collectionId}/articles?page=${page}&size=${size}`
+}

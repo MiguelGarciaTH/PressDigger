@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react"
 import { useSearchParams, useLocation, useNavigate } from "react-router-dom"
-import { SEARCH_URL } from "../config"
+import { SEARCH_URL, publicCollectionArticlesUrl, privateCollectionArticlesUrl } from "../config"
 import { createWorker } from 'tesseract.js'
 import SiteFilter from "../components/SiteFilter"
 
@@ -31,6 +31,12 @@ export default function ResultsPage() {
 
   const initialQuery = state.query ?? params.get("q") ?? ""
   const initialItems = (state.results as any)?.content ?? []
+
+  // Collection mode detection
+  const collectionId = params.get("collectionId") ? Number(params.get("collectionId")) : null
+  const collectionType = params.get("type") as "public" | "private" | null // "public" or "private"
+  const collectionName = params.get("name") ?? "Collection"
+  const isCollectionMode = collectionId !== null && collectionType !== null
 
   const [query, setQuery] = useState<string>(initialQuery)
 
@@ -465,16 +471,25 @@ export default function ResultsPage() {
   }, [viewerSrc, ocrLoading, scale, translate.x, translate.y])
 
   const loadMore = useCallback(async () => {
-    if (loading || last || !query) return
+    if (loading || last) return
+    if (!isCollectionMode && !query) return
     setLoading(true)
     const nextPage = page + 1
     try {
-      const siteParam = selectedSiteIds.length > 0 ? `&siteIds=${selectedSiteIds.join(',')}` : ''
-      const res = await fetch(`${SEARCH_URL}?page=${nextPage}&size=20${siteParam}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: query }),
-      })
+      let res: Response
+      if (isCollectionMode) {
+        const url = collectionType === "private"
+          ? privateCollectionArticlesUrl(collectionId!, nextPage)
+          : publicCollectionArticlesUrl(collectionId!, nextPage)
+        res = await fetch(url, { credentials: "include" })
+      } else {
+        const siteParam = selectedSiteIds.length > 0 ? `&siteIds=${selectedSiteIds.join(',')}` : ''
+        res = await fetch(`${SEARCH_URL}?page=${nextPage}&size=20${siteParam}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: query }),
+        })
+      }
       if (!res.ok) throw new Error(`Failed: ${res.status}`)
       const data = await res.json()
       setFrames((prev) => [...prev, ...(data.content ?? [])])
@@ -485,13 +500,31 @@ export default function ResultsPage() {
     } finally {
       setLoading(false)
     }
-  }, [query, page, last, loading, selectedSiteIds])
+  }, [query, page, last, loading, selectedSiteIds, isCollectionMode, collectionId, collectionType])
 
-  // Load initial
+  // Load initial — for search mode (from state) or collection mode
   useEffect(() => {
-    if (frames.length > 0 || !query || loading) return
+    if (frames.length > 0 || loading) return
+    if (isCollectionMode) {
+      // Fetch first page of collection articles
+      setLoading(true)
+      const url = collectionType === "private"
+        ? privateCollectionArticlesUrl(collectionId!, 0)
+        : publicCollectionArticlesUrl(collectionId!, 0)
+      fetch(url, { credentials: "include" })
+        .then((r) => { if (!r.ok) throw new Error(`${r.status}`); return r.json() })
+        .then((data) => {
+          setFrames(data.content ?? [])
+          setPage(0)
+          setLast(!!data.last)
+        })
+        .catch((err) => console.error("Collection load error:", err))
+        .finally(() => setLoading(false))
+      return
+    }
+    if (!query) return
     loadMore()
-  }, [query])
+  }, [query, isCollectionMode])
 
   // Load more on scroll
   useEffect(() => {
@@ -505,9 +538,9 @@ export default function ResultsPage() {
     return () => strip.removeEventListener("scroll", handleScroll)
   }, [loading, last, loadMore])
 
-  // Re-search when site filter changes
+  // Re-search when site filter changes (only in search mode)
   useEffect(() => {
-    if (!query) return
+    if (!query || isCollectionMode) return
     const doSearch = async () => {
       setLoading(true)
       try {
@@ -533,8 +566,17 @@ export default function ResultsPage() {
     doSearch()
   }, [selectedSiteIds])
 
-  if (!query) return <div className="max-w-3xl mx-auto p-6"><h2 className="text-xl font-semibold mb-4">Microfilm</h2><p className="text-gray-500">No query provided.</p></div>
-  if (frames.length === 0) return <div className="max-w-3xl mx-auto p-6"><h2 className="text-xl font-semibold mb-4">Results for "{query}"</h2><p className="text-gray-500">No results available.</p></div>
+  if (!isCollectionMode && !query) return <div className="max-w-3xl mx-auto p-6"><h2 className="text-xl font-semibold mb-4">Microfilm</h2><p className="text-gray-500">No query provided.</p></div>
+  if (frames.length === 0 && !loading) return (
+    <div style={{ position: "fixed", inset: 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", color: "#eee", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
+      <p style={{ color: "#888", fontSize: 15 }}>{isCollectionMode ? "No articles in this collection." : `No results for "${query}".`}</p>
+      <button onClick={() => navigate(isCollectionMode ? `/collections/${collectionType}` : "/")} style={{ marginTop: 16, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "8px 16px", color: "#eee", cursor: "pointer", fontSize: 14 }}>
+        <span style={{ fontSize: 18, fontWeight: 900 }}>←</span> Back
+      </button>
+    </div>
+  )
+
+  const backPath = isCollectionMode ? `/collections/${collectionType}` : "/"
 
   const selected = frames[selectedIndex] ?? {}
   const article = selected
@@ -545,7 +587,7 @@ export default function ResultsPage() {
       {/* Header with Search and Results label */}
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 12 }}>
         <button
-          onClick={() => navigate("/")}
+          onClick={() => navigate(backPath)}
           style={{
             background: "rgba(255,255,255,0.1)",
             border: "1px solid rgba(255,255,255,0.2)",
@@ -561,6 +603,10 @@ export default function ResultsPage() {
         >
           <span style={{ fontSize: 20, fontWeight: 900, textShadow: "0 0 2px rgba(238,238,238,0.8)" }}>←</span>
         </button>
+        {isCollectionMode ? (
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 500 }}>{collectionName}</h2>
+        ) : (
+          <>
         <SiteFilter selectedSiteIds={selectedSiteIds} onChangeSelection={setSelectedSiteIds} variant="dark" />
         <form 
           onSubmit={handleSearch}
@@ -642,6 +688,8 @@ export default function ResultsPage() {
         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 500, color: "#888", transition: "opacity 200ms", opacity: searchExpanded && searchInput ? 0.4 : 1 }}>
           Results for <span style={{ color: "#eee", fontWeight: 600 }}>"{searchInput && searchExpanded ? searchInput : query}"</span>
         </h2>
+          </>
+        )}
       </div>
 
       <div ref={viewerRef} onPointerDown={handlePointerDown} style={{ flex: 1, height: viewerHeight, display: "flex", gap: 0, overflow: "hidden", cursor: "grab" }}>

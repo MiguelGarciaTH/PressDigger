@@ -394,11 +394,17 @@ export default function Sidebar() {
           </button>
 
           <button
-            style={rowStyle(activePanel === "private")}
-            onClick={() => handleCollectionClick("private")}
+            style={rowStyle(isActivePath("/collections/private"))}
+            onClick={() => {
+              if (!user) {
+                window.location.href = "http://localhost:8085/oauth2/authorization/google"
+                return
+              }
+              handleNav("/collections/private")
+            }}
             title={!user ? "Sign in to view" : undefined}
-            onMouseEnter={(e) => { if (activePanel !== "private") e.currentTarget.style.background = "rgba(255,255,255,0.06)" }}
-            onMouseLeave={(e) => { if (activePanel !== "private") e.currentTarget.style.background = "transparent" }}
+            onMouseEnter={(e) => { if (!isActivePath("/collections/private")) e.currentTarget.style.background = "rgba(255,255,255,0.06)" }}
+            onMouseLeave={(e) => { if (!isActivePath("/collections/private")) e.currentTarget.style.background = "transparent" }}
           >
             <span style={iconWrap}><PrivateCollectionIcon /></span>
             {expanded && <span>Private</span>}
