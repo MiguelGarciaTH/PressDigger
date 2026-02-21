@@ -217,7 +217,7 @@ export default function ResultsPage() {
     }
     el.addEventListener("wheel", onWheel, { passive: false })
     return () => el.removeEventListener("wheel", onWheel)
-  }, [])
+  }, [frames.length])
 
   // Horizontal scroll on thumbnail strip via mouse wheel
   useEffect(() => {
@@ -229,7 +229,7 @@ export default function ResultsPage() {
     }
     strip.addEventListener("wheel", onWheel, { passive: false })
     return () => strip.removeEventListener("wheel", onWheel)
-  }, [])
+  }, [frames.length])
 
   // Mouse drag scrolling for thumbnail strip
   useEffect(() => {
@@ -283,7 +283,7 @@ export default function ResultsPage() {
       strip.removeEventListener('mousemove', onMouseMove)
       strip.removeEventListener('mouseleave', onMouseLeave)
     }
-  }, [onSelect])
+  }, [onSelect, frames.length])
 
   // Thumbnail hover preview — pure DOM, no React state, no re-renders
   useEffect(() => {
@@ -389,7 +389,7 @@ export default function ResultsPage() {
     window.addEventListener("pointermove", onMove)
     window.addEventListener("pointerup", onUp)
     return () => { handle.removeEventListener("pointerdown", onDown); window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp) }
-  }, [viewerHeight])
+  }, [viewerHeight, frames.length])
 
   const extractText = useCallback(async () => {
     if (!viewerSrc || ocrLoading || !imgRef.current || !paperRef.current) return
