@@ -1,16 +1,45 @@
 package arquivo.repository;
 
+import arquivo.model.Article;
 import arquivo.model.Collection;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
+import java.util.Optional;
 
 
 public interface CollectionRepository extends JpaRepository<Collection, Integer> {
 
-    List<Collection> findByUserId(int userId);
+    @Query("""
+             select new arquivo.repository.CollectionRepository$CollectionPreview(c.id, c.name, size(c.articles))
+             from Collection c
+             where c.isPublic = false
+             and c.user.id = ?1
+            """)
+    List<CollectionPreview> findPrivateCollectionsByUserId(int userId);
 
-    List<Collection> findByIsPublicTrue();
+    @Query("""
+             select new arquivo.repository.CollectionRepository$CollectionPreview(c.id, c.name, size(c.articles))
+             from Collection c
+             where c.isPublic = true
+            """)
+    List<CollectionPreview> findPublicCollections();
 
-    List<Collection> findByIsPublicFalseAndUserId(int userId);
+    public record CollectionPreview(int id, String name, int articleCount) {}
+
+
+    @Query("""
+                select a
+                from Collection c
+                join c.articles a
+                where c.id = ?1
+                and (c.isPublic = true or c.user.id = ?2)
+                order by a.publishedDate desc
+            """)
+    Page<Article> getArticlesBytCollectionId(int collectionId, Integer userId, Pageable pageable);
+
+    Optional<Collection> findById(int collectionId);
 }

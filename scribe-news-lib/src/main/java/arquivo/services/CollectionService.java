@@ -6,10 +6,13 @@ import arquivo.model.User;
 import arquivo.repository.ArticleRepository;
 import arquivo.repository.CollectionRepository;
 import arquivo.repository.UserRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class CollectionService {
@@ -48,16 +51,21 @@ public class CollectionService {
     }
 
     @Transactional(readOnly = true)
-    public List<Collection> getCollectionsByUser(String googleId) {
+    public List<CollectionRepository.CollectionPreview> getCollectionsByUser(String googleId) {
         User user = userRepository.findByGoogleId(googleId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found with googleId: " + googleId));
 
-        return collectionRepository.findByUserId(user.getId());
+        return collectionRepository.findPrivateCollectionsByUserId(user.getId());
     }
 
     @Transactional(readOnly = true)
-    public List<Collection> getPublicCollections() {
-        return collectionRepository.findByIsPublicTrue();
+    public List<CollectionRepository.CollectionPreview> getPublicCollections() {
+        return collectionRepository.findPublicCollections();
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<Collection> getCollection(int collectionId) {
+        return collectionRepository.findById(collectionId);
     }
 
     @Transactional
@@ -109,5 +117,16 @@ public class CollectionService {
 
         collection.getArticles().removeIf(article -> article.getId() == articleId);
         return collectionRepository.save(collection);
+    }
+
+    @Transactional
+    public Page<Article> getArticlesBytCollectionId(int collectionId, String googleId, Pageable pageable) {
+        Integer userId = null;
+        if (googleId != null) {
+            User user = userRepository.findByGoogleId(googleId)
+                    .orElseThrow(() -> new IllegalArgumentException("User not found with googleId: " + googleId));
+            userId = user.getId();
+        }
+        return collectionRepository.getArticlesBytCollectionId(collectionId, userId, pageable);
     }
 }

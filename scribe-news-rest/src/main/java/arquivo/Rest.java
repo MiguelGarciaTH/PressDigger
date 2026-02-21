@@ -39,7 +39,7 @@ class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()  // Allow auth endpoints
-                        .requestMatchers("/collections/public").permitAll()
+                        .requestMatchers("/collections/public/**").permitAll()
                         .requestMatchers("/collections/**").authenticated()
                         .anyRequest().permitAll()
                 );
