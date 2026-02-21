@@ -20,3 +20,6 @@ function getApiBase() {
 export const API_BASE = getApiBase().replace(/\/$/, "")
 export const SEARCH_URL = `${API_BASE}/articles/search`
 export const SITES_URL = `${API_BASE}/sites`
+export const PUBLIC_COLLECTIONS_URL = `${API_BASE}/collections/public`
+export const PRIVATE_COLLECTIONS_URL = `${API_BASE}/collections`
+export const JOURNALIST_COLLECTIONS_URL = `${API_BASE}/collections/journalists`
