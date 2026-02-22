@@ -30,11 +30,11 @@ public class CollectionService {
     }
 
     @Transactional
-    public Collection createCollection(String googleId, String name) {
+    public Collection createCollection(String googleId, String name, String description) {
         User user = userRepository.findByGoogleId(googleId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found with googleId: " + googleId));
 
-        Collection collection = new Collection(name, user);
+        Collection collection = new Collection(name, user, description);
         return collectionRepository.save(collection);
     }
 
@@ -69,8 +69,8 @@ public class CollectionService {
     }
 
     @Transactional
-    public Collection createPublicCollection(String name) {
-        Collection collection = new Collection(name, true);
+    public Collection createPublicCollection(String name, String description) {
+        Collection collection = new Collection(name, description, true);
         return collectionRepository.save(collection);
     }
 

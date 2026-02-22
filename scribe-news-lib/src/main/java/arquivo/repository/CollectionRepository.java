@@ -14,7 +14,7 @@ import java.util.Optional;
 public interface CollectionRepository extends JpaRepository<Collection, Integer> {
 
     @Query("""
-             select new arquivo.repository.CollectionRepository$CollectionPreview(c.id, c.name, size(c.articles))
+             select new arquivo.repository.CollectionRepository$CollectionPreview(c.id, c.name, c.description, size(c.articles))
              from Collection c
              where c.isPublic = false
              and c.user.id = ?1
@@ -22,13 +22,13 @@ public interface CollectionRepository extends JpaRepository<Collection, Integer>
     List<CollectionPreview> findPrivateCollectionsByUserId(int userId);
 
     @Query("""
-             select new arquivo.repository.CollectionRepository$CollectionPreview(c.id, c.name, size(c.articles))
+             select new arquivo.repository.CollectionRepository$CollectionPreview(c.id, c.name, c.description, size(c.articles))
              from Collection c
              where c.isPublic = true
             """)
     List<CollectionPreview> findPublicCollections();
 
-    public record CollectionPreview(int id, String name, int articleCount) {}
+    public record CollectionPreview(int id, String name, String descriptiom, int articleCount) {}
 
 
     @Query("""

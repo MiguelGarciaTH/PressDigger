@@ -19,6 +19,9 @@ public class Collection {
     @Column(length = 255, nullable = false)
     private String name;
 
+    @Column(columnDefinition = "text")
+    private String description;
+
     @Column(nullable = false)
     private boolean isPublic = false;
 
@@ -40,15 +43,17 @@ public class Collection {
     public Collection() {
     }
 
-    public Collection(String name, User user) {
+    public Collection(String name, User user, String description) {
         this.name = name;
         this.user = user;
         this.isPublic = false;
+        this.description = description;
         this.createdAt = LocalDateTime.now(ZoneOffset.UTC);
     }
 
-    public Collection(String name, boolean isPublic) {
+    public Collection(String name, String description, boolean isPublic) {
         this.name = name;
+        this.description = description;
         this.user = null;
         this.isPublic = isPublic;
         this.createdAt = LocalDateTime.now(ZoneOffset.UTC);
@@ -64,6 +69,14 @@ public class Collection {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
     }
 
     public boolean isPublic() {

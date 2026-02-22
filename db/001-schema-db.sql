@@ -178,6 +178,7 @@ CREATE TABLE collection (
     id integer NOT NULL DEFAULT nextval('collection_seq'),
     user_id     integer,
     name        VARCHAR(255) NOT NULL,
+    description text NOT NULL,
     is_public   BOOLEAN NOT NULL DEFAULT FALSE,
     created_at  TIMESTAMP DEFAULT NOW(),
 
