@@ -31,3 +31,7 @@ export function publicCollectionArticlesUrl(collectionId: number, page = 0, size
 export function privateCollectionArticlesUrl(collectionId: number, page = 0, size = 20) {
   return `${API_BASE}/collections/${collectionId}/articles?page=${page}&size=${size}`
 }
+
+export function collectionArticleUrl(collectionId: number, articleId: number) {
+  return `${API_BASE}/collections/${collectionId}/article/${articleId}`
+}

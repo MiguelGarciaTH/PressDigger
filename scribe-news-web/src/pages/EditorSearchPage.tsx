@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { SEARCH_URL } from "../config"
 import SiteFilter from "../components/SiteFilter"
+import BookmarkButton from "../components/BookmarkButton"
 
 function getImageUrl(filePath?: string, size: 'small' | 'original' = 'original') {
   if (!filePath) return ""
@@ -622,7 +623,7 @@ export default function EditorSearchPage() {
                                   }}>
                                     {idx + 1}
                                   </div>
-                                  {/* Small hint overlay */}
+                                  {/* Expand hint - top right */}
                                   <div style={{
                                     position: "absolute",
                                     top: 6,
@@ -649,8 +650,8 @@ export default function EditorSearchPage() {
                                   <div style={{ fontSize: 10, color: "#888", marginBottom: 8 }}>{article.publishedDate}</div>
                                 )}
                                 
-                                {/* Action button */}
-                                <div style={{ display: "flex", marginTop: 8 }}>
+                                {/* Action buttons */}
+                                <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
                                   <button
                                     onClick={() => {
                                       setExpandedIndex(idx)
@@ -660,7 +661,7 @@ export default function EditorSearchPage() {
                                       setExpandedTextCardKey(null)
                                     }}
                                     style={{
-                                      width: "100%",
+                                      flex: 1,
                                       background: isSelected ? "#1a3333" : "#1a1a1a",
                                       border: isSelected ? "1px solid #3aa" : "1px solid #333",
                                       borderRadius: 6,
@@ -678,6 +679,9 @@ export default function EditorSearchPage() {
                                     <span style={{ fontSize: 14 }}>🔍</span>
                                     <span>View</span>
                                   </button>
+                                  <div onClick={(e) => e.stopPropagation()}>
+                                    <BookmarkButton articleId={article.id} />
+                                  </div>
                                 </div>
                               </div>
                             </div>
