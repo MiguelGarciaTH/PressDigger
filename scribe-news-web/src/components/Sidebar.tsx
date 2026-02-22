@@ -262,6 +262,7 @@ export default function Sidebar() {
             <div ref={profileRef} style={{ position: "relative", width: "100%", display: "flex", justifyContent: expanded ? "flex-start" : "center", padding: expanded ? "0 10px" : "0" }}>
               <button
                 onClick={() => setProfileMenuOpen((v) => !v)}
+                title={!expanded ? user.name : undefined}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -364,6 +365,7 @@ export default function Sidebar() {
           <button
             style={rowStyle(isActivePath("/"))}
             onClick={() => handleNav("/")}
+            title={!expanded ? "Search" : undefined}
             onMouseEnter={(e) => { if (!isActivePath("/")) e.currentTarget.style.background = "rgba(255,255,255,0.06)" }}
             onMouseLeave={(e) => { if (!isActivePath("/")) e.currentTarget.style.background = "transparent" }}
           >
@@ -374,6 +376,7 @@ export default function Sidebar() {
           <button
             style={rowStyle(isActivePath("/editor-search"))}
             onClick={() => handleNav("/editor-search")}
+            title={!expanded ? "Text Editor" : undefined}
             onMouseEnter={(e) => { if (!isActivePath("/editor-search")) e.currentTarget.style.background = "rgba(255,255,255,0.06)" }}
             onMouseLeave={(e) => { if (!isActivePath("/editor-search")) e.currentTarget.style.background = "transparent" }}
           >
@@ -386,6 +389,7 @@ export default function Sidebar() {
           <button
             style={rowStyle(isActivePath("/collections/public"))}
             onClick={() => handleNav("/collections/public")}
+            title={!expanded ? "Public Collections" : undefined}
             onMouseEnter={(e) => { if (!isActivePath("/collections/public")) e.currentTarget.style.background = "rgba(255,255,255,0.06)" }}
             onMouseLeave={(e) => { if (!isActivePath("/collections/public")) e.currentTarget.style.background = "transparent" }}
           >
@@ -402,7 +406,7 @@ export default function Sidebar() {
               }
               handleNav("/collections/private")
             }}
-            title={!user ? "Sign in to view" : undefined}
+            title={!expanded ? (!user ? "Sign in to view" : "Private Collections") : undefined}
             onMouseEnter={(e) => { if (!isActivePath("/collections/private")) e.currentTarget.style.background = "rgba(255,255,255,0.06)" }}
             onMouseLeave={(e) => { if (!isActivePath("/collections/private")) e.currentTarget.style.background = "transparent" }}
           >
@@ -413,6 +417,7 @@ export default function Sidebar() {
           <button
             style={rowStyle(activePanel === "journalists")}
             onClick={() => handleCollectionClick("journalists")}
+            title={!expanded ? "Journalists" : undefined}
             onMouseEnter={(e) => { if (activePanel !== "journalists") e.currentTarget.style.background = "rgba(255,255,255,0.06)" }}
             onMouseLeave={(e) => { if (activePanel !== "journalists") e.currentTarget.style.background = "transparent" }}
           >
