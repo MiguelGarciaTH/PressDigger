@@ -135,11 +135,44 @@ export default function BookmarkButton({ articleId, style }: Props) {
     closePopover()
   }
 
-  // Reset state when articleId changes
+  // Reset state and pre-check membership when articleId changes
   useEffect(() => {
     setSavedIn(new Set())
     setPending(new Set())
-  }, [articleId])
+
+    if (!user || !articleId) return
+    let cancelled = false
+
+    ;(async () => {
+      try {
+        const res = await fetch(PRIVATE_COLLECTIONS_URL, { credentials: "include" })
+        if (!res.ok || cancelled) return
+        const data: Collection[] = await res.json()
+
+        const checks = await Promise.all(
+          data.map(async (col) => {
+            try {
+              const r = await fetch(collectionArticleUrl(col.id, articleId), { credentials: "include" })
+              if (!r.ok) return { id: col.id, has: false }
+              const has = await r.json()
+              return { id: col.id, has: !!has }
+            } catch {
+              return { id: col.id, has: false }
+            }
+          })
+        )
+        if (cancelled) return
+        const initial = new Set<number>()
+        checks.forEach((c) => { if (c.has) initial.add(c.id) })
+        setSavedIn(initial)
+        setPending(new Set(initial))
+      } catch {
+        // ignore
+      }
+    })()
+
+    return () => { cancelled = true }
+  }, [user, articleId])
 
   if (!user || !articleId) return null
 

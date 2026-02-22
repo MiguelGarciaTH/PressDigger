@@ -744,13 +744,20 @@ export default function EditorSearchPage() {
                     
                     if (!article) return null
                     
-                    // Calculate visibility based on position relative to container bounds (0 to 850)
-                    // Hide completely if scrolled significantly out of view
-                    if (summaryTopOffset < -200 || summaryTopOffset > 950) return null
+                    // Hide completely if scrolled far out of view
+                    if (summaryTopOffset < -300 || summaryTopOffset > 1050) return null
                     
-                    // Apply gradient fade when summary scrolls near boundaries
-                    const showSummaryTopFade = summaryTopOffset < 40
-                    const showSummaryBottomFade = summaryTopOffset > 810
+                    // Compute opacity: fade out smoothly as summary approaches boundaries
+                    // Fade zone = 120px from each edge
+                    const fadeZone = 120
+                    let opacity = 1
+                    if (summaryTopOffset < fadeZone) {
+                      // Fading near top
+                      opacity = Math.max(0, summaryTopOffset / fadeZone)
+                    } else if (summaryTopOffset > 850 - fadeZone) {
+                      // Fading near bottom
+                      opacity = Math.max(0, (850 - summaryTopOffset) / fadeZone)
+                    }
                     
                     return (
                       <div style={{
@@ -758,7 +765,7 @@ export default function EditorSearchPage() {
                         left: 436,
                         top: summaryTopOffset,
                         width: 400,
-                        maxHeight: 850,
+                        maxHeight: 850 - Math.max(0, summaryTopOffset),
                         overflow: "auto",
                         padding: 16,
                         background: "#0a0a0a",
@@ -766,41 +773,10 @@ export default function EditorSearchPage() {
                         border: "1px solid #3aa",
                         boxShadow: "0 0 12px rgba(58, 170, 170, 0.3)",
                         animation: "slideIn 200ms ease-out",
+                        opacity,
+                        transition: "opacity 200ms ease-out, top 80ms ease-out",
+                        pointerEvents: opacity < 0.15 ? "none" : "auto",
                       }}>
-                  {/* Gradient fade overlay when scrolling near top - aligns with card list fade */}
-                  {showSummaryTopFade && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: 80,
-                        background:
-                          "linear-gradient(to bottom, rgba(7,7,7,0.98), transparent)",
-                        pointerEvents: "none",
-                        zIndex: 10,
-                        borderRadius: "12px 12px 0 0",
-                      }}
-                    />
-                  )}
-                  {/* Gradient fade overlay when scrolling near bottom */}
-                  {showSummaryBottomFade && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        height: 80,
-                        background:
-                          "linear-gradient(to top, rgba(7,7,7,0.98), transparent)",
-                        pointerEvents: "none",
-                        zIndex: 10,
-                        borderRadius: "0 0 12px 12px",
-                      }}
-                    />
-                  )}
                   <div style={{ marginBottom: 12, paddingBottom: 12, borderBottom: "1px solid #222" }}>
                     <a
                       href={article.linkToArchive}
@@ -1013,6 +989,7 @@ export default function EditorSearchPage() {
                 <button onClick={() => zoomAt(baselineScale)} style={{ padding: "4px 10px", borderRadius: 12, border: "none", background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 12, cursor: "pointer" }}>
                   ⛶ Fit
                 </button>
+                <BookmarkButton articleId={selectedArticle.id} />
               </div>
 
               {/* Navigation Arrows - within current paragraph's results */}
