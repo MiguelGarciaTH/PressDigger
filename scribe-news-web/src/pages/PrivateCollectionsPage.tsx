@@ -9,7 +9,6 @@ interface Collection {
   descriptiom?: string
   articleCount: number
 }
-}
 
 export default function PrivateCollectionsPage() {
   const { user, loading: authLoading } = useAuth()
