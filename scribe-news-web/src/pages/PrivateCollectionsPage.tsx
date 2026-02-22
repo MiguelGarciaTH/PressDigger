@@ -6,8 +6,9 @@ import { useAuth } from "../components/useAuth"
 interface Collection {
   id: number
   name: string
+  descriptiom?: string
   articleCount: number
-  // description will be added later
+}
 }
 
 export default function PrivateCollectionsPage() {
@@ -134,7 +135,7 @@ export default function PrivateCollectionsPage() {
 
                   {/* Description placeholder — ready for future DTO field */}
                   <span style={{ color: "#666", fontSize: 13, lineHeight: 1.4, flex: 1 }}>
-                    {/* col.description ?? "" */}
+                    {col.descriptiom ?? ""}
                   </span>
 
                   {/* Footer: article count */}
