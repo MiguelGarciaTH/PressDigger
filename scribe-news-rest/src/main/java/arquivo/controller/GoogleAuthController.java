@@ -56,6 +56,8 @@ public class GoogleAuthController {
             );
             session.setAttribute("user", user);
 
+
+
             return ResponseEntity.ok(user);
 
         } catch (Exception e) {
