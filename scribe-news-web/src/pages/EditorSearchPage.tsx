@@ -40,6 +40,7 @@ export default function EditorSearchPage() {
   const [showTopFade, setShowTopFade] = useState(false)
   const [showBottomFade, setShowBottomFade] = useState(false)
   const [selectedSiteIds, setSelectedSiteIds] = useState<number[]>([])
+  const [highlightBar, setHighlightBar] = useState<{ top: number; height: number } | null>(null)
   
   const editorRef = useRef<HTMLDivElement | null>(null)
   const searchTimeoutsRef = useRef<Map<number, number>>(new Map())
@@ -275,6 +276,46 @@ export default function EditorSearchPage() {
     })
   }, [selectedSiteIds])
 
+  // Highlight the editor paragraph that corresponds to the selected deck box
+  useEffect(() => {
+    const editor = editorRef.current
+    if (!editor || expandedDeckIndex === null) {
+      setHighlightBar(null)
+      return
+    }
+
+    const updateBar = () => {
+      // Collect non-empty child nodes (mirrors paragraph splitting logic)
+      let paraIdx = 0
+      for (let i = 0; i < editor.childNodes.length; i++) {
+        const child = editor.childNodes[i]
+        if (!child.textContent?.trim()) continue
+        if (paraIdx === expandedDeckIndex) {
+          let rect: DOMRect
+          if (child.nodeType === Node.TEXT_NODE) {
+            const range = document.createRange()
+            range.selectNodeContents(child)
+            rect = range.getBoundingClientRect()
+          } else {
+            rect = (child as HTMLElement).getBoundingClientRect()
+          }
+          const editorRect = editor.getBoundingClientRect()
+          setHighlightBar({
+            top: rect.top - editorRect.top + editor.scrollTop,
+            height: rect.height,
+          })
+          return
+        }
+        paraIdx++
+      }
+      setHighlightBar(null)
+    }
+
+    updateBar()
+    editor.addEventListener('scroll', updateBar)
+    return () => editor.removeEventListener('scroll', updateBar)
+  }, [expandedDeckIndex, paragraphResults])
+
   const selectedArticle = expandedIndex !== null && expandedParagraphIndex !== null 
     ? paragraphResults.find(p => p.paragraphIndex === expandedParagraphIndex)?.results[expandedIndex]
     : null
@@ -329,6 +370,7 @@ export default function EditorSearchPage() {
           display: "flex", 
           flexDirection: "column" 
         }}>
+          <div style={{ position: "relative" }}>
           <div
             ref={editorRef}
             contentEditable
@@ -336,6 +378,7 @@ export default function EditorSearchPage() {
             style={{
               height: 850,
               padding: 40,
+              paddingLeft: 52,
               background: "#111",
               borderRadius: 12,
               border: "1px solid #333",
@@ -348,6 +391,35 @@ export default function EditorSearchPage() {
             }}
             data-placeholder="Start typing your search query... (minimum 4 words per paragraph)"
           />
+          {/* Vertical highlight bar overlay */}
+          {highlightBar && (
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: 52,
+                height: 850,
+                pointerEvents: "none",
+                overflow: "hidden",
+                borderRadius: "12px 0 0 12px",
+              }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  left: 38,
+                  top: highlightBar.top,
+                  width: 3,
+                  height: highlightBar.height,
+                  background: "#3aa",
+                  borderRadius: 2,
+                  transition: "top 200ms, height 200ms",
+                }}
+              />
+            </div>
+          )}
+          </div>
           <style>{`
             [contenteditable][data-placeholder]:empty:before {
               content: attr(data-placeholder);
