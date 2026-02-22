@@ -119,7 +119,7 @@ public class CollectionService {
         return collectionRepository.save(collection);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public Page<Article> getArticlesBytCollectionId(int collectionId, String googleId, Pageable pageable) {
         Integer userId = null;
         if (googleId != null) {
@@ -128,5 +128,13 @@ public class CollectionService {
             userId = user.getId();
         }
         return collectionRepository.getArticlesBytCollectionId(collectionId, userId, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isArticleInCollection(int collectionId, int articleId, String googleId) {
+        User user = userRepository.findByGoogleId(googleId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found with googleId: " + googleId));
+
+        return collectionRepository.isArticleInCollection(articleId, collectionId, user.getId());
     }
 }

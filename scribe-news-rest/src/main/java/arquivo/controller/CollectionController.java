@@ -29,9 +29,9 @@ public class CollectionController {
     }
 
     @GetMapping("/public/{collectionId}/articles")
-    public Page<Article> getPublicCollection(@PathVariable int collectionId,
-                                             @RequestParam(defaultValue = "0") int page,
-                                             @RequestParam(defaultValue = "20") int size) {
+    public Page<Article> getPublicCollectionArticles(@PathVariable int collectionId,
+                                                     @RequestParam(defaultValue = "0") int page,
+                                                     @RequestParam(defaultValue = "20") int size) {
         return collectionService.getArticlesBytCollectionId(collectionId, null, PageRequest.of(page, size));
     }
 
@@ -49,7 +49,8 @@ public class CollectionController {
         return collectionService.createCollection(user.getAttribute("sub"), createCollectionRequest.name, createCollectionRequest.description);
     }
 
-    record CreateCollectionRequest(String name, String description) {}
+    record CreateCollectionRequest(String name, String description) {
+    }
 
     @DeleteMapping("/{collectionId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -62,17 +63,26 @@ public class CollectionController {
         return collectionService.getCollectionsByUser(user.getAttribute("sub"));
     }
 
-    @PostMapping("/{collectionId}/articles/{articleId}")
+    @PostMapping("/{collectionId}/article/{articleId}")
     public Collection addArticleToCollection(@AuthenticationPrincipal OAuth2User user,
                                              @PathVariable int collectionId,
                                              @PathVariable int articleId) {
         return collectionService.addArticleToCollection(user.getAttribute("sub"), collectionId, articleId);
     }
 
-    @DeleteMapping("/{collectionId}/articles/{articleId}")
+    @DeleteMapping("/{collectionId}/article/{articleId}")
     public Collection removeArticleFromCollection(@AuthenticationPrincipal OAuth2User user,
                                                   @PathVariable int collectionId,
                                                   @PathVariable int articleId) {
         return collectionService.removeArticleFromCollection(user.getAttribute("sub"), collectionId, articleId);
     }
+
+
+    @GetMapping("/{collectionId}/article/{articleId}")
+    public boolean isArticleInCollection(@AuthenticationPrincipal OAuth2User user,
+                                         @PathVariable int collectionId,
+                                         @PathVariable int articleId) {
+        return collectionService.isArticleInCollection(collectionId, articleId, user.getAttribute("sub"));
+    }
+
 }

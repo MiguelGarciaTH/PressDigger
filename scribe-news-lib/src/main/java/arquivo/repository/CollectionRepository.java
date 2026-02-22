@@ -30,6 +30,15 @@ public interface CollectionRepository extends JpaRepository<Collection, Integer>
 
     public record CollectionPreview(int id, String name, String descriptiom, int articleCount) {}
 
+    @Query("""
+             select count(a) > 0
+             from Collection c
+             join c.articles a
+             where c.id = ?2
+             and a.id = ?1
+             and (c.isPublic = true or c.user.id = ?3)
+            """)
+    boolean isArticleInCollection(int articleId, int collectionId, int id);
 
     @Query("""
                 select a
