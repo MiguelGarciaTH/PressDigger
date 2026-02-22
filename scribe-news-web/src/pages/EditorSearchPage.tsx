@@ -280,7 +280,7 @@ export default function EditorSearchPage() {
     : null
   const viewerSrc = selectedArticle ? getImageUrl(selectedArticle.originalImagePath ?? selectedArticle.smallImagePath, 'original') : ""
 
-  const hasAnyResults = paragraphResults.some(p => p.results.length > 0)
+  const hasSearchableParagraphs = paragraphResults.some(p => p.results.length > 0 || p.searching || p.paragraphText.trim().split(/\s+/).length >= 4)
   const isSearching = paragraphResults.some(p => p.searching)
 
   return (
@@ -361,7 +361,7 @@ export default function EditorSearchPage() {
         </div>
 
         {/* Results Decks - Appears right next to editor */}
-        {hasAnyResults && (
+        {hasSearchableParagraphs && (
           <div style={{ 
             position: "absolute",
             left: "50%",
@@ -373,7 +373,8 @@ export default function EditorSearchPage() {
             {/* Compact boxes for each paragraph */}
             <div style={{ width: 180, display: "flex", flexDirection: "column", gap: 12, overflow: "auto", maxHeight: 850 }}>
               {paragraphResults.map((paraResult) => {
-                if (paraResult.results.length === 0 && !paraResult.searching) return null
+                const wordCount = paraResult.paragraphText.trim().split(/\s+/).length
+                if (paraResult.results.length === 0 && !paraResult.searching && wordCount < 4) return null
                 
                 const isExpanded = expandedDeckIndex === paraResult.paragraphIndex
 
@@ -416,11 +417,11 @@ export default function EditorSearchPage() {
                     {paraResult.searching ? (
                       <div style={{ fontSize: 12, color: "#888" }}>Searching...</div>
                     ) : (
-                      <div style={{ fontSize: 18, fontWeight: 600, color: "#eee" }}>
-                        {paraResult.totalResults}
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                        <span style={{ fontSize: 18, fontWeight: 600, color: "#eee" }}>{paraResult.totalResults}</span>
+                        <span style={{ fontSize: 10, color: "#eee" }}>results</span>
                       </div>
                     )}
-                    <div style={{ fontSize: 10, color: "#666", marginTop: 2 }}>results</div>
                   </div>
                 )
               })}
