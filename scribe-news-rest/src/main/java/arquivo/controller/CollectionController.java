@@ -39,7 +39,7 @@ public class CollectionController {
         return collectionService.getArticlesBytCollectionId(collectionId, null, pageable);
     }
 
-    @GetMapping("/{collectionId}")
+    @GetMapping("/{collectionId}/articles")
     public Page<Article> getColletion(@AuthenticationPrincipal OAuth2User user,
                                       @PathVariable int collectionId,
                                       @RequestParam(defaultValue = "0") int page,
