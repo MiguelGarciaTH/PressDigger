@@ -234,7 +234,7 @@ export default function Sidebar() {
         {/* ─ Hamburger / X toggle ─ */}
         <div style={{ padding: "14px 0 4px", display: "flex", justifyContent: "flex-end", paddingRight: (COLLAPSED_W - 36) / 2 }}>
           <button
-            onClick={() => { setExpanded((v) => !v); setActivePanel(null) }}
+            onClick={() => { setExpanded((v) => !v); setActivePanel(null); setProfileMenuOpen(false) }}
             aria-label={expanded ? "Close menu" : "Open menu"}
             style={{
               display: "flex",
