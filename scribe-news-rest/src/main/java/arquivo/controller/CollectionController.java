@@ -45,7 +45,7 @@ public class CollectionController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Collection createCollection(@AuthenticationPrincipal OAuth2User user, @RequestParam CreateCollectionRequest createCollectionRequest) {
+    public Collection createCollection(@AuthenticationPrincipal OAuth2User user, @RequestBody CreateCollectionRequest createCollectionRequest) {
         return collectionService.createCollection(user.getAttribute("sub"), createCollectionRequest.name, createCollectionRequest.description);
     }
 
