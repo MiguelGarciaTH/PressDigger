@@ -60,15 +60,15 @@ export default function SearchPage() {
     <div style={{ position: "fixed", inset: 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
       <h1 style={{ fontSize: 32, fontWeight: 700, color: "#eee", letterSpacing: 1, fontFamily: "Georgia, 'Times New Roman', serif" }}>PressDigger</h1>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ position: "relative" }}>
       <form onSubmit={onSubmit} style={{
         display: "flex",
         alignItems: "center",
         background: "rgba(255,255,255,0.95)",
         borderRadius: 24,
         padding: "8px 12px",
-        width: 420,
-        maxWidth: "90vw",
+        width: 560,
+        maxWidth: "80vw",
         height: 44,
       }}>
         <svg 
@@ -123,8 +123,10 @@ export default function SearchPage() {
           </button>
         )}
       </form>
-      <SiteFilter selectedSiteIds={selectedSiteIds} onChangeSelection={setSelectedSiteIds} variant="dark" />
-      <DateRangeFilter startDate={startDate} endDate={endDate} onChangeRange={(s, e) => { setStartDate(s); setEndDate(e) }} variant="dark" />
+      <div style={{ position: "absolute", left: "calc(100% + 10px)", top: "50%", transform: "translateY(-50%)", display: "flex", gap: 10, alignItems: "center" }}>
+        <SiteFilter selectedSiteIds={selectedSiteIds} onChangeSelection={setSelectedSiteIds} variant="dark" />
+        <DateRangeFilter startDate={startDate} endDate={endDate} onChangeRange={(s, e) => { setStartDate(s); setEndDate(e) }} variant="dark" />
+      </div>
       </div>
 
       <button
