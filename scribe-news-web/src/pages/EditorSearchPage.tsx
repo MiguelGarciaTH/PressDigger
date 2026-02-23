@@ -317,6 +317,8 @@ export default function EditorSearchPage() {
     return () => editor.removeEventListener('scroll', updateBar)
   }, [expandedDeckIndex, paragraphResults])
 
+  const cardListHeight = 850
+
   const selectedArticle = expandedIndex !== null && expandedParagraphIndex !== null 
     ? paragraphResults.find(p => p.paragraphIndex === expandedParagraphIndex)?.results[expandedIndex]
     : null
@@ -444,7 +446,7 @@ export default function EditorSearchPage() {
             alignItems: "flex-start",
           }}>
             {/* Compact boxes for each paragraph */}
-            <div style={{ width: 180, display: "flex", flexDirection: "column", gap: 12, overflow: "auto", maxHeight: 850 }}>
+            <div style={{ width: 120, display: "flex", flexDirection: "column", gap: 12, overflow: "auto", maxHeight: cardListHeight }}>
               {paragraphResults.map((paraResult) => {
                 const wordCount = paraResult.paragraphText.trim().split(/\s+/).length
                 if (paraResult.results.length === 0 && !paraResult.searching && wordCount < 4) return null
@@ -525,7 +527,7 @@ export default function EditorSearchPage() {
                   position: "relative", 
                   display: "flex", 
                   gap: 16,
-                  height: 850,
+                  height: cardListHeight,
                 }}>
                   <div style={{ position: "relative", height: "100%" }}>
                     <div 
@@ -534,7 +536,7 @@ export default function EditorSearchPage() {
                       style={{ 
                         width: 420, 
                         flexShrink: 0,
-                        height: 850,
+                        height: cardListHeight,
                         overflow: "auto",
                         animation: "slideIn 200ms ease-out",
                       }}
@@ -745,38 +747,43 @@ export default function EditorSearchPage() {
                     if (!article) return null
                     
                     // Hide completely if scrolled far out of view
-                    if (summaryTopOffset < -300 || summaryTopOffset > 1050) return null
+                    if (summaryTopOffset < -300 || summaryTopOffset > cardListHeight + 200) return null
                     
-                    // Compute opacity: fade out smoothly as summary approaches boundaries
-                    // Fade zone = 120px from each edge
-                    const fadeZone = 120
-                    let opacity = 1
-                    if (summaryTopOffset < fadeZone) {
-                      // Fading near top
-                      opacity = Math.max(0, summaryTopOffset / fadeZone)
-                    } else if (summaryTopOffset > 850 - fadeZone) {
-                      // Fading near bottom
-                      opacity = Math.max(0, (850 - summaryTopOffset) / fadeZone)
-                    }
+                    // The tooltip is positioned at summaryTopOffset.
+                    // Only clip/fade at the TOP edge when scrolled above the card list.
+                    // At the bottom, the summary extends freely so it is always readable.
+                    const fadeZone = 80
+
+                    // How far the tooltip top is above the container top (positive = clipped)
+                    const clipTop = Math.max(0, -summaryTopOffset)
+
+                    // Only apply a top-edge fade mask when the summary is scrolled above
+                    const topFade = clipTop > 0
+                    const maskImage = topFade
+                      ? `linear-gradient(to bottom, transparent 0px, black ${fadeZone}px, black 100%)`
+                      : undefined
                     
                     return (
                       <div style={{
                         position: "absolute",
                         left: 436,
-                        top: summaryTopOffset,
+                        top: Math.max(0, summaryTopOffset),
                         width: 400,
-                        maxHeight: 850 - Math.max(0, summaryTopOffset),
-                        overflow: "auto",
-                        padding: 16,
-                        background: "#0a0a0a",
-                        borderRadius: 12,
-                        border: "1px solid #3aa",
-                        boxShadow: "0 0 12px rgba(58, 170, 170, 0.3)",
+                        maxHeight: topFade ? (cardListHeight - Math.max(0, summaryTopOffset)) : undefined,
+                        overflow: topFade ? "hidden" : "visible",
                         animation: "slideIn 200ms ease-out",
-                        opacity,
-                        transition: "opacity 200ms ease-out, top 80ms ease-out",
-                        pointerEvents: opacity < 0.15 ? "none" : "auto",
-                      }}>
+                        transition: "top 80ms ease-out",
+                        maskImage,
+                        WebkitMaskImage: maskImage,
+                      } as React.CSSProperties}>
+                        <div style={{
+                          marginTop: clipTop > 0 ? -clipTop : 0,
+                          padding: 16,
+                          background: "#0a0a0a",
+                          borderRadius: 12,
+                          border: "1px solid #3aa",
+                          boxShadow: "0 0 12px rgba(58, 170, 170, 0.3)",
+                        }}>
                   <div style={{ marginBottom: 12, paddingBottom: 12, borderBottom: "1px solid #222" }}>
                     <a
                       href={article.linkToArchive}
@@ -814,7 +821,8 @@ export default function EditorSearchPage() {
                   }}>
                     {article.summary || 'No summary available.'}
                   </div>
-                </div>
+                        </div>
+                      </div>
                     )
                   })()}
                   
