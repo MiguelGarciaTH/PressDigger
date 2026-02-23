@@ -6,7 +6,7 @@ import { useAuth } from "../components/useAuth"
 interface Collection {
   id: number
   name: string
-  descriptiom?: string
+  description?: string
   articleCount: number
 }
 
@@ -186,7 +186,7 @@ export default function PrivateCollectionsPage() {
                     {col.name}
                   </span>
                   <span style={{ color: "#666", fontSize: 13, lineHeight: 1.4, flex: 1 }}>
-                    {col.descriptiom ?? ""}
+                    {col.description ?? ""}
                   </span>
                 </div>
 

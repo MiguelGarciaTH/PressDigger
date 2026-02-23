@@ -28,7 +28,7 @@ public interface CollectionRepository extends JpaRepository<Collection, Integer>
             """)
     List<CollectionPreview> findPublicCollections();
 
-    public record CollectionPreview(int id, String name, String descriptiom, int articleCount) {}
+    public record CollectionPreview(int id, String name, String description, int articleCount) {}
 
     @Query("""
              select count(a) > 0
