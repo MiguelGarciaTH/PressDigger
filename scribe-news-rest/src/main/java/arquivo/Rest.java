@@ -15,6 +15,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.SecurityFilterChain;
@@ -47,7 +48,8 @@ class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .cors(cors -> {})
+                .cors(cors -> {
+                })
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
@@ -57,6 +59,10 @@ class SecurityConfig {
                 )
                 .oauth2Login(oauth2 -> oauth2
                         .successHandler(oAuth2SuccessHandler())
+                )
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+                        .maximumSessions(1)
                 );
         return http.build();
     }
@@ -76,7 +82,7 @@ class SecurityConfig {
             request.getSession().setAttribute("user", user);
 
             if (userRepository.findByGoogleId(oAuth2User.getAttribute("sub")).isEmpty()) {
-                userRepository.save(new User( oAuth2User.getAttribute("name"), oAuth2User.getAttribute("email"), oAuth2User.getAttribute("sub")));
+                userRepository.save(new User(oAuth2User.getAttribute("name"), oAuth2User.getAttribute("email"), oAuth2User.getAttribute("sub")));
             }
 
             // Redirect to frontend
