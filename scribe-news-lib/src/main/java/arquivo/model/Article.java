@@ -22,6 +22,9 @@ public class Article {
     @ManyToOne(fetch = FetchType.LAZY)
     private Site site;
 
+    @ManyToOne(fetch = FetchType.EAGER)
+    private Author author;
+
     private LocalDate publishedDate;
 
     private double publishedDateConfidence;
