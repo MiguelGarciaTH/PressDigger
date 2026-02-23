@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 
@@ -44,6 +45,8 @@ public interface ArticleChunkMediumRepository extends JpaRepository<ArticleChunk
                         /* Very strict filtering: excellent semantic match only */
                         ac.embedding <=> CAST(:embedding AS vector) < 0.15
                         and a.site_id in :siteIds
+                        and a.published_date >= :startDate
+                        and a.published_date <= :endDate
                       ORDER BY a.id, score DESC
                     ) t
                     /* final ordering: most relevant (highest score) first */
@@ -56,10 +59,14 @@ public interface ArticleChunkMediumRepository extends JpaRepository<ArticleChunk
                     WHERE
                       ac.embedding <=> CAST(:embedding AS vector) < 0.15
                       and a.site_id in :siteIds
+                      and a.published_date >= :startDate
+                      and a.published_date <= :endDate
                     """,
             nativeQuery = true
     )
     Page<Article> searchByText(@Param("siteIds") List<Integer> siteIds,
+                               @Param("startDate") LocalDateTime startDate,
+                               @Param("endDate") LocalDateTime endDate,
                                @Param("embedding") String embedding,
                                @Param("text") String text,
                                Pageable pageable);

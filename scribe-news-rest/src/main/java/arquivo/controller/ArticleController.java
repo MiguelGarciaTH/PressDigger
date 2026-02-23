@@ -7,6 +7,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -27,10 +28,12 @@ public class ArticleController {
     @PostMapping("/search")
     public Page<Article> search(@RequestBody SearchInputText inputText,
                                 @RequestParam List<Integer> siteIds,
+                                @RequestParam LocalDateTime startDate,
+                                @RequestParam LocalDateTime endDate,
                                 @RequestParam(defaultValue = "0") int page,
                                 @RequestParam(defaultValue = "20") int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return articleService.search(inputText.text(), siteIds, pageable);
+        return articleService.search(inputText.text(), siteIds, startDate, endDate, pageable);
     }
 
     record SearchInputText(String text) {
