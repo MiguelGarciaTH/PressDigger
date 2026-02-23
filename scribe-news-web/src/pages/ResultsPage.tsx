@@ -3,6 +3,7 @@ import { useSearchParams, useLocation, useNavigate } from "react-router-dom"
 import { SEARCH_URL, publicCollectionArticlesUrl, privateCollectionArticlesUrl } from "../config"
 import { createWorker } from 'tesseract.js'
 import SiteFilter from "../components/SiteFilter"
+import DateRangeFilter, { DEFAULT_START, todayStr } from "../components/DateRangeFilter"
 import BookmarkButton from "../components/BookmarkButton"
 
 function isHttpUrl(s?: string) {
@@ -58,6 +59,8 @@ export default function ResultsPage() {
   const [searchInput, setSearchInput] = useState("")
   const [searching, setSearching] = useState(false)
   const [selectedSiteIds, setSelectedSiteIds] = useState<number[]>(state.selectedSiteIds ?? [])
+  const [startDate, setStartDate] = useState<string>(state.startDate ?? DEFAULT_START)
+  const [endDate, setEndDate] = useState<string>(state.endDate ?? todayStr())
   const tooltipRef = useRef<HTMLDivElement | null>(null)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -86,7 +89,8 @@ export default function ResultsPage() {
     const queryText = searchInput.trim()
     try {
       const siteParam = selectedSiteIds.length > 0 ? `&siteIds=${selectedSiteIds.join(',')}` : ''
-      const res = await fetch(`${SEARCH_URL}?page=0&size=20${siteParam}`, {
+      const dateParams = `&startDate=${startDate}T00:00:00&endDate=${endDate}T23:59:59`
+      const res = await fetch(`${SEARCH_URL}?page=0&size=20${siteParam}${dateParams}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: queryText }),
@@ -485,7 +489,8 @@ export default function ResultsPage() {
         res = await fetch(url, { credentials: "include" })
       } else {
         const siteParam = selectedSiteIds.length > 0 ? `&siteIds=${selectedSiteIds.join(',')}` : ''
-        res = await fetch(`${SEARCH_URL}?page=${nextPage}&size=20${siteParam}`, {
+        const dateParams = `&startDate=${startDate}T00:00:00&endDate=${endDate}T23:59:59`
+        res = await fetch(`${SEARCH_URL}?page=${nextPage}&size=20${siteParam}${dateParams}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text: query }),
@@ -546,7 +551,8 @@ export default function ResultsPage() {
       setLoading(true)
       try {
         const siteParam = selectedSiteIds.length > 0 ? `&siteIds=${selectedSiteIds.join(',')}` : ''
-        const res = await fetch(`${SEARCH_URL}?page=0&size=20${siteParam}`, {
+        const dateParams = `&startDate=${startDate}T00:00:00&endDate=${endDate}T23:59:59`
+        const res = await fetch(`${SEARCH_URL}?page=0&size=20${siteParam}${dateParams}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text: query }),
@@ -565,7 +571,7 @@ export default function ResultsPage() {
       }
     }
     doSearch()
-  }, [selectedSiteIds])
+  }, [selectedSiteIds, startDate, endDate])
 
   if (!isCollectionMode && !query) return <div className="max-w-3xl mx-auto p-6"><h2 className="text-xl font-semibold mb-4">Microfilm</h2><p className="text-gray-500">No query provided.</p></div>
   if (frames.length === 0 && !loading) return (
@@ -609,6 +615,7 @@ export default function ResultsPage() {
         ) : (
           <>
         <SiteFilter selectedSiteIds={selectedSiteIds} onChangeSelection={setSelectedSiteIds} variant="dark" />
+        <DateRangeFilter startDate={startDate} endDate={endDate} onChangeRange={(s, e) => { setStartDate(s); setEndDate(e) }} variant="dark" />
         <form 
           onSubmit={handleSearch}
           onMouseEnter={() => setSearchExpanded(true)}

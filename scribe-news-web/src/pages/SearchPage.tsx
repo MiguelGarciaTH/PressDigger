@@ -2,12 +2,15 @@ import { useState, useRef, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { SEARCH_URL } from "../config"
 import SiteFilter from "../components/SiteFilter"
+import DateRangeFilter, { DEFAULT_START, todayStr } from "../components/DateRangeFilter"
 
 export default function SearchPage() {
   const [query, setQuery] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedSiteIds, setSelectedSiteIds] = useState<number[]>([])
+  const [startDate, setStartDate] = useState(DEFAULT_START)
+  const [endDate, setEndDate] = useState(todayStr())
   const navigate = useNavigate()
   const abortRef = useRef<AbortController | null>(null)
 
@@ -28,8 +31,9 @@ export default function SearchPage() {
     abortRef.current = controller
 
     try {
-      const siteParam = selectedSiteIds.length > 0 ? `?siteIds=${selectedSiteIds.join(',')}` : ''
-      const res = await fetch(`${SEARCH_URL}${siteParam}`, {
+      const siteParam = selectedSiteIds.length > 0 ? `&siteIds=${selectedSiteIds.join(',')}` : ''
+      const dateParams = `&startDate=${startDate}T00:00:00&endDate=${endDate}T23:59:59`
+      const res = await fetch(`${SEARCH_URL}?page=0&size=20${siteParam}${dateParams}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: query }),
@@ -42,7 +46,7 @@ export default function SearchPage() {
       }
 
       const data = await res.json()
-      navigate("/results", { state: { query, results: data, selectedSiteIds } })
+      navigate("/results", { state: { query, results: data, selectedSiteIds, startDate, endDate } })
     } catch (err: any) {
       if (err?.name === "AbortError") return
       setError(err?.message ?? "Unknown error")
@@ -120,6 +124,7 @@ export default function SearchPage() {
         )}
       </form>
       <SiteFilter selectedSiteIds={selectedSiteIds} onChangeSelection={setSelectedSiteIds} variant="dark" />
+      <DateRangeFilter startDate={startDate} endDate={endDate} onChangeRange={(s, e) => { setStartDate(s); setEndDate(e) }} variant="dark" />
       </div>
 
       <button

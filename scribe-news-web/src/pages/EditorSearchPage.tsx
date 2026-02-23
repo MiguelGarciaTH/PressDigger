@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { SEARCH_URL } from "../config"
 import SiteFilter from "../components/SiteFilter"
+import DateRangeFilter, { DEFAULT_START, todayStr } from "../components/DateRangeFilter"
 import BookmarkButton from "../components/BookmarkButton"
 
 function getImageUrl(filePath?: string, size: 'small' | 'original' = 'original') {
@@ -41,6 +42,8 @@ export default function EditorSearchPage() {
   const [showTopFade, setShowTopFade] = useState(false)
   const [showBottomFade, setShowBottomFade] = useState(false)
   const [selectedSiteIds, setSelectedSiteIds] = useState<number[]>([])
+  const [startDate, setStartDate] = useState(DEFAULT_START)
+  const [endDate, setEndDate] = useState(todayStr())
   const [highlightBar, setHighlightBar] = useState<{ top: number; height: number } | null>(null)
   
   const editorRef = useRef<HTMLDivElement | null>(null)
@@ -78,7 +81,8 @@ export default function EditorSearchPage() {
 
     try {
       const siteParam = selectedSiteIds.length > 0 ? `&siteIds=${selectedSiteIds.join(',')}` : ''
-      const res = await fetch(`${SEARCH_URL}?page=0&size=20${siteParam}`, {
+      const dateParams = `&startDate=${startDate}T00:00:00&endDate=${endDate}T23:59:59`
+      const res = await fetch(`${SEARCH_URL}?page=0&size=20${siteParam}${dateParams}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: query }),
@@ -244,7 +248,8 @@ export default function EditorSearchPage() {
 
     try {
       const siteParam = selectedSiteIds.length > 0 ? `&siteIds=${selectedSiteIds.join(',')}` : ''
-      const res = await fetch(`${SEARCH_URL}?page=${currentPage}&size=20${siteParam}`, {
+      const dateParams = `&startDate=${startDate}T00:00:00&endDate=${endDate}T23:59:59`
+      const res = await fetch(`${SEARCH_URL}?page=${currentPage}&size=20${siteParam}${dateParams}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: queryText }),
@@ -275,7 +280,7 @@ export default function EditorSearchPage() {
         performSearch(p.paragraphIndex, p.paragraphText)
       }
     })
-  }, [selectedSiteIds])
+  }, [selectedSiteIds, startDate, endDate])
 
   // Highlight the editor paragraph that corresponds to the selected deck box
   useEffect(() => {
@@ -362,6 +367,9 @@ export default function EditorSearchPage() {
           top: 60,
         }}>
           <SiteFilter selectedSiteIds={selectedSiteIds} onChangeSelection={setSelectedSiteIds} variant="dark" />
+          <div style={{ marginTop: 8 }}>
+            <DateRangeFilter startDate={startDate} endDate={endDate} onChangeRange={(s, e) => { setStartDate(s); setEndDate(e) }} variant="dark" />
+          </div>
         </div>
 
         {/* Editor Area - Absolutely centered */}
