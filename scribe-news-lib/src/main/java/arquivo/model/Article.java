@@ -63,11 +63,12 @@ public class Article {
 
     }
 
-    public Article(int articleHash, Site site, String title, String summary, LocalDate publishedDate, double publishedDateConfidence, String linkToArchive,
+    public Article(int articleHash, Site site, Author author, String title, String summary, LocalDate publishedDate, double publishedDateConfidence, String linkToArchive,
                    String linkToArchiveTrimmed, String linkToArchiveImage, String originalImagePath,
                    String smallImagePath) {
         this.articleHash = articleHash;
         this.site = site;
+        this.author = author;
         this.publishedDate = publishedDate;
         this.publishedDateConfidence = publishedDateConfidence;
         this.title = title;

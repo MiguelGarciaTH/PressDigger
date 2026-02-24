@@ -51,6 +51,7 @@ public class TextEmbeddingListener {
     private final SiteRepository siteRepository;
     private final KeywordRepository keywordRepository;
     private final ArticleKeywordScoreRepository articleKeywordScoreRepository;
+    private final AuthorRepository authorRepository;
 
     @Autowired
     public TextEmbeddingListener(Environment environment,
@@ -60,7 +61,8 @@ public class TextEmbeddingListener {
                                  ArticleChunkMediumRepository articleChunkMediumRepository,
                                  SiteRepository siteRepository,
                                  KeywordRepository keywordRepository,
-                                 ArticleKeywordScoreRepository articleKeywordScoreRepository) {
+                                 ArticleKeywordScoreRepository articleKeywordScoreRepository,
+                                 AuthorRepository authorRepository) {
         this.metricService = metricService;
         this.objectMapper = new ObjectMapper();
         this.articleRepository = articleRepository;
@@ -69,6 +71,7 @@ public class TextEmbeddingListener {
         this.siteRepository = siteRepository;
         this.keywordRepository = keywordRepository;
         this.articleKeywordScoreRepository = articleKeywordScoreRepository;
+        this.authorRepository = authorRepository;
         final String url = environment.getProperty("scribe-ref.arquivo.scribe-embeddings-processor.embedding-service-url");
         this.textEmbeddingClient = new TextEmbeddingClient(url, objectMapper, false);
         this.yakeClient = new YakeClient("http://localhost:8002");
@@ -105,10 +108,16 @@ public class TextEmbeddingListener {
 
             final String summary = responseItem.get("summary").asText();
 
+            Author author = null;
+            if (responseItem.has("author") && !responseItem.get("author").isNull()) {
+                author = createOrGetAuthor(responseItem.get("author").asText());
+            }
+
             final Article article = articleRepository.save(
                     new Article(
                             responseItem.get("articleHash").asInt(),
                             site,
+                            author,
                             responseItem.get("title").asText(),
                             summary,
                             parsePublishedDate(responseItem.get("publishedDate")),
@@ -174,6 +183,13 @@ public class TextEmbeddingListener {
                 LOG.warn("Failed to acknowledge record: {}", e.getMessage());
             }
         }
+    }
+
+    private Author createOrGetAuthor(String authorName) {
+        if (authorName == null || authorName.isBlank()) {
+            return null;
+        }
+        return authorRepository.findByName(authorName.trim()).orElseGet(() -> authorRepository.save(new Author(authorName.trim())));
     }
 
     public List<String> createChanksBySentence(String summary) {

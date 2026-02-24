@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS author (
     id integer NOT NULL DEFAULT nextval('author_seq'),
     name varchar(255) NOT NULL,
 
-    CONSTRAINT site_pk PRIMARY KEY (id)
+    CONSTRAINT author_pk PRIMARY KEY (id)
 );
 
 CREATE SEQUENCE IF NOT EXISTS site_seq START WITH 1 INCREMENT BY 1;
@@ -49,6 +49,7 @@ CREATE SEQUENCE IF NOT EXISTS article_seq START WITH 1 INCREMENT BY 1;
 CREATE TABLE IF NOT EXISTS article (
     id integer NOT NULL DEFAULT nextval('article_seq'),
     site_id integer NOT NULL,
+    author_id integer,
     published_date timestamp without time zone,
     published_date_confidence double precision, -- epoch time
     title text NOT NULL,
@@ -61,7 +62,8 @@ CREATE TABLE IF NOT EXISTS article (
     small_image_path text NOT NULL,
 
     CONSTRAINT article_pk PRIMARY KEY (id),
-    CONSTRAINT article_fk_site_id FOREIGN KEY (site_id) REFERENCES site(id)
+    CONSTRAINT article_fk_site_id FOREIGN KEY (site_id) REFERENCES site(id),
+    CONSTRAINT article_fk_author_id FOREIGN KEY (author_id) REFERENCES author(id)
 );
 
 CREATE SEQUENCE IF NOT EXISTS article_chunk_seq START WITH 1 INCREMENT BY 1;

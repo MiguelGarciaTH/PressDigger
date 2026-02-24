@@ -1,5 +1,6 @@
 package arquivo.processor;
 
+import arquivo.model.Author;
 import arquivo.services.MetricService;
 import arquivo.utils.KafkaPublisher;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -48,12 +49,16 @@ public class TextProcessorListener {
 
     private final OpenIAIntegration openIaIntegration;
 
+    private final AuthorExtractor authorExtractor;
+
     @Autowired
     public TextProcessorListener(Environment environment,
                                  MetricService metricService,
                                  KafkaTemplate<String, String> kafkaTemplate,
-                                 @Value("${scribe-ref.arquivo.scribe-news-text-processor.kafka.to-send.topic}") String topic) {
+                                 @Value("${scribe-ref.arquivo.scribe-news-text-processor.kafka.to-send.topic}") String topic,
+                                 @Value("${scribe-ref.arquivo.scribe-news-text-processor.author-extractor-url}") String authorExtractorUrl) {
         this.metricService = metricService;
+        this.authorExtractor = new AuthorExtractor(authorExtractorUrl);
         this.kafkaPublisher = new KafkaPublisher(kafkaTemplate, topic);
         this.objectMapper = new ObjectMapper();
 
@@ -106,6 +111,7 @@ public class TextProcessorListener {
 
             // use open IA to sumerize the text could be done here
             final String openAiResponseString = openIaIntegration.summarizeText(rawText);
+
             JsonNode openIaResponse = null;
             try {
                 openIaResponse = objectMapper.readTree(sanitizeJson(openAiResponseString));
@@ -119,17 +125,20 @@ public class TextProcessorListener {
                 return;
             }
             final String personName = responseItem.get("person").asText();
-            if(!openIaIntegration.isAbout(openIaResponse.get("summary").asText(), personName)) {
+            if (!openIaIntegration.isAbout(openIaResponse.get("summary").asText(), personName)) {
                 LOG.debug("Summary is not about: {}", personName);
                 metricService.updateValue("arquivo_text_processor_summary_is_not_relevant", notRelevantTotal++);
                 return;
             }
+
+            final String author = authorExtractor.extractAuthor(rawText).orElse(null);
 
             //LOG.debug("OpenAI response: {}", openIaResponse.toPrettyString());
 
             final ObjectNode articleToExtractEmbeddding = objectMapper.createObjectNode()
                     .put("title", responseItem.get("title").asText())
                     .put("siteId", responseItem.get("siteId").asInt())
+                    .put("author", author)
                     .put("articleHash", responseItem.get("articleHash").asInt())
                     .put("originalImagePath", responseItem.get("originalImagePath").asText())
                     .put("smallImagePath", responseItem.get("smallImagePath").asText())
