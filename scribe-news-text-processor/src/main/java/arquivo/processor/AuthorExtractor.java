@@ -62,11 +62,70 @@ public class AuthorExtractor {
         if (candidates.isEmpty())
             return Optional.empty();
 
+        candidates = candidates.stream()
+                .filter(c -> looksLikeRealPersonName(c.name))
+                .collect(Collectors.toList());
+
         // 4. Score
         scoreCandidates(candidates, truncated);
 
         // 5. Select
         return selectBest(candidates);
+    }
+
+    private boolean looksLikeRealPersonName(String name) {
+
+        if (!validWordCount(name))
+            return false;
+
+        if (!allWordsCapitalized(name))
+            return false;
+
+        if (!validConnectors(name))
+            return false;
+
+        return true;
+    }
+
+    private boolean allWordsCapitalized(String name) {
+        String[] parts = name.trim().split("\\s+");
+
+        for (String p : parts) {
+            if (p.length() < 2) return false;
+            if (!Character.isUpperCase(p.charAt(0)))
+                return false;
+        }
+        return true;
+    }
+
+    private boolean validWordCount(String name) {
+        int words = name.trim().split("\\s+").length;
+        return words >= 2 && words <= 4;
+    }
+
+    private boolean validConnectors(String name) {
+        String[] parts = name.split("\\s+");
+
+        for (int i = 0; i < parts.length; i++) {
+            String w = parts[i];
+
+            if (w.equalsIgnoreCase("de") ||
+                    w.equalsIgnoreCase("da") ||
+                    w.equalsIgnoreCase("do") ||
+                    w.equalsIgnoreCase("dos") ||
+                    w.equalsIgnoreCase("das")) {
+
+                if (i == 0 || i == parts.length - 1)
+                    return false;
+
+                if (!Character.isUpperCase(parts[i - 1].charAt(0)))
+                    return false;
+
+                if (!Character.isUpperCase(parts[i + 1].charAt(0)))
+                    return false;
+            }
+        }
+        return true;
     }
 
     private Optional<String> selectBest(List<AuthorCandidate> candidates) {
@@ -145,11 +204,8 @@ public class AuthorExtractor {
             // Count occurrences
             c.occurrences = countOccurrences(text, c.name);
 
-            if (c.occurrences == 1)
-                c.score += 2;
-
-            if (c.occurrences > 2)
-                c.score -= 3;
+            if (c.occurrences > 1)
+                c.score = -1000;
 
             // Context window
             int start = Math.max(0, c.position - 50);
