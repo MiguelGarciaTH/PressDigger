@@ -82,6 +82,16 @@ services:
       timeout: 5s
       retries: 3
 
+  spacy-service:
+    build: ./spacy-service
+    container_name: spacy-service
+    ports:
+      - "8003:8003"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
 volumes:
   kafka_data:
     driver: local
