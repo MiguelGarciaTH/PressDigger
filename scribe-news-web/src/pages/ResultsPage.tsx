@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState, useCallback } from "react"
 import { useSearchParams, useLocation, useNavigate } from "react-router-dom"
-import { SEARCH_URL, publicCollectionArticlesUrl, privateCollectionArticlesUrl } from "../config"
+import { SEARCH_URL, publicCollectionArticlesUrl, privateCollectionArticlesUrl, annotationByArticleUrl } from "../config"
 import { createWorker } from 'tesseract.js'
 import SiteFilter from "../components/SiteFilter"
+import { useAuth } from "../components/useAuth"
 import DateRangeFilter, { DEFAULT_START, todayStr } from "../components/DateRangeFilter"
 import BookmarkButton from "../components/BookmarkButton"
+import AnnotationButton from "../components/AnnotationButton"
 
 function isHttpUrl(s?: string) {
   return typeof s === "string" && /^https?:\/\//i.test(s)
@@ -61,6 +63,8 @@ export default function ResultsPage() {
   const [selectedSiteIds, setSelectedSiteIds] = useState<number[]>(state.selectedSiteIds ?? [])
   const [startDate, setStartDate] = useState<string>(state.startDate ?? DEFAULT_START)
   const [endDate, setEndDate] = useState<string>(state.endDate ?? todayStr())
+  const { user } = useAuth()
+  const [articleAnnotation, setArticleAnnotation] = useState<{ id: number; text: string } | null>(null)
   const tooltipRef = useRef<HTMLDivElement | null>(null)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -208,6 +212,23 @@ export default function ResultsPage() {
   useEffect(() => {
     if (scale <= 1) setTranslate({ x: 0, y: 0 })
   }, [scale])
+
+  // Fetch annotation for the currently selected article
+  useEffect(() => {
+    setArticleAnnotation(null)
+    const id = frames[selectedIndex]?.id
+    if (!user || !id) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(annotationByArticleUrl(id), { credentials: "include" })
+        if (!res.ok || cancelled) return
+        const data = await res.json()
+        if (!cancelled && data?.text) setArticleAnnotation({ id: data.id ?? 0, text: data.text })
+      } catch { /* ignore */ }
+    })()
+    return () => { cancelled = true }
+  }, [user, selectedIndex, frames])
 
   // Wheel zoom
   useEffect(() => {
@@ -838,6 +859,7 @@ export default function ResultsPage() {
                 ⛶ Fit
               </button>
               <BookmarkButton articleId={article.id} />
+              <AnnotationButton articleId={article.id} controlledAnnotation={articleAnnotation} onAnnotationSaved={setArticleAnnotation} />
             </div>
           </div>
         </div>
@@ -847,7 +869,7 @@ export default function ResultsPage() {
           data-sidebar
           onPointerDown={(e) => e.stopPropagation()}
           onWheel={(e) => e.stopPropagation()}
-          style={{ width: 320, flexShrink: 0, display: "flex", flexDirection: "column", justifyContent: "center", gap: 12, padding: "16px 16px 16px 24px", cursor: "default" }}
+          style={{ width: 320, flexShrink: 0, display: "flex", flexDirection: "column", justifyContent: "flex-start", gap: 12, padding: "16px 16px 16px 24px", cursor: "default", overflowY: "auto" }}
         >
           <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
             <span style={{ color: "#eee", fontWeight: 600, fontSize: 16, lineHeight: 1.4, flex: 1 }}>
@@ -890,6 +912,27 @@ export default function ResultsPage() {
           }}>
             {article.summary ?? "No summary available."}
           </p>
+
+          {articleAnnotation && (
+            <div style={{
+              marginTop: 4,
+              padding: "10px 12px",
+              background: "rgba(255,180,50,0.06)",
+              border: "1px solid rgba(255,180,50,0.25)",
+              borderRadius: 8,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="#c8960c" stroke="#c8960c" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                </svg>
+                <span style={{ fontSize: 10, fontWeight: 600, color: "#a07010", textTransform: "uppercase", letterSpacing: 0.5 }}>Your note</span>
+              </div>
+              <p style={{ margin: 0, fontSize: 13, color: "#bba060", lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                {articleAnnotation.text}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

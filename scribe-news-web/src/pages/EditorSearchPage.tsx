@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
-import { SEARCH_URL } from "../config"
+import { SEARCH_URL, annotationByArticleUrl } from "../config"
 import SiteFilter from "../components/SiteFilter"
+import { useAuth } from "../components/useAuth"
 import DateRangeFilter, { DEFAULT_START, todayStr } from "../components/DateRangeFilter"
 import BookmarkButton from "../components/BookmarkButton"
+import AnnotationButton from "../components/AnnotationButton"
 
 function getImageUrl(filePath?: string, size: 'small' | 'original' = 'original') {
   if (!filePath) return ""
@@ -45,6 +47,8 @@ export default function EditorSearchPage() {
   const [startDate, setStartDate] = useState(DEFAULT_START)
   const [endDate, setEndDate] = useState(todayStr())
   const [highlightBar, setHighlightBar] = useState<{ top: number; height: number } | null>(null)
+  const { user } = useAuth()
+  const [cardAnnotation, setCardAnnotation] = useState<{ id: number; text: string } | null>(null)
   
   const editorRef = useRef<HTMLDivElement | null>(null)
   const searchTimeoutsRef = useRef<Map<number, number>>(new Map())
@@ -207,6 +211,27 @@ export default function EditorSearchPage() {
   useEffect(() => {
     if (scale <= 1) setTranslate({ x: 0, y: 0 })
   }, [scale])
+
+  // Fetch annotation when the expanded text card changes
+  useEffect(() => {
+    setCardAnnotation(null)
+    if (!expandedTextCardKey || !user) return
+    const [paraIndexStr, cardIndexStr] = expandedTextCardKey.split('-')
+    const paraIndex = parseInt(paraIndexStr, 10)
+    const cardIndex = parseInt(cardIndexStr, 10)
+    const articleId = paragraphResults.find(p => p.paragraphIndex === paraIndex)?.results[cardIndex]?.id
+    if (!articleId) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(annotationByArticleUrl(articleId), { credentials: "include" })
+        if (!res.ok || cancelled) return
+        const data = await res.json()
+        if (!cancelled && data?.text) setCardAnnotation({ id: data.id ?? 0, text: data.text })
+      } catch { /* ignore */ }
+    })()
+    return () => { cancelled = true }
+  }, [user, expandedTextCardKey, paragraphResults])
 
   // Update summary position on card selection or scroll
   useEffect(() => {
@@ -689,8 +714,9 @@ export default function EditorSearchPage() {
                                     <span style={{ fontSize: 14 }}>🔍</span>
                                     <span>View</span>
                                   </button>
-                                  <div onClick={(e) => e.stopPropagation()}>
+                                  <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", gap: 6 }}>
                                     <BookmarkButton articleId={article.id} />
+                                    <AnnotationButton articleId={article.id} />
                                   </div>
                                 </div>
                               </div>
@@ -829,6 +855,27 @@ export default function EditorSearchPage() {
                   }}>
                     {article.summary || 'No summary available.'}
                   </div>
+
+                  {cardAnnotation && (
+                    <div style={{
+                      marginTop: 12,
+                      padding: "10px 12px",
+                      background: "rgba(255,180,50,0.06)",
+                      border: "1px solid rgba(255,180,50,0.28)",
+                      borderRadius: 8,
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="#c8960c" stroke="#c8960c" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 20h9" />
+                          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                        </svg>
+                        <span style={{ fontSize: 10, fontWeight: 600, color: "#a07010", textTransform: "uppercase", letterSpacing: 0.5 }}>Your note</span>
+                      </div>
+                      <p style={{ margin: 0, fontSize: 13, color: "#bba060", lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                        {cardAnnotation.text}
+                      </p>
+                    </div>
+                  )}
                         </div>
                       </div>
                     )
@@ -1006,6 +1053,7 @@ export default function EditorSearchPage() {
                   ⛶ Fit
                 </button>
                 <BookmarkButton articleId={selectedArticle.id} />
+                <AnnotationButton articleId={selectedArticle.id} />
               </div>
 
               {/* Navigation Arrows - within current paragraph's results */}

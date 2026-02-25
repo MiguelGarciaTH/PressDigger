@@ -46,6 +46,23 @@ public class AnnotationController {
         return annotationRepository.save(new Annotation(createAnnotationRequest.content(), user2, article));
     }
 
+    @PatchMapping({"/{annotationId}"})
+    public Annotation updateAnnotation(@AuthenticationPrincipal OAuth2User user, @PathVariable int annotationId, @RequestBody UpdateAnnotationRequest updateAnnotationRequest) {
+        Annotation annotation = annotationRepository.findById(annotationId)
+                .orElseThrow(() -> new IllegalArgumentException("Annotation not found with id: " + annotationId));
+
+        final String googleId = user.getAttribute("sub");
+        if(!annotation.getUser().getGoogleId().equals(googleId)) {
+            throw new IllegalArgumentException("Annotation does not belong to user");
+        }
+
+        annotation.setText(updateAnnotationRequest.content());
+
+        return annotationRepository.save(annotation);
+    }
+
     private record CreateAnnotationRequest(int articleId, String content) {
+    }
+    private record UpdateAnnotationRequest(String content) {
     }
 }
