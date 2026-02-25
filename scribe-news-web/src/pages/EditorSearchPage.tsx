@@ -686,7 +686,7 @@ export default function EditorSearchPage() {
                                 )}
                                 
                                 {/* Action buttons */}
-                                <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                                <div style={{ display: "flex", gap: 6, marginTop: 8, justifyContent: "center" }} onClick={(e) => e.stopPropagation()}>
                                   <button
                                     onClick={() => {
                                       setExpandedIndex(idx)
@@ -696,28 +696,30 @@ export default function EditorSearchPage() {
                                       setExpandedTextCardKey(null)
                                     }}
                                     style={{
-                                      flex: 1,
-                                      background: isSelected ? "#1a3333" : "#1a1a1a",
-                                      border: isSelected ? "1px solid #3aa" : "1px solid #333",
-                                      borderRadius: 6,
-                                      padding: "6px 10px",
-                                      color: isSelected ? "#3aa" : "#aaa",
+                                      height: 32,
+                                      padding: "0 12px",
+                                      borderRadius: 16,
+                                      border: "none",
+                                      background: isSelected ? "rgba(58,170,170,0.2)" : "rgba(255,255,255,0.1)",
+                                      color: isSelected ? "#3aa" : "#fff",
                                       fontSize: 12,
                                       cursor: "pointer",
                                       display: "flex",
                                       alignItems: "center",
-                                      justifyContent: "center",
                                       gap: 4,
-                                      transition: "all 150ms",
+                                      transition: "background 150ms",
                                     }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.background = isSelected ? "rgba(58,170,170,0.3)" : "rgba(255,255,255,0.2)" }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.background = isSelected ? "rgba(58,170,170,0.2)" : "rgba(255,255,255,0.1)" }}
                                   >
-                                    <span style={{ fontSize: 14 }}>🔍</span>
-                                    <span>View</span>
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                      <circle cx="11" cy="11" r="8" />
+                                      <path d="m21 21-4.35-4.35" />
+                                    </svg>
+                                    View
                                   </button>
-                                  <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", gap: 6 }}>
-                                    <BookmarkButton articleId={article.id} />
-                                    <AnnotationButton articleId={article.id} />
-                                  </div>
+                                  <BookmarkButton articleId={article.id} />
+                                  <AnnotationButton articleId={article.id} />
                                 </div>
                               </div>
                             </div>
