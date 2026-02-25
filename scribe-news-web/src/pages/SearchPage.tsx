@@ -136,7 +136,7 @@ export default function SearchPage() {
       </div>
 
       <button
-        onClick={() => navigate("/editor-search")}
+        onClick={() => navigate("/editor-search", query.trim() ? { state: { query } } : undefined)}
         style={{
           display: "flex",
           alignItems: "center",

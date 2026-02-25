@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useLocation } from "react-router-dom"
 import { SEARCH_URL, annotationByArticleUrl } from "../config"
 import SiteFilter from "../components/SiteFilter"
 import { useAuth } from "../components/useAuth"
@@ -33,6 +33,7 @@ interface ParagraphResults {
 
 export default function EditorSearchPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [paragraphResults, setParagraphResults] = useState<ParagraphResults[]>([])
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   const [expandedParagraphIndex, setExpandedParagraphIndex] = useState<number | null>(null)
@@ -55,6 +56,27 @@ export default function EditorSearchPage() {
   const editorRef = useRef<HTMLDivElement | null>(null)
   const searchTimeoutsRef = useRef<Map<number, number>>(new Map())
   const lastQueriesRef = useRef<Map<number, string>>(new Map())
+  const pendingSearchRef = useRef(false)
+
+  // Pre-fill the editor with a query transferred from SearchPage
+  useEffect(() => {
+    const incoming = (location.state as any)?.query
+    if (incoming && editorRef.current) {
+      editorRef.current.innerText = incoming
+      // Place caret at end
+      const range = document.createRange()
+      const sel = window.getSelection()
+      range.selectNodeContents(editorRef.current)
+      range.collapse(false)
+      sel?.removeAllRanges()
+      sel?.addRange(range)
+      // Mark for auto-search if enough words
+      if (incoming.trim().split(/\s+/).length >= 4) {
+        pendingSearchRef.current = true
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const viewerRef = useRef<HTMLDivElement | null>(null)
   const imgRef = useRef<HTMLImageElement | null>(null)
   const isDraggingRef = useRef(false)
@@ -142,6 +164,14 @@ export default function EditorSearchPage() {
       searchTimeoutsRef.current.set(idx, timeout)
     })
   }, [performSearch])
+
+  // Fire deferred initial search once sites are loaded
+  useEffect(() => {
+    if (pendingSearchRef.current && selectedSiteIds.length > 0) {
+      pendingSearchRef.current = false
+      handleInput()
+    }
+  }, [selectedSiteIds, handleInput])
 
   const zoomAt = useCallback((nextScale: number) => {
     const ns = clamp(nextScale, 0.3, 20)
