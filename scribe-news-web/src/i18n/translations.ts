@@ -36,6 +36,7 @@ export const translations = {
     go: "Go",
     searching: "Searching…",
     textEditor: "Text Editor",
+    selectAtLeastOneSite: "You need to select at least one site",
 
     // ResultsPage
     searchArticlesPlaceholder: "Search articles...",
@@ -136,6 +137,7 @@ export const translations = {
     go: "Ir",
     searching: "A pesquisar…",
     textEditor: "Editor de Texto",
+    selectAtLeastOneSite: "Precisa de selecionar pelo menos um site",
 
     // ResultsPage
     searchArticlesPlaceholder: "Pesquisar artigos...",

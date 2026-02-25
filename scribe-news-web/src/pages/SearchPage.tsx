@@ -26,6 +26,10 @@ export default function SearchPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!query.trim()) return
+    if (selectedSiteIds.length === 0) {
+      setError(t.selectAtLeastOneSite)
+      return
+    }
 
     setLoading(true)
     setError(null)
