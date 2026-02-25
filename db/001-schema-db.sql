@@ -208,3 +208,17 @@ CREATE TABLE collection_article (
     CONSTRAINT collection_article_fk_collection_id FOREIGN KEY (collection_id) REFERENCES collection(id),
     CONSTRAINT collection_article_fk_article_id FOREIGN KEY (article_id) REFERENCES article(id)
 );
+
+CREATE SEQUENCE IF NOT EXISTS annotation_seq START WITH 1 INCREMENT BY 1;
+
+CREATE TABLE annotation (
+    id          integer NOT NULL DEFAULT nextval('annotation_seq'),
+    user_id     integer,
+    article_id  integer NOT NULL,
+    text text   NOT NULL,
+    created_at  TIMESTAMP DEFAULT NOW(),
+
+    CONSTRAINT annotation_pk PRIMARY KEY (id),
+    CONSTRAINT annotation_fk_user_id FOREIGN KEY (user_id) REFERENCES "user"(id),
+    CONSTRAINT annotation_fk_article_id FOREIGN KEY (article_id) REFERENCES article(id)
+);

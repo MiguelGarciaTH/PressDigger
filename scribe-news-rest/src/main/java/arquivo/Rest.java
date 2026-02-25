@@ -55,6 +55,7 @@ class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/collections/public/**").permitAll()
                         .requestMatchers("/collections/**").authenticated()
+                        .requestMatchers("/annotations/**").authenticated()
                         .anyRequest().permitAll()
                 )
                 .oauth2Login(oauth2 -> oauth2
