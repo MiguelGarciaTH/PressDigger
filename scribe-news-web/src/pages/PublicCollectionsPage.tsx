@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { PUBLIC_COLLECTIONS_URL } from "../config"
+import { useLang } from "../contexts/LanguageContext"
 
 interface Collection {
   id: number
@@ -14,6 +15,7 @@ export default function PublicCollectionsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
+  const { t } = useLang()
 
   useEffect(() => {
     document.title = "Public Collections — PressDigger"
@@ -48,25 +50,25 @@ export default function PublicCollectionsPage() {
         >
           <span style={{ fontSize: 20, fontWeight: 900, textShadow: "0 0 2px rgba(238,238,238,0.8)" }}>←</span>
         </button>
-        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 500 }}>Public Collections</h2>
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 500 }}>{t.publicCollections}</h2>
       </div>
 
       {/* Content */}
       <div style={{ flex: 1, overflowY: "auto", padding: "32px 24px", display: "flex", justifyContent: "center" }}>
         <div style={{ width: "100%", maxWidth: 900 }}>
         {loading && (
-          <p style={{ color: "#888", fontSize: 14, textAlign: "center", padding: 40 }}>Loading…</p>
+          <p style={{ color: "#888", fontSize: 14, textAlign: "center", padding: 40 }}>{t.loading}</p>
         )}
 
         {error && (
           <p style={{ color: "#e55", fontSize: 14, textAlign: "center", padding: 40 }}>
-            Failed to load collections
+            {t.failedToLoad}
           </p>
         )}
 
         {!loading && !error && collections.length === 0 && (
           <p style={{ color: "#777", fontSize: 14, textAlign: "center", padding: 40 }}>
-            No collections found
+            {t.noCollectionsFound}
           </p>
         )}
 
@@ -121,7 +123,7 @@ export default function PublicCollectionsPage() {
                     <polyline points="14 2 14 8 20 8" />
                   </svg>
                   <span style={{ color: "#888", fontSize: 13 }}>
-                    {col.articleCount} {col.articleCount === 1 ? "article" : "articles"}
+                    {col.articleCount} {col.articleCount === 1 ? t.article : t.articles}
                   </span>
                 </div>
               </button>

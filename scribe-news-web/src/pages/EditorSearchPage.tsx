@@ -6,6 +6,7 @@ import { useAuth } from "../components/useAuth"
 import DateRangeFilter, { DEFAULT_START, todayStr } from "../components/DateRangeFilter"
 import BookmarkButton from "../components/BookmarkButton"
 import AnnotationButton from "../components/AnnotationButton"
+import { useLang } from "../contexts/LanguageContext"
 
 function getImageUrl(filePath?: string, size: 'small' | 'original' = 'original') {
   if (!filePath) return ""
@@ -48,6 +49,7 @@ export default function EditorSearchPage() {
   const [endDate, setEndDate] = useState(todayStr())
   const [highlightBar, setHighlightBar] = useState<{ top: number; height: number } | null>(null)
   const { user } = useAuth()
+  const { t } = useLang()
   const [cardAnnotation, setCardAnnotation] = useState<{ id: number; text: string } | null>(null)
   
   const editorRef = useRef<HTMLDivElement | null>(null)
@@ -378,8 +380,8 @@ export default function EditorSearchPage() {
         >
           <span style={{ fontSize: 20, fontWeight: 900, textShadow: "0 0 2px rgba(238,238,238,0.8)" }}>←</span>
         </button>
-        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 500 }}>Editor Search</h2>
-        {isSearching && <div style={{ color: "#888", fontSize: 13 }}>Searching...</div>}
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 500 }}>{t.editorSearchTitle}</h2>
+        {isSearching && <div style={{ color: "#888", fontSize: 13 }}>{t.searchingDots}</div>}
       </div>
 
       {/* Main Content */}
@@ -425,7 +427,7 @@ export default function EditorSearchPage() {
               fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
               overflow: "auto",
             }}
-            data-placeholder="Start typing your search query... (minimum 4 words per paragraph)"
+            data-placeholder={t.editorPlaceholder}
           />
           {/* Vertical highlight bar overlay */}
           {highlightBar && (
@@ -464,7 +466,7 @@ export default function EditorSearchPage() {
             }
           `}</style>
           <div style={{ marginTop: 12, fontSize: 12, color: "#666", textAlign: "center" }}>
-            💡 Tip: Each paragraph is searched independently. Type at least 4 words per paragraph.
+            {t.editorTip}
           </div>
         </div>
 
@@ -511,7 +513,7 @@ export default function EditorSearchPage() {
                   >
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                       <div style={{ fontSize: 11, color: "#888", fontWeight: 500 }}>
-                        Paragraph {paraResult.paragraphIndex + 1}
+                        {t.paragraph} {paraResult.paragraphIndex + 1}
                       </div>
                       <div style={{ 
                         fontSize: 14, 
@@ -523,11 +525,11 @@ export default function EditorSearchPage() {
                     </div>
                     
                     {paraResult.searching ? (
-                      <div style={{ fontSize: 12, color: "#888" }}>Searching...</div>
+                      <div style={{ fontSize: 12, color: "#888" }}>{t.searchingDots}</div>
                     ) : (
                       <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
                         <span style={{ fontSize: 18, fontWeight: 600, color: "#eee" }}>{paraResult.totalResults}</span>
-                        <span style={{ fontSize: 10, color: "#eee" }}>results</span>
+                        <span style={{ fontSize: 10, color: "#eee" }}>{t.results}</span>
                       </div>
                     )}
                   </div>
@@ -716,7 +718,7 @@ export default function EditorSearchPage() {
                                       <circle cx="11" cy="11" r="8" />
                                       <path d="m21 21-4.35-4.35" />
                                     </svg>
-                                    View
+                                    {t.view}
                                   </button>
                                   <BookmarkButton articleId={article.id} />
                                   <AnnotationButton articleId={article.id} />
@@ -734,7 +736,7 @@ export default function EditorSearchPage() {
                           fontSize: 12, 
                           color: "#888" 
                         }}>
-                          Loading more...
+                          {t.loadingMore}
                         </div>
                       )}
                     </div>
@@ -765,7 +767,7 @@ export default function EditorSearchPage() {
                           fontWeight: 500,
                         }}>
                           <span>↓</span>
-                          <span>Scroll for more</span>
+                          <span>{t.scrollForMore}</span>
                           <span>↓</span>
                         </div>
                       </div>
@@ -855,7 +857,7 @@ export default function EditorSearchPage() {
                     lineHeight: 1.7,
                     color: "#ccc",
                   }}>
-                    {article.summary || 'No summary available.'}
+                    {article.summary || t.noSummary}
                   </div>
 
                   {cardAnnotation && (
@@ -871,7 +873,7 @@ export default function EditorSearchPage() {
                           <path d="M12 20h9" />
                           <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
                         </svg>
-                        <span style={{ fontSize: 10, fontWeight: 600, color: "#a07010", textTransform: "uppercase", letterSpacing: 0.5 }}>Your note</span>
+                        <span style={{ fontSize: 10, fontWeight: 600, color: "#a07010", textTransform: "uppercase", letterSpacing: 0.5 }}>{t.noteLabel}</span>
                       </div>
                       <p style={{ margin: 0, fontSize: 13, color: "#bba060", lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
                         {cardAnnotation.text}
@@ -959,7 +961,7 @@ export default function EditorSearchPage() {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 16, borderBottom: "1px solid #222" }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 11, color: "#666", marginBottom: 4 }}>
-                  Paragraph {expandedParagraphIndex + 1}
+                  {t.paragraph} {expandedParagraphIndex + 1}
                 </div>
                 <a
                   href={selectedArticle.linkToArchive}
@@ -1043,7 +1045,7 @@ export default function EditorSearchPage() {
                   }} 
                 />
               ) : (
-                <div style={{ color: "#666" }}>No image available</div>
+                <div style={{ color: "#666" }}>{t.noImage}</div>
               )}
 
               {/* Zoom Controls */}
@@ -1052,7 +1054,7 @@ export default function EditorSearchPage() {
                 <div style={{ minWidth: 60, textAlign: "center", padding: "4px 8px", background: "rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 13, color: "#fff" }}>{Math.round((scale / baselineScale) * 100)}%</div>
                 <button onClick={() => zoomAt(scale + 0.3)} style={{ width: 32, height: 32, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 18, cursor: "pointer" }}>+</button>
                 <button onClick={() => zoomAt(baselineScale)} style={{ padding: "4px 10px", borderRadius: 12, border: "none", background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 12, cursor: "pointer" }}>
-                  ⛶ Fit
+                  ⛶ {t.fit}
                 </button>
                 <BookmarkButton articleId={selectedArticle.id} />
                 <AnnotationButton articleId={selectedArticle.id} />

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { createPortal } from "react-dom"
 import { ANNOTATIONS_URL, annotationByArticleUrl, annotationUrl } from "../config"
 import { useAuth } from "./useAuth"
+import { useLang } from "../contexts/LanguageContext"
 
 interface Annotation {
   id: number
@@ -19,6 +20,7 @@ interface Props {
 
 export default function AnnotationButton({ articleId, style, controlledAnnotation, onAnnotationSaved }: Props) {
   const { user } = useAuth()
+  const { t } = useLang()
   const isControlled = controlledAnnotation !== undefined
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -157,7 +159,7 @@ export default function AnnotationButton({ articleId, style, controlledAnnotatio
           open ? closePopover() : openPopover()
         }}
         onPointerDown={(e) => e.stopPropagation()}
-        title={hasAnnotation ? "View annotation" : "Add annotation"}
+        title={hasAnnotation ? t.viewAnnotation : t.addAnnotation}
         style={{
           height: 32,
           padding: "0 12px",
@@ -189,7 +191,7 @@ export default function AnnotationButton({ articleId, style, controlledAnnotatio
           <path d="M12 20h9" />
           <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
         </svg>
-        Note
+        {t.note}
       </button>
 
       {open && popoverPos && createPortal(
@@ -225,7 +227,7 @@ export default function AnnotationButton({ articleId, style, controlledAnnotatio
             letterSpacing: 0.5,
             borderBottom: "1px solid rgba(255,255,255,0.07)",
           }}>
-            {hasAnnotation ? "Your annotation" : "Add annotation"}
+            {hasAnnotation ? t.yourAnnotation : t.addAnnotation}
           </div>
 
           {/* Body */}
@@ -265,7 +267,7 @@ export default function AnnotationButton({ articleId, style, controlledAnnotatio
                       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                       <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                     </svg>
-                    Edit
+                    {t.edit}
                   </button>
                 </div>
               </>
@@ -276,7 +278,7 @@ export default function AnnotationButton({ articleId, style, controlledAnnotatio
                   ref={textareaRef}
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
-                  placeholder="Write a note about this article…"
+                  placeholder={t.writeANote}
                   rows={4}
                   onKeyDown={(e) => {
                     if (e.key === "Escape") closePopover()
@@ -313,7 +315,7 @@ export default function AnnotationButton({ articleId, style, controlledAnnotatio
                       cursor: "pointer",
                     }}
                   >
-                    Cancel
+                    {t.cancel}
                   </button>
                   <button
                     onClick={handleSave}
@@ -330,7 +332,7 @@ export default function AnnotationButton({ articleId, style, controlledAnnotatio
                       transition: "all 150ms",
                     }}
                   >
-                    {saving ? "Saving…" : "Save"}
+                    {saving ? t.saving : t.save}
                   </button>
                 </div>
               </>

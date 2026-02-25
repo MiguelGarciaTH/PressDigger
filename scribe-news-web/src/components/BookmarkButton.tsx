@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { createPortal } from "react-dom"
 import { PRIVATE_COLLECTIONS_URL, collectionArticleUrl } from "../config"
 import { useAuth } from "./useAuth"
+import { useLang } from "../contexts/LanguageContext"
 
 interface Collection {
   id: number
@@ -18,6 +19,7 @@ interface Props {
 
 export default function BookmarkButton({ articleId, style }: Props) {
   const { user } = useAuth()
+  const { t } = useLang()
   const [open, setOpen] = useState(false)
   const [collections, setCollections] = useState<Collection[]>([])
   const [savedIn, setSavedIn] = useState<Set<number>>(new Set())       // current server state
@@ -189,7 +191,7 @@ export default function BookmarkButton({ articleId, style }: Props) {
           open ? closePopover() : openPopover()
         }}
         onPointerDown={(e) => e.stopPropagation()}
-        title="Save to collection"
+        title={t.saveToCollection}
         style={{
           height: 32,
           padding: "0 12px",
@@ -210,7 +212,7 @@ export default function BookmarkButton({ articleId, style }: Props) {
         <svg width="14" height="14" viewBox="0 0 24 24" fill={isSaved ? "#fff" : "none"} stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
         </svg>
-        Save
+        {t.save}
       </button>
 
       {/* Collections popover — rendered via portal to escape overflow clipping */}
@@ -238,13 +240,13 @@ export default function BookmarkButton({ articleId, style }: Props) {
           }}
         >
           <div style={{ padding: "10px 12px 6px", fontSize: 11, color: "#888", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
-            Save to collection
+            {t.saveToCollection}
           </div>
 
           {loading ? (
-            <div style={{ padding: "16px 12px", textAlign: "center", fontSize: 12, color: "#888" }}>Loading…</div>
+            <div style={{ padding: "16px 12px", textAlign: "center", fontSize: 12, color: "#888" }}>{t.loading}</div>
           ) : collections.length === 0 ? (
-            <div style={{ padding: "16px 12px", textAlign: "center", fontSize: 12, color: "#666" }}>No collections yet</div>
+            <div style={{ padding: "16px 12px", textAlign: "center", fontSize: 12, color: "#666" }}>{t.noCollectionsYetShort}</div>
           ) : (
             <div style={{ maxHeight: 220, overflowY: "auto", padding: "4px 0" }}>
               {collections.map((col) => {
@@ -315,7 +317,7 @@ export default function BookmarkButton({ articleId, style }: Props) {
                   transition: "opacity 150ms",
                 }}
               >
-                {saving ? "Saving…" : "Save"}
+                {saving ? t.saving : t.save}
               </button>
             </div>
           )}

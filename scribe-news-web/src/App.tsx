@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect } from "react"
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom"
 import Sidebar from "./components/Sidebar"
+import { LanguageProvider } from "./contexts/LanguageContext"
 
 // replace direct imports with lazy imports
 const SearchPage = lazy(() => import("./pages/SearchPage"))
@@ -25,6 +26,7 @@ export default function App() {
   }, [])
 
   return (
+    <LanguageProvider>
     <BrowserRouter>
       <ScrollToTop />
       <Sidebar />
@@ -48,5 +50,6 @@ export default function App() {
         </Suspense>
       </main>
     </BrowserRouter>
+    </LanguageProvider>
   )
 }

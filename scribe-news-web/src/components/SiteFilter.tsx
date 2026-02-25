@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { SITES_URL } from "../config"
+import { useLang } from "../contexts/LanguageContext"
 
 export interface Site {
   id: number
@@ -19,6 +20,7 @@ export default function SiteFilter({ selectedSiteIds, onChangeSelection, variant
   const [sites, setSites] = useState<Site[]>([])
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const { t } = useLang()
 
   // Fetch sites once
   useEffect(() => {
@@ -94,7 +96,7 @@ export default function SiteFilter({ selectedSiteIds, onChangeSelection, variant
           transition: "all 200ms",
           flexShrink: 0,
         }}
-        title="Filter by site"
+        title={t.filterBySite}
       >
         {/* Sliders/control icon */}
         <svg
@@ -154,7 +156,7 @@ export default function SiteFilter({ selectedSiteIds, onChangeSelection, variant
           zIndex: 9999,
         }}>
           <div style={{ padding: "6px 14px 8px", fontSize: 11, color: "#666", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
-            Filter by site
+            {t.filterBySite}
           </div>
 
           {/* Select all / none */}
@@ -211,7 +213,7 @@ export default function SiteFilter({ selectedSiteIds, onChangeSelection, variant
           ))}
 
           {sites.length === 0 && (
-            <div style={{ padding: "8px 14px", fontSize: 12, color: "#666" }}>Loading sites…</div>
+            <div style={{ padding: "8px 14px", fontSize: 12, color: "#666" }}>{t.loading}</div>
           )}
         </div>
       )}

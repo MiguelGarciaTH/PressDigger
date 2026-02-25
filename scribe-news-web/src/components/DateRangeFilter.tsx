@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react"
+import { useLang } from "../contexts/LanguageContext"
 
 interface DateRangeFilterProps {
   startDate: string
@@ -24,6 +25,7 @@ export default function DateRangeFilter({
   const [localStart, setLocalStart] = useState(startDate)
   const [localEnd, setLocalEnd] = useState(endDate)
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const { t } = useLang()
 
   // Sync local state when props change
   useEffect(() => {
@@ -79,7 +81,7 @@ export default function DateRangeFilter({
           transition: "all 200ms",
           flexShrink: 0,
         }}
-        title="Filter by date range"
+        title={t.filterByDateRange}
       >
         {/* Calendar / clock icon */}
         <svg
@@ -125,11 +127,11 @@ export default function DateRangeFilter({
           zIndex: 9999,
         }}>
           <div style={{ fontSize: 11, color: "#666", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>
-            Date range
+            {t.dateRange}
           </div>
 
           <label style={{ display: "block", marginBottom: 4 }}>
-            <div style={{ fontSize: 12, color: "#999", marginBottom: 4 }}>From</div>
+            <div style={{ fontSize: 12, color: "#999", marginBottom: 4 }}>{t.from}</div>
             <input
               type="date"
               value={localStart}
@@ -165,7 +167,7 @@ export default function DateRangeFilter({
           </div>
 
           <label style={{ display: "block", marginBottom: 4 }}>
-            <div style={{ fontSize: 12, color: "#999", marginBottom: 4 }}>To</div>
+            <div style={{ fontSize: 12, color: "#999", marginBottom: 4 }}>{t.to}</div>
             <input
               type="date"
               value={localEnd}
@@ -218,7 +220,7 @@ export default function DateRangeFilter({
               onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.06)"}
               onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
             >
-              Reset
+              {t.reset}
             </button>
             <button
               onClick={handleApply}
@@ -237,7 +239,7 @@ export default function DateRangeFilter({
               onMouseEnter={(e) => e.currentTarget.style.background = "rgba(58,170,170,0.3)"}
               onMouseLeave={(e) => e.currentTarget.style.background = "rgba(58,170,170,0.2)"}
             >
-              Apply
+              {t.apply}
             </button>
           </div>
         </div>

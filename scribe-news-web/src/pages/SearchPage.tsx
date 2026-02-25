@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { SEARCH_URL } from "../config"
 import SiteFilter from "../components/SiteFilter"
 import DateRangeFilter, { DEFAULT_START, todayStr } from "../components/DateRangeFilter"
+import { useLang } from "../contexts/LanguageContext"
 
 export default function SearchPage() {
   const [query, setQuery] = useState("")
@@ -13,6 +14,7 @@ export default function SearchPage() {
   const [endDate, setEndDate] = useState(todayStr())
   const navigate = useNavigate()
   const abortRef = useRef<AbortController | null>(null)
+  const { t } = useLang()
 
   useEffect(() => {
     document.title = "PressDigger"
@@ -90,7 +92,7 @@ export default function SearchPage() {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search newspapers…"
+          placeholder={t.searchPlaceholder}
           disabled={loading}
           style={{
             flex: 1,
@@ -119,7 +121,7 @@ export default function SearchPage() {
               flexShrink: 0,
             }}
           >
-            {loading ? "..." : "Go"}
+            {loading ? "..." : t.go}
           </button>
         )}
       </form>
@@ -157,7 +159,7 @@ export default function SearchPage() {
           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
         </svg>
-        Text Editor
+        {t.textEditor}
       </button>
 
       <div
@@ -296,7 +298,7 @@ export default function SearchPage() {
         </a>
       </div>
 
-      {loading && <div style={{ color: "#aaa", fontSize: 14 }}>Searching…</div>}
+      {loading && <div style={{ color: "#aaa", fontSize: 14 }}>{t.searching}</div>}
       {error && <div style={{ color: "#e55", fontSize: 14 }}>{error}</div>}
     </div>
   )

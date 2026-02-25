@@ -7,6 +7,7 @@ import { useAuth } from "../components/useAuth"
 import DateRangeFilter, { DEFAULT_START, todayStr } from "../components/DateRangeFilter"
 import BookmarkButton from "../components/BookmarkButton"
 import AnnotationButton from "../components/AnnotationButton"
+import { useLang } from "../contexts/LanguageContext"
 
 function isHttpUrl(s?: string) {
   return typeof s === "string" && /^https?:\/\//i.test(s)
@@ -64,6 +65,7 @@ export default function ResultsPage() {
   const [startDate, setStartDate] = useState<string>(state.startDate ?? DEFAULT_START)
   const [endDate, setEndDate] = useState<string>(state.endDate ?? todayStr())
   const { user } = useAuth()
+  const { t } = useLang()
   const [articleAnnotation, setArticleAnnotation] = useState<{ id: number; text: string } | null>(null)
   const tooltipRef = useRef<HTMLDivElement | null>(null)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
@@ -597,9 +599,9 @@ export default function ResultsPage() {
   if (!isCollectionMode && !query) return <div className="max-w-3xl mx-auto p-6"><h2 className="text-xl font-semibold mb-4">Microfilm</h2><p className="text-gray-500">No query provided.</p></div>
   if (frames.length === 0 && !loading) return (
     <div style={{ position: "fixed", inset: 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", color: "#eee", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
-      <p style={{ color: "#888", fontSize: 15 }}>{isCollectionMode ? "No articles in this collection." : `No results for "${query}".`}</p>
+      <p style={{ color: "#888", fontSize: 15 }}>{isCollectionMode ? t.noArticlesInCollection : t.noResultsFor(query)}</p>
       <button onClick={() => navigate(isCollectionMode ? `/collections/${collectionType}` : "/")} style={{ marginTop: 16, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "8px 16px", color: "#eee", cursor: "pointer", fontSize: 14 }}>
-        <span style={{ fontSize: 18, fontWeight: 900 }}>←</span> Back
+        <span style={{ fontSize: 18, fontWeight: 900 }}>←</span> {t.back}
       </button>
     </div>
   )
@@ -678,7 +680,7 @@ export default function ResultsPage() {
             onChange={(e) => setSearchInput(e.target.value)}
             onFocus={() => setSearchExpanded(true)}
             onBlur={() => !searchInput && setTimeout(() => setSearchExpanded(false), 200)}
-            placeholder="Search articles..."
+            placeholder={t.searchArticlesPlaceholder}
             style={{
               flex: 1,
               border: "none",
@@ -709,13 +711,13 @@ export default function ResultsPage() {
                 flexShrink: 0,
               }}
             >
-              {searching ? "..." : "Go"}
+              {searching ? "..." : t.go}
             </button>
           )}
         </form>
         
         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 500, color: "#888", transition: "opacity 200ms", opacity: searchExpanded && searchInput ? 0.4 : 1 }}>
-          Results for <span style={{ color: "#eee", fontWeight: 600 }}>"{searchInput && searchExpanded ? searchInput : query}"</span>
+          {t.resultsFor} <span style={{ color: "#eee", fontWeight: 600 }}>"{searchInput && searchExpanded ? searchInput : query}"</span>
         </h2>
           </>
         )}
@@ -737,7 +739,7 @@ export default function ResultsPage() {
                   margin: "0 auto", 
                   userSelect: "none" 
                 }} />
-            ) : <div style={{ color: "#666" }}>No image</div>}
+            ) : <div style={{ color: "#666" }}>{t.noImage}</div>}
 
             {/* Minimap */}
             {viewerSrc && imgRef.current && (() => {
@@ -841,22 +843,22 @@ export default function ResultsPage() {
                   gap: 8,
                   backdropFilter: "blur(10px)",
                 }}
-                title="Go to top"
+                title="go to top"
               >
-                <span style={{ fontSize: 16 }}>↑</span> Top
+                <span style={{ fontSize: 16 }}>↑</span> {t.top}
               </button>
             )}
 
             {/* Zoom controls */}
             <div onPointerDown={(e) => e.stopPropagation()} style={{ position: "absolute", left: "50%", bottom: 24, transform: "translateX(-50%)", display: "flex", alignItems: "center", gap: 6, background: "rgba(0,0,0,0.75)", padding: "6px 12px", borderRadius: 24 }}>
               <button onClick={extractText} disabled={ocrLoading} style={{ height: 32, padding: "0 12px", borderRadius: 16, border: "none", background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 12, cursor: ocrLoading ? "wait" : "pointer", opacity: ocrLoading ? 0.5 : 1, display: "flex", alignItems: "center", gap: 4 }}>
-                📝 Text
+                {t.ocrButtonLabel}
               </button>
               <button onClick={() => zoomAt(scale - 0.3)} style={{ width: 32, height: 32, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
               <div style={{ minWidth: 52, height: 32, textAlign: "center", padding: "0 8px", background: "rgba(255,255,255,0.1)", borderRadius: 16, fontSize: 13, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>{Math.round((scale / baselineScale) * 100)}%</div>
               <button onClick={() => zoomAt(scale + 0.3)} style={{ width: 32, height: 32, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
               <button onClick={() => zoomAt(baselineScale)} style={{ height: 32, padding: "0 12px", borderRadius: 16, border: "none", background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
-                ⛶ Fit
+                ⛶ {t.fit}
               </button>
               <BookmarkButton articleId={article.id} />
               <AnnotationButton articleId={article.id} controlledAnnotation={articleAnnotation} onAnnotationSaved={setArticleAnnotation} />
@@ -910,7 +912,7 @@ export default function ResultsPage() {
             lineHeight: 1.6, 
             margin: 0
           }}>
-            {article.summary ?? "No summary available."}
+            {article.summary ?? t.noSummary}
           </p>
 
           {articleAnnotation && (
@@ -926,7 +928,7 @@ export default function ResultsPage() {
                   <path d="M12 20h9" />
                   <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
                 </svg>
-                <span style={{ fontSize: 10, fontWeight: 600, color: "#a07010", textTransform: "uppercase", letterSpacing: 0.5 }}>Your note</span>
+                <span style={{ fontSize: 10, fontWeight: 600, color: "#a07010", textTransform: "uppercase", letterSpacing: 0.5 }}>{t.noteLabel}</span>
               </div>
               <p style={{ margin: 0, fontSize: 13, color: "#bba060", lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
                 {articleAnnotation.text}
@@ -947,7 +949,7 @@ export default function ResultsPage() {
             style={{ background: "#1a1a1a", borderRadius: 12, padding: 24, width: "90%", maxWidth: 700, maxHeight: "80vh", display: "flex", flexDirection: "column", color: "#eee" }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h3 style={{ margin: 0, fontSize: 18 }}>Extracted Text</h3>
+              <h3 style={{ margin: 0, fontSize: 18 }}>{t.extractedText}</h3>
               <button 
                 onClick={() => setShowOcrModal(false)} 
                 disabled={ocrLoading}
@@ -959,8 +961,8 @@ export default function ResultsPage() {
             {ocrLoading ? (
               <div style={{ textAlign: "center", padding: 60 }}>
                 <div style={{ fontSize: 32, marginBottom: 16 }}>⏳</div>
-                <div style={{ color: "#aaa" }}>Extracting text from image...</div>
-                <div style={{ color: "#666", fontSize: 12, marginTop: 8 }}>This may take 10-30 seconds on first use</div>
+                <div style={{ color: "#aaa" }}>{t.extractingText}</div>
+                <div style={{ color: "#666", fontSize: 12, marginTop: 8 }}>{t.extractingNote}</div>
               </div>
             ) : (
               <>
@@ -978,20 +980,20 @@ export default function ResultsPage() {
                   margin: 0,
                   minHeight: 200
                 }}>
-                  {ocrText || "No text found."}
+                  {ocrText || t.noTextFound}
                 </pre>
                 <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
                   <button 
                     onClick={() => navigator.clipboard.writeText(ocrText)}
                     style={{ padding: "10px 20px", background: "#333", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 14 }}
                   >
-                    📋 Copy to Clipboard
+                    {t.copyToClipboard}
                   </button>
                   <button 
                     onClick={() => setShowOcrModal(false)}
                     style={{ padding: "10px 20px", background: "#222", border: "1px solid #444", borderRadius: 8, color: "#aaa", cursor: "pointer", fontSize: 14 }}
                   >
-                    Close
+                    {t.close}
                   </button>
                 </div>
               </>

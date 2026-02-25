@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import { PUBLIC_COLLECTIONS_URL, PRIVATE_COLLECTIONS_URL, JOURNALIST_COLLECTIONS_URL } from "../config"
 import { useAuth } from "./useAuth"
+import { useLang } from "../contexts/LanguageContext"
 
 interface Collection {
   id: number
@@ -96,6 +97,7 @@ function GoogleLogoMono() {
 
 export default function Sidebar() {
   const { user, logout } = useAuth()
+  const { t, lang, setLang } = useLang()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -174,9 +176,9 @@ export default function Sidebar() {
   }
 
   const panelTitles: Record<string, string> = {
-    public: "Public Collections",
-    private: "My Collections",
-    journalists: "Journalist Collections",
+    public: t.panelPublic,
+    private: t.panelPrivate,
+    journalists: t.panelJournalists,
   }
 
   const isActivePath = (path: string) => location.pathname === path
@@ -235,7 +237,7 @@ export default function Sidebar() {
         <div style={{ padding: "14px 0 4px", display: "flex", justifyContent: "flex-end", paddingRight: (COLLAPSED_W - 36) / 2 }}>
           <button
             onClick={() => { setExpanded((v) => !v); setActivePanel(null); setProfileMenuOpen(false) }}
-            aria-label={expanded ? "Close menu" : "Open menu"}
+            aria-label={expanded ? t.closeMenu : t.openMenu}
             style={{
               display: "flex",
               alignItems: "center",
@@ -263,6 +265,7 @@ export default function Sidebar() {
               <button
                 onClick={() => setProfileMenuOpen((v) => !v)}
                 title={!expanded ? user.name : undefined}
+
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -326,7 +329,7 @@ export default function Sidebar() {
                       fontSize: 13,
                     }}
                   >
-                    Sign out
+                  {t.signOut}
                   </button>
                 </div>
               )}
@@ -334,7 +337,7 @@ export default function Sidebar() {
           ) : (
             <button
               onClick={handleLogin}
-              title="Sign in with Google"
+              title={t.signIn}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -350,7 +353,7 @@ export default function Sidebar() {
               <span style={iconWrap}><GoogleLogoMono /></span>
               {expanded && (
                 <span style={{ color: "#ddd", fontSize: 13, fontWeight: 500, whiteSpace: "nowrap" }}>
-                  Sign in
+                  {t.signIn}
                 </span>
               )}
             </button>
@@ -365,23 +368,23 @@ export default function Sidebar() {
           <button
             style={rowStyle(isActivePath("/"))}
             onClick={() => handleNav("/")}
-            title={!expanded ? "Search" : undefined}
+            title={!expanded ? t.navSearch : undefined}
             onMouseEnter={(e) => { if (!isActivePath("/")) e.currentTarget.style.background = "rgba(255,255,255,0.06)" }}
             onMouseLeave={(e) => { if (!isActivePath("/")) e.currentTarget.style.background = "transparent" }}
           >
             <span style={iconWrap}><SearchIcon /></span>
-            {expanded && <span>Search</span>}
+            {expanded && <span>{t.navSearch}</span>}
           </button>
 
           <button
             style={rowStyle(isActivePath("/editor-search"))}
             onClick={() => handleNav("/editor-search")}
-            title={!expanded ? "Text Editor" : undefined}
+            title={!expanded ? t.navTextEditor : undefined}
             onMouseEnter={(e) => { if (!isActivePath("/editor-search")) e.currentTarget.style.background = "rgba(255,255,255,0.06)" }}
             onMouseLeave={(e) => { if (!isActivePath("/editor-search")) e.currentTarget.style.background = "transparent" }}
           >
             <span style={iconWrap}><EditorIcon /></span>
-            {expanded && <span>Text Editor</span>}
+            {expanded && <span>{t.navTextEditor}</span>}
           </button>
 
           <div style={{ height: 1, background: "rgba(255,255,255,0.06)", margin: "10px 4px" }} />
@@ -389,12 +392,12 @@ export default function Sidebar() {
           <button
             style={rowStyle(isActivePath("/collections/public"))}
             onClick={() => handleNav("/collections/public")}
-            title={!expanded ? "Public Collections" : undefined}
+            title={!expanded ? t.panelPublic : undefined}
             onMouseEnter={(e) => { if (!isActivePath("/collections/public")) e.currentTarget.style.background = "rgba(255,255,255,0.06)" }}
             onMouseLeave={(e) => { if (!isActivePath("/collections/public")) e.currentTarget.style.background = "transparent" }}
           >
             <span style={iconWrap}><PublicCollectionIcon /></span>
-            {expanded && <span>Public</span>}
+            {expanded && <span>{t.navPublic}</span>}
           </button>
 
           <button
@@ -406,34 +409,93 @@ export default function Sidebar() {
               }
               handleNav("/collections/private")
             }}
-            title={!expanded ? (!user ? "Sign in to view" : "Private Collections") : undefined}
+            title={!expanded ? (!user ? t.signInToView : t.panelPrivate) : undefined}
             onMouseEnter={(e) => { if (!isActivePath("/collections/private")) e.currentTarget.style.background = "rgba(255,255,255,0.06)" }}
             onMouseLeave={(e) => { if (!isActivePath("/collections/private")) e.currentTarget.style.background = "transparent" }}
           >
             <span style={iconWrap}><PrivateCollectionIcon /></span>
-            {expanded && <span>Private</span>}
+            {expanded && <span>{t.navPrivate}</span>}
           </button>
 
           <button
             style={rowStyle(activePanel === "journalists")}
             onClick={() => handleCollectionClick("journalists")}
-            title={!expanded ? "Journalists" : undefined}
+            title={!expanded ? t.navJournalists : undefined}
             onMouseEnter={(e) => { if (activePanel !== "journalists") e.currentTarget.style.background = "rgba(255,255,255,0.06)" }}
             onMouseLeave={(e) => { if (activePanel !== "journalists") e.currentTarget.style.background = "transparent" }}
           >
             <span style={iconWrap}><JournalistCollectionIcon /></span>
-            {expanded && <span>Journalists</span>}
+            {expanded && <span>{t.navJournalists}</span>}
           </button>
         </div>
 
         {/* ─ Bottom links ─ */}
         <div style={{ display: "flex", flexDirection: "column", gap: 2, padding: "0 6px 12px" }}>
+
+          {/* Language toggle */}
+          {expanded ? (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4, padding: "4px 8px", marginBottom: 2 }}>
+              {(["en", "pt"] as const).map((l, i) => (
+                <>
+                  {i > 0 && <span key={`sep-${l}`} style={{ color: "#333", fontSize: 11, userSelect: "none" }}>|</span>}
+                  <button
+                    key={l}
+                    onClick={() => setLang(l)}
+                    style={{
+                      background: lang === l ? "rgba(255,255,255,0.12)" : "none",
+                      border: "none",
+                      borderRadius: 5,
+                      padding: "3px 8px",
+                      color: lang === l ? "#fff" : "#555",
+                      fontSize: 11,
+                      fontWeight: lang === l ? 700 : 500,
+                      cursor: "pointer",
+                      letterSpacing: 0.5,
+                      transition: "all 150ms",
+                    }}
+                    onMouseEnter={(e) => { if (lang !== l) e.currentTarget.style.color = "#999" }}
+                    onMouseLeave={(e) => { if (lang !== l) e.currentTarget.style.color = "#555" }}
+                  >
+                    {l.toUpperCase()}
+                  </button>
+                </>
+              ))}
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "4px 0", marginBottom: 2 }}>
+              {(["en", "pt"] as const).map((l) => (
+                <button
+                  key={l}
+                  onClick={() => setLang(l)}
+                  style={{
+                    background: lang === l ? "rgba(255,255,255,0.12)" : "none",
+                    border: "none",
+                    borderRadius: 4,
+                    padding: "2px 6px",
+                    color: lang === l ? "#fff" : "#555",
+                    fontSize: 10,
+                    fontWeight: lang === l ? 700 : 500,
+                    cursor: "pointer",
+                    letterSpacing: 0.5,
+                    transition: "all 150ms",
+                    lineHeight: 1.4,
+                  }}
+                  onMouseEnter={(e) => { if (lang !== l) e.currentTarget.style.color = "#999" }}
+                  onMouseLeave={(e) => { if (lang !== l) e.currentTarget.style.color = "#555" }}
+                >
+                  {l.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          )}
+
           <div style={{ height: 1, background: "rgba(255,255,255,0.06)", margin: "8px 4px 10px" }} />
           <a
             href="https://github.com/MiguelGarciaTH/ScribeRef"
             target="_blank"
             rel="noopener noreferrer"
             title={!expanded ? "GitHub" : undefined}
+
             style={{
               ...rowStyle(false),
               textDecoration: "none",
@@ -448,6 +510,7 @@ export default function Sidebar() {
               </svg>
             </span>
             {expanded && <span>GitHub</span>}
+
           </a>
           <a
             href="https://www.linkedin.com/in/miguelgarciath/"
@@ -535,18 +598,18 @@ export default function Sidebar() {
 
           <div style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
             {loadingCollections && (
-              <p style={{ color: "#888", fontSize: 13, textAlign: "center", padding: 20 }}>Loading…</p>
+              <p style={{ color: "#888", fontSize: 13, textAlign: "center", padding: 20 }}>{t.loading}</p>
             )}
 
             {collectionError && (
               <p style={{ color: "#e55", fontSize: 13, textAlign: "center", padding: 20 }}>
-                {activePanel === "journalists" ? "Coming soon" : `Error: ${collectionError}`}
+                {activePanel === "journalists" ? t.comingSoon : `Error: ${collectionError}`}
               </p>
             )}
 
             {!loadingCollections && !collectionError && collections.length === 0 && (
               <p style={{ color: "#777", fontSize: 13, textAlign: "center", padding: 20 }}>
-                {activePanel === "journalists" ? "Coming soon" : "No collections found"}
+                {activePanel === "journalists" ? t.comingSoon : t.noCollectionsFoundPanel}
               </p>
             )}
 

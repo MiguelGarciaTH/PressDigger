@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { PRIVATE_COLLECTIONS_URL } from "../config"
 import { useAuth } from "../components/useAuth"
+import { useLang } from "../contexts/LanguageContext"
 
 interface Collection {
   id: number
@@ -12,6 +13,7 @@ interface Collection {
 
 export default function PrivateCollectionsPage() {
   const { user, loading: authLoading } = useAuth()
+  const { t } = useLang()
   const [collections, setCollections] = useState<Collection[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -71,7 +73,8 @@ export default function PrivateCollectionsPage() {
       setNewDesc("")
       setShowCreateForm(false)
     } catch (err: any) {
-      alert("Failed to create collection")
+      // eslint-disable-next-line no-alert
+      alert(t.failedToLoad)
     } finally {
       setCreating(false)
     }
@@ -87,7 +90,8 @@ export default function PrivateCollectionsPage() {
       if (!res.ok) throw new Error(`${res.status}`)
       setCollections((prev) => prev.filter((c) => c.id !== id))
     } catch {
-      alert("Failed to delete collection")
+      // eslint-disable-next-line no-alert
+      alert(t.failedToLoad)
     } finally {
       setDeletingId(null)
     }
@@ -96,7 +100,7 @@ export default function PrivateCollectionsPage() {
   if (authLoading) {
     return (
       <div style={{ position: "fixed", inset: 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", color: "#888", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
-        Loading…
+        {t.loading}
       </div>
     )
   }
@@ -122,25 +126,25 @@ export default function PrivateCollectionsPage() {
         >
           <span style={{ fontSize: 20, fontWeight: 900, textShadow: "0 0 2px rgba(238,238,238,0.8)" }}>←</span>
         </button>
-        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 500 }}>My Collections</h2>
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 500 }}>{t.myCollections}</h2>
       </div>
 
       {/* Content */}
       <div style={{ flex: 1, overflowY: "auto", padding: "32px 24px", display: "flex", justifyContent: "center" }}>
         <div style={{ width: "100%", maxWidth: 900 }}>
           {loading && (
-            <p style={{ color: "#888", fontSize: 14, textAlign: "center", padding: 40 }}>Loading…</p>
+            <p style={{ color: "#888", fontSize: 14, textAlign: "center", padding: 40 }}>{t.loading}</p>
           )}
 
           {error && (
             <p style={{ color: "#e55", fontSize: 14, textAlign: "center", padding: 40 }}>
-              Failed to load collections
+              {t.failedToLoad}
             </p>
           )}
 
           {!loading && !error && collections.length === 0 && !showCreateForm && (
             <p style={{ color: "#777", fontSize: 14, textAlign: "center", padding: 40 }}>
-              No collections yet
+              {t.noCollectionsYet}
             </p>
           )}
 
@@ -198,11 +202,11 @@ export default function PrivateCollectionsPage() {
                       <polyline points="14 2 14 8 20 8" />
                     </svg>
                     <span style={{ color: "#888", fontSize: 13 }}>
-                      {col.articleCount} {col.articleCount === 1 ? "article" : "articles"}
+                      {col.articleCount} {col.articleCount === 1 ? t.article : t.articles}
                     </span>
                   </div>
                   <button
-                    title="Delete collection"
+                    title={t.deleteCollection}
                     onClick={(e) => { e.stopPropagation(); handleDelete(col.id, col.name) }}
                     disabled={deletingId === col.id}
                     style={{
@@ -246,7 +250,7 @@ export default function PrivateCollectionsPage() {
                     ref={nameInputRef}
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    placeholder="Collection name"
+                    placeholder={t.collectionNamePlaceholder}
                     onKeyDown={(e) => { if (e.key === "Enter") handleCreate(); if (e.key === "Escape") { setShowCreateForm(false); setNewName(""); setNewDesc("") } }}
                     style={{
                       background: "rgba(255,255,255,0.06)",
@@ -262,7 +266,7 @@ export default function PrivateCollectionsPage() {
                   <textarea
                     value={newDesc}
                     onChange={(e) => setNewDesc(e.target.value)}
-                    placeholder="Description (optional)"
+                    placeholder={t.descriptionOptionalPlaceholder}
                     rows={2}
                     onKeyDown={(e) => { if (e.key === "Escape") { setShowCreateForm(false); setNewName(""); setNewDesc("") } }}
                     style={{
@@ -308,7 +312,7 @@ export default function PrivateCollectionsPage() {
                         transition: "all 150ms",
                       }}
                     >
-                      {creating ? "Saving…" : "Save"}
+                      {creating ? t.saving : t.save}
                     </button>
                   </div>
                 </div>
@@ -339,7 +343,7 @@ export default function PrivateCollectionsPage() {
                   }}
                 >
                   <span style={{ fontSize: 32, color: "#666", lineHeight: 1 }}>+</span>
-                  <span style={{ fontSize: 13, color: "#666" }}>New collection</span>
+                  <span style={{ fontSize: 13, color: "#666" }}>{t.newCollection}</span>
                 </button>
               )
             )}
