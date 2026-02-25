@@ -64,7 +64,39 @@ export default function SearchPage() {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
-      <h1 style={{ fontSize: 32, fontWeight: 700, color: "#eee", letterSpacing: 1, fontFamily: "Georgia, 'Times New Roman', serif" }}>PressDigger</h1>
+      <svg width="340" viewBox="0 0 500 175" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ maxWidth: "90vw" }}>
+        {/* Microfilm reader machine */}
+        <g transform="translate(25, 18)">
+          {/* Machine base */}
+          <rect x="5" y="45" width="75" height="48" rx="2" fill="#505050" stroke="#606060" strokeWidth="1.5"/>
+          {/* Screen */}
+          <rect x="12" y="51" width="61" height="36" rx="1" fill="#e8e8e0" stroke="#404040" strokeWidth="1"/>
+          {/* Newspaper on screen */}
+          <rect x="16" y="55" width="26" height="3" rx="0.5" fill="#111" opacity="0.9"/>
+          <rect x="16" y="60" width="53" height="1.5" rx="0.5" fill="#333" opacity="0.7"/>
+          <rect x="16" y="64" width="53" height="1.5" rx="0.5" fill="#333" opacity="0.7"/>
+          <rect x="16" y="68" width="42" height="1.5" rx="0.5" fill="#333" opacity="0.7"/>
+          <rect x="16" y="72" width="53" height="1.5" rx="0.5" fill="#333" opacity="0.7"/>
+          <rect x="16" y="76" width="36" height="1.5" rx="0.5" fill="#333" opacity="0.7"/>
+          <rect x="16" y="80" width="53" height="1.5" rx="0.5" fill="#333" opacity="0.7"/>
+
+          {/* Film reels */}
+          <circle cx="22" cy="38" r="7.5" fill="#505050" stroke="#707070" strokeWidth="1.2"/>
+          <circle cx="22" cy="38" r="4.5" fill="none" stroke="#606060" strokeWidth="0.8"/>
+          <circle cx="22" cy="38" r="2.2" fill="#404040"/>
+          <circle cx="68" cy="38" r="7.5" fill="#505050" stroke="#707070" strokeWidth="1.2"/>
+          <circle cx="68" cy="38" r="4.5" fill="none" stroke="#606060" strokeWidth="0.8"/>
+          <circle cx="68" cy="38" r="2.2" fill="#404040"/>
+          {/* Film path */}
+          <path d="M 29.5 38 L 38 38 L 38 45 L 52 45 L 52 38 L 60.5 38" stroke="#606060" strokeWidth="1.8" fill="none"/>
+          {/* Glow */}
+          <rect x="12" y="51" width="61" height="36" rx="1" fill="#707070" opacity="0.08"/>
+        </g>
+        {/* Text */}
+        <text x="130" y="105" fontFamily="system-ui, -apple-system, sans-serif" fontSize="58" fontWeight="800" fill="#d0d0d0" letterSpacing="-1">
+          Press<tspan fill="#b0b0b0">Digger</tspan>
+        </text>
+      </svg>
 
       <div style={{ position: "relative" }}>
       <form onSubmit={onSubmit} style={{
