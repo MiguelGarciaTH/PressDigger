@@ -5,8 +5,8 @@
 
     <artifactId>scribe-news-text-processor</artifactId>
     <properties>
-        <maven.compiler.source>24</maven.compiler.source>
-        <maven.compiler.target>24</maven.compiler.target>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
     </properties>
     <modelVersion>4.0.0</modelVersion>
 

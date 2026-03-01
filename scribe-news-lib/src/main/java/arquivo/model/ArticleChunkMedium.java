@@ -4,7 +4,6 @@ package arquivo.model;
 import arquivo.utils.VectorType;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import org.codehaus.commons.nullanalysis.NotNull;
 import org.hibernate.annotations.Type;
 
 @Entity
@@ -18,7 +17,6 @@ public class ArticleChunkMedium {
     @JsonIgnore
     private Article article;
 
-    @NotNull
     private int chunkIndex;
 
     @Column(columnDefinition = "TEXT", nullable = false)
