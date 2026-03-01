@@ -88,7 +88,7 @@ Shared library containing common domain models, repositories, and utilities used
 Python script that crawls Portuguese government member data from Wikidata (ministers and secretaries from 1974-present) for reference and analysis.
 
 - **Technology**: Python 3, SPARQL, Wikidata
-- **[Documentation](scribe-news-person-crawler/README.md)**
+- **[Documentation](scribe-news-crawler-persons/README.md)**
 
 #### 8. **embedding-service** (Docker)
 Python-based service that provides text embedding generation endpoints for semantic analysis.
