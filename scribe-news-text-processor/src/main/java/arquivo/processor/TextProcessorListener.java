@@ -1,6 +1,5 @@
 package arquivo.processor;
 
-import arquivo.model.Author;
 import arquivo.services.MetricService;
 import arquivo.utils.KafkaPublisher;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -83,13 +82,14 @@ public class TextProcessorListener {
             concurrency = "${scribe-ref.arquivo.scribe-news-text-processor.kafka.to-listen.concurrency}")
     public void listener(ConsumerRecord<String, String> record, Acknowledgment ack, @Header(KafkaHeaders.RECEIVED_PARTITION) int partition) {
         LOG.trace("Received on topic {} on partition {} record {}", record.topic(), partition, record.value());
-        responseItemsReceivedTotal++;
+
+        metricService.updateValue("arquivo_text_processor_response_items_received_total", responseItemsReceivedTotal++);
 
         try {
             String payload = record.value();
             if (payload == null || payload.isBlank()) {
                 LOG.warn("Empty payload for key {}", record.key());
-                responseItemsIncompleteTotal++;
+                metricService.updateValue("arquivo_text_processor_response_items_incomplete_total", responseItemsIncompleteTotal++);
                 return;
             }
 
@@ -103,7 +103,7 @@ public class TextProcessorListener {
                     || !responseItem.hasNonNull("linkToExtractedText")
                     || responseItem.get("linkToExtractedText").asText().isBlank()) {
                 LOG.error("Incomplete response item (should not happen); missing linkToExtractedText: {}", payload);
-                responseItemsIncompleteTotal++;
+                metricService.updateValue("arquivo_text_processor_response_items_incomplete_total", responseItemsIncompleteTotal++);
                 return;
             }
 
@@ -149,8 +149,7 @@ public class TextProcessorListener {
                     .put("linkToArchive", responseItem.get("linkToArchive").asText());
 
             kafkaPublisher.send(articleToExtractEmbeddding);
-            responseItemsSentToKafkaTotal++;
-            metricService.updateValue("arquivo_image_processor_response_items_sent_to_kafka_total", responseItemsSentToKafkaTotal);
+            metricService.updateValue("arquivo_image_processor_response_items_sent_to_kafka_total", responseItemsSentToKafkaTotal++);
             LOG.trace("Sent to Kafka: {}", articleToExtractEmbeddding.toPrettyString());
 
             printStats();
@@ -197,8 +196,6 @@ public class TextProcessorListener {
         // just to show the progress every SHOW_STATS_INTERVAL_MINS minutes
         final LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
         if (now.isAfter(nextProgressLog)) {
-            metricService.updateValue("arquivo_text_processor_response_items_incomplete_total", responseItemsIncompleteTotal);
-            metricService.updateValue("arquivo_text_processor_response_items_received_total", responseItemsReceivedTotal);
             LOG.info("------------------------------------");
             LOG.info("Total response items received: {}", responseItemsReceivedTotal);
             LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal);

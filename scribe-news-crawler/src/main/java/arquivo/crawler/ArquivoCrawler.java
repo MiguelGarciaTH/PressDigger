@@ -294,8 +294,14 @@ public class ArquivoCrawler {
     private record ArquivoPtUrl(Site site, String person, String siteUrl) {
     }
 
-
     private void printStats() {
+        responseItemsCollectedTotal = metricService.loadValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_COLLECTED_TOTAL);
+        responseItemsSentToKafkaTotal = metricService.loadValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_SENT_TO_KAFKA_TOTAL);
+        responseItemsIncompleteTotal = metricService.loadValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_INCOMPLETE_TOTAL);
+        responseItemsDuplicateTotal = metricService.loadValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_DUPLICATE_TOTAL);
+        responseItemsNotNewsArticleTotal = metricService.loadValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_NOT_NEWS_ARTICLE_TOTAL);
+        responseItemsInvalidUrlTotal = metricService.loadValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_INVALID_URL_TOTAL);
+
         // just to show the progress every SHOW_STATS_INTERVAL_MINS minutes
         final LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
         if (now.isAfter(nextProgressLog)) {
@@ -304,8 +310,8 @@ public class ArquivoCrawler {
             LOG.info("Total response items not news article: {}", responseItemsNotNewsArticleTotal);
             LOG.info("Total response items invalid URL: {}", responseItemsInvalidUrlTotal);
             LOG.info("Total response items duplicate: {}", responseItemsDuplicateTotal);
-            LOG.info("Total response items sent to Kafka: {}", responseItemsSentToKafkaTotal);
             LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal);
+            LOG.info("Total response items sent to Kafka: {}", responseItemsSentToKafkaTotal);
             LOG.info("Elapsed time: {} minutes", java.time.Duration.between(start, now).toMinutes());
             while (!now.isBefore(nextProgressLog)) {
                 nextProgressLog = nextProgressLog.plusMinutes(SHOW_STATS_INTERVAL_MINS);
