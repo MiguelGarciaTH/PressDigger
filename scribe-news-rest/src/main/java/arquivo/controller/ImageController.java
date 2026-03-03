@@ -1,6 +1,7 @@
 package arquivo.controller;
 
 import arquivo.service.ArticleService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -22,11 +23,11 @@ import java.util.concurrent.TimeUnit;
 @RequestMapping("/images")
 public class ImageController {
 
-    private static final String IMAGE_BASE_PATH = "/home/miguel/github/ScribeRef/images/";
+    private final Path imageBasePath;
 
-
-    public ImageController(ArticleService articleService) {
-
+    public ImageController(ArticleService articleService,
+                           @Value("${scribe-ref.images.base-path:../images}") String basePath) {
+        this.imageBasePath = Paths.get(basePath).toAbsolutePath().normalize();
     }
 
     @GetMapping("/{size}/{filename}")
@@ -34,7 +35,7 @@ public class ImageController {
             @PathVariable String size,
             @PathVariable String filename) throws IOException {
 
-        Path imagePath = Paths.get(IMAGE_BASE_PATH, size, filename);
+        Path imagePath = imageBasePath.resolve(size).resolve(filename);
 
         if (!Files.exists(imagePath)) {
             return ResponseEntity.notFound().build();
