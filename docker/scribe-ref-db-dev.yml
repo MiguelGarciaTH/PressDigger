@@ -50,10 +50,11 @@ services:
         limits:
           memory: 4g
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 5
+      start_period: 60s
 
   ocr-service:
     build: ./ocr-service
@@ -63,7 +64,7 @@ services:
     environment:
       - LOG_LEVEL=INFO
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -88,10 +89,16 @@ services:
     ports:
       - "8003:8003"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     deploy:
       resources:
         limits:
-          memory: 1G
+          memory: 2G
 volumes:
   kafka_data:
     driver: local

@@ -10,6 +10,10 @@ class EmbedRequest(BaseModel):
     text: str
     kind: str = "query"  # "query" or "passage"
 
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
 @app.post("/embed")
 def embed(req: EmbedRequest):
     text = f"{req.kind}: {req.text}"
