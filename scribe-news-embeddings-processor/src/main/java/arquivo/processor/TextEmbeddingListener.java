@@ -88,12 +88,14 @@ public class TextEmbeddingListener {
     public void listener(ConsumerRecord<String, String> record, Acknowledgment ack, @Header(KafkaHeaders.RECEIVED_PARTITION) int partition) {
         LOG.trace("Received on topic {} on partition {} record {}", record.topic(), partition, record.value());
         responseItemsReceivedTotal++;
+        metricService.updateValue("arquivo_embeddings_processor_response_items_received_total", 1);
 
         try {
             String payload = record.value();
             if (payload == null || payload.isBlank()) {
                 LOG.warn("Empty payload for key {}", record.key());
                 responseItemsIncompleteTotal++;
+                metricService.updateValue("arquivo_embeddings_processor_response_items_incomplete_total", 1);
                 return;
             }
 
@@ -103,6 +105,7 @@ public class TextEmbeddingListener {
             if (site == null) {
                 LOG.warn("Site with id {} not found, skipping article {}", responseItem.get("siteId").asInt(), responseItem.get("title").asText());
                 responseItemsIncompleteTotal++;
+                metricService.updateValue("arquivo_embeddings_processor_response_items_incomplete_total", 1);
                 return;
             }
 
@@ -130,7 +133,7 @@ public class TextEmbeddingListener {
                     )
             );
             responseItemsStoredTotal++;
-            metricService.updateValue("arquivo_embeddings_processor_response_items_stored_total", responseItemsStoredTotal);
+            metricService.updateValue("arquivo_embeddings_processor_response_items_stored_total", 1);
             LOG.trace("Stored article {} with id {}", article.getTitle(), article.getId());
 
             // create keywords for the article using YAKE
@@ -260,8 +263,6 @@ public class TextEmbeddingListener {
         // just to show the progress every SHOW_STATS_INTERVAL_MINS minutes
         final LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
         if (now.isAfter(nextProgressLog)) {
-            metricService.updateValue("arquivo_embeddings_processor_response_items_incomplete_total", responseItemsIncompleteTotal);
-            metricService.updateValue("arquivo_embeddings_processor_response_items_received_total", responseItemsReceivedTotal);
             LOG.info("------------------------------------");
             LOG.info("Total response items received: {}", responseItemsReceivedTotal);
             LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal);

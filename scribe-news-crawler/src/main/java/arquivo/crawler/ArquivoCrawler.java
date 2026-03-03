@@ -123,9 +123,10 @@ public class ArquivoCrawler {
                 urlRepository.save(new Url(url.getSite(), url.getPersonName(), nextPageUrl));
             }
 
-            responseItemsCollectedTotal += responseItems.size();
-            LOG.debug("Collected {} response items for site: {} and person: {}", responseItems.size(), url.getSite().getName(), url.getPersonName());
-            metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_COLLECTED_TOTAL, responseItemsCollectedTotal);
+            final int collectedCount = responseItems.size();
+            responseItemsCollectedTotal += collectedCount;
+            LOG.debug("Collected {} response items for site: {} and person: {}", collectedCount, url.getSite().getName(), url.getPersonName());
+            metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_COLLECTED_TOTAL, collectedCount);
 
             final int beforeUniqueCount = responseItems.size();
             // remove duplicates from the same title + site name
@@ -152,15 +153,19 @@ public class ArquivoCrawler {
 
     private List<JsonNode> getUniqueResponseItems(String siteName, List<JsonNode> responseItems) {
         final List<JsonNode> uniqueResponseItems = new ArrayList<>();
+        int duplicatesInBatch = 0;
         for (var item : responseItems) {
             String title = item.get("title").asText();
             if (!articleExists(title, siteName)) {
                 uniqueResponseItems.add(item);
             } else {
+                duplicatesInBatch++;
                 responseItemsDuplicateTotal++;
             }
         }
-        metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_DUPLICATE_TOTAL, responseItemsDuplicateTotal);
+        if (duplicatesInBatch > 0) {
+            metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_DUPLICATE_TOTAL, duplicatesInBatch);
+        }
         return uniqueResponseItems;
     }
 
@@ -194,21 +199,24 @@ public class ArquivoCrawler {
         // check if is a news article (not opinion/editorial)
         final String title = responseItem.get("title").asText();
         if (!isANewsArticle(title)) {
-            metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_NOT_NEWS_ARTICLE_TOTAL, responseItemsNotNewsArticleTotal++);
+            responseItemsNotNewsArticleTotal++;
+            metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_NOT_NEWS_ARTICLE_TOTAL, 1);
             LOG.debug("Skipping non-news article: {}", title);
             return false;
         }
 
         final String arquivoUrl = responseItem.get("linkToArchive").asText();
         if (!UrlValidator.isValid(arquivoUrl)) {
-            metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_INVALID_URL_TOTAL, responseItemsInvalidUrlTotal++);
+            responseItemsInvalidUrlTotal++;
+            metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_INVALID_URL_TOTAL, 1);
             LOG.debug("Skipping invalid URL article: {}", arquivoUrl);
             return false;
         }
 
         // check if the response item is complete
         if (!isResponseComplete(responseItem)) {
-            metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_INCOMPLETE_TOTAL, responseItemsIncompleteTotal++);
+            responseItemsIncompleteTotal++;
+            metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_INCOMPLETE_TOTAL, 1);
             LOG.debug("Skipping incomplete article: {}", responseItem.toPrettyString());
             return false;
         }
@@ -227,7 +235,8 @@ public class ArquivoCrawler {
                 .put("linkToScreenshot", responseItem.get("linkToScreenshot").asText());
 
         kafkaPublisher.send(articleToImageProcessor);
-        metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_SENT_TO_KAFKA_TOTAL, responseItemsSentToKafkaTotal++);
+        responseItemsSentToKafkaTotal++;
+        metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_SENT_TO_KAFKA_TOTAL, 1);
         LOG.trace("Sent to Kafka: {}", articleToImageProcessor.toPrettyString());
     }
 

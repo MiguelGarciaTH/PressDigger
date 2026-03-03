@@ -83,13 +83,15 @@ public class TextProcessorListener {
     public void listener(ConsumerRecord<String, String> record, Acknowledgment ack, @Header(KafkaHeaders.RECEIVED_PARTITION) int partition) {
         LOG.trace("Received on topic {} on partition {} record {}", record.topic(), partition, record.value());
 
-        metricService.updateValue("arquivo_text_processor_response_items_received_total", responseItemsReceivedTotal++);
+        responseItemsReceivedTotal++;
+        metricService.updateValue("arquivo_text_processor_response_items_received_total", 1);
 
         try {
             String payload = record.value();
             if (payload == null || payload.isBlank()) {
                 LOG.warn("Empty payload for key {}", record.key());
-                metricService.updateValue("arquivo_text_processor_response_items_incomplete_total", responseItemsIncompleteTotal++);
+                responseItemsIncompleteTotal++;
+                metricService.updateValue("arquivo_text_processor_response_items_incomplete_total", 1);
                 return;
             }
 
@@ -103,7 +105,8 @@ public class TextProcessorListener {
                     || !responseItem.hasNonNull("linkToExtractedText")
                     || responseItem.get("linkToExtractedText").asText().isBlank()) {
                 LOG.error("Incomplete response item (should not happen); missing linkToExtractedText: {}", payload);
-                metricService.updateValue("arquivo_text_processor_response_items_incomplete_total", responseItemsIncompleteTotal++);
+                responseItemsIncompleteTotal++;
+                metricService.updateValue("arquivo_text_processor_response_items_incomplete_total", 1);
                 return;
             }
 
@@ -117,17 +120,20 @@ public class TextProcessorListener {
                 openIaResponse = objectMapper.readTree(sanitizeJson(openAiResponseString));
             } catch (Exception ex) {
                 LOG.error("Failed to parse JSON from OpenIA: {}", openAiResponseString, ex);
-                metricService.updateValue("arquivo_text_processor_open_ia_response_errors_total", openIaResponseErrorsTotal++);
+                openIaResponseErrorsTotal++;
+                metricService.updateValue("arquivo_text_processor_open_ia_response_errors_total", 1);
             }
             if (openIaResponse == null) {
                 LOG.error("Incomplete response item, missing linkToExtractedText: {}", payload);
-                metricService.updateValue("arquivo_text_processor_open_ia_response_errors_total", openIaResponseErrorsTotal++);
+                openIaResponseErrorsTotal++;
+                metricService.updateValue("arquivo_text_processor_open_ia_response_errors_total", 1);
                 return;
             }
             final String personName = responseItem.get("person").asText();
             if (!openIaIntegration.isAbout(openIaResponse.get("summary").asText(), personName)) {
                 LOG.debug("Summary is not about: {}", personName);
-                metricService.updateValue("arquivo_text_processor_summary_is_not_relevant", notRelevantTotal++);
+                notRelevantTotal++;
+                metricService.updateValue("arquivo_text_processor_summary_is_not_relevant", 1);
                 return;
             }
 
@@ -149,7 +155,8 @@ public class TextProcessorListener {
                     .put("linkToArchive", responseItem.get("linkToArchive").asText());
 
             kafkaPublisher.send(articleToExtractEmbeddding);
-            metricService.updateValue("arquivo_image_processor_response_items_sent_to_kafka_total", responseItemsSentToKafkaTotal++);
+            responseItemsSentToKafkaTotal++;
+            metricService.updateValue("arquivo_image_processor_response_items_sent_to_kafka_total", 1);
             LOG.trace("Sent to Kafka: {}", articleToExtractEmbeddding.toPrettyString());
 
             printStats();

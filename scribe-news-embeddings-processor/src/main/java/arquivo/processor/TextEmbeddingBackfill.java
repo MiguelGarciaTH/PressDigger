@@ -78,9 +78,9 @@ public class TextEmbeddingBackfill {
             }
         }
 
-        metricService.updateValue("arquivo_embeddings_processor_fechted_items_without_medium_chunks_total", fetchedArticlesWithoutMediumChunksTotal);
-        metricService.updateValue("arquivo_embeddings_processor_saved_items_with_medium_chunks_total", savedArticlesWithMediumChunksTotal);
-        metricService.updateValue("arquivo_embeddings_processor_saved_medium_chunks_total", savedMediumChunksTotal);
+        metricService.updateValue("arquivo_embeddings_processor_fechted_items_without_medium_chunks_total", articles.size());
+        metricService.updateValue("arquivo_embeddings_processor_saved_items_with_medium_chunks_total", 0);
+        metricService.updateValue("arquivo_embeddings_processor_saved_medium_chunks_total", 0);
 
         printStats();
 
