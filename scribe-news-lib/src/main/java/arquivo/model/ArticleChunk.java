@@ -37,7 +37,7 @@ public class ArticleChunk {
     /**
      * pgvector embedding
      */
-    @Column(name = "embedding", columnDefinition = "vector(768)")
+    @Column(name = "embedding", columnDefinition = "vector(1024)")
     @Type(VectorType.class)
     @JsonIgnore
     private float[] embedding;
