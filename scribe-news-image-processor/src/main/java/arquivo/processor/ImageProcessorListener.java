@@ -60,7 +60,7 @@ public class ImageProcessorListener {
     @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.connect-timeout-ms:5000}")
     private int httpConnectTimeoutMs;
 
-    @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.read-timeout-ms:10000}")
+    @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.read-timeout-ms:30000}")
     private int httpReadTimeoutMs;
 
     @Autowired
