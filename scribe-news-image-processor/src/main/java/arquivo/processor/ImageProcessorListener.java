@@ -60,7 +60,7 @@ public class ImageProcessorListener {
     @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.connect-timeout-ms:5000}")
     private int httpConnectTimeoutMs;
 
-    @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.read-timeout-ms:30000}")
+    @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.read-timeout-ms:10000}")
     private int httpReadTimeoutMs;
 
     @Autowired
@@ -99,15 +99,13 @@ public class ImageProcessorListener {
             concurrency = "${scribe-ref.arquivo.scribe-news-image-processor.kafka.to-listen.concurrency}")
     public void listener(ConsumerRecord<String, String> record, Acknowledgment ack, @Header(KafkaHeaders.RECEIVED_PARTITION) int partition) {
         LOG.trace("Received on topic {} on partition {} record {}", record.topic(), partition, record.value());
-        responseItemsReceivedTotal++;
-        metricService.updateValue("arquivo_image_processor_received_messages_total", 1);
+        metricService.updateValue("arquivo_image_processor_received_messages_total", responseItemsReceivedTotal++);
 
         try {
             String payload = record.value();
             if (payload == null || payload.isBlank()) {
                 LOG.warn("Empty payload for key {}", record.key());
-                responseItemsIncompleteTotal++;
-                metricService.updateValue("arquivo_image_processor_response_items_incomplete_total", 1);
+                metricService.updateValue("arquivo_image_processor_response_items_incomplete_total", responseItemsIncompleteTotal++);
                 return;
             }
 
@@ -123,16 +121,11 @@ public class ImageProcessorListener {
             boolean isDuplicate = Files.exists(originalOutputPath);
             if (isDuplicate) {
                 LOG.debug("Skipping processing for {} because outputs exist", originalOutputPath);
-                duplicateFilesTotal++;
-                metricService.updateValue("arquivo_image_processor_duplicate_files_total", 1);
+                metricService.updateValue("arquivo_image_processor_duplicate_files_total", duplicateFilesTotal++);
             } else {
                 // process only if not duplicate
                 final BufferedImage image = getImage(responseItem.get("linkToScreenshot").asText());
                 if (image == null) {
-                    // either blank or failed to fetch
-                    LOG.warn("Skipping processing for title {} due to blank or fetch failure", responseItem.get("title").asText());
-                    blankImagesTotal++;
-                    metricService.updateValue("arquivo_image_processor_blank_images_total", 1);
                     return;
                 }
 
@@ -153,8 +146,7 @@ public class ImageProcessorListener {
                     .put("linkToScreenshot", responseItem.get("linkToScreenshot").asText());
 
             kafkaPublisher.send(articleToTextSummary);
-            responseItemsSentToKafkaTotal++;
-            metricService.updateValue("arquivo_image_processor_response_items_sent_to_kafka_total", 1);
+            metricService.updateValue("arquivo_image_processor_response_items_sent_to_kafka_total", responseItemsSentToKafkaTotal++);
             LOG.trace("Sent title {} to text summary topic", responseItem.get("title").asText());
 
             printStats();
@@ -177,8 +169,7 @@ public class ImageProcessorListener {
             url = uri.toURL();
         } catch (MalformedURLException e) {
             LOG.error("Invalid url {}", e.getMessage());
-            responseItemsIncompleteTotal++;
-            metricService.updateValue("arquivo_image_processor_response_items_incomplete_total", 1);
+            metricService.updateValue("arquivo_image_processor_response_items_incomplete_total", responseItemsIncompleteTotal++);
             return null;
         }
 
@@ -194,21 +185,18 @@ public class ImageProcessorListener {
 
         if (image == null) {
             LOG.warn("ImageIO.read returned null for URL {}", imageUrl);
-            responseItemsIncompleteTotal++;
-            metricService.updateValue("arquivo_image_processor_response_items_incomplete_total", 1);
+            metricService.updateValue("arquivo_image_processor_response_items_incomplete_total", responseItemsIncompleteTotal++);
             return null;
         }
 
         // Check if truly blank (uniform color)
         if (ImageBlankDetector.isBlank(image, 30, 0.20, 5)) {
-            blankImagesTotal++;
-            metricService.updateValue("arquivo_image_processor_blank_images_total", 1);
+            metricService.updateValue("arquivo_image_processor_blank_images_total", blankImagesTotal++);
             return null;
         }
 
         if (!imageTextDetector.hasText(image, 250)) {
-            noTextImageTotal++;
-            metricService.updateValue("arquivo_image_processor_no_text_images_total", 1);
+            metricService.updateValue("arquivo_image_processor_no_text_images_total", noTextImageTotal++);
             return null;
         }
 
