@@ -7,7 +7,7 @@ import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.models.responses.Response;
 import com.openai.models.responses.ResponseCreateParams;
 
-public class OpenIAIntegration {
+public class OpenAiIntegration {
 
     private final OpenAIClient client;
 
@@ -124,7 +124,7 @@ public class OpenIAIntegration {
             Não inclua nenhum texto adicional fora do JSON.
             """;
 
-    public OpenIAIntegration(String apiKey) {
+    public OpenAiIntegration(String apiKey) {
         client = OpenAIOkHttpClient.builder().apiKey(apiKey).build();
     }
 
