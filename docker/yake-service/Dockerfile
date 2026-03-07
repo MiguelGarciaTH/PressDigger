@@ -13,4 +13,5 @@ COPY app.py .
 
 EXPOSE 8002
 
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8002"]
+RUN pip install --no-cache-dir gunicorn
+CMD ["gunicorn", "app:app", "-w", "6", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8002"]
