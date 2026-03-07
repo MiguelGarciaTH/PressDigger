@@ -63,6 +63,15 @@ public class ImageProcessorListener {
     @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.read-timeout-ms:10000}")
     private int httpReadTimeoutMs;
 
+    @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.max-retries:3}")
+    private int maxRetries;
+
+    @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.initial-backoff-ms:1000}")
+    private long initialBackoffMs;
+
+    @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.backoff-multiplier:2.0}")
+    private double backoffMultiplier;
+
     @Autowired
     public ImageProcessorListener(MetricService metricService,
                                   KafkaTemplate<String, String> kafkaTemplate,
@@ -205,11 +214,35 @@ public class ImageProcessorListener {
 
     // helper to open URL input stream with configured timeouts
     private InputStream openUrlStreamWithTimeouts(URL url) throws IOException {
-        URLConnection conn = url.openConnection();
-        conn.setConnectTimeout(httpConnectTimeoutMs);
-        conn.setReadTimeout(httpReadTimeoutMs);
-        return conn.getInputStream();
+        IOException lastException = null;
+        long backoff = initialBackoffMs;
+
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                URLConnection conn = url.openConnection();
+                conn.setConnectTimeout(httpConnectTimeoutMs);
+                conn.setReadTimeout(httpReadTimeoutMs);
+                return conn.getInputStream();
+            } catch (IOException e) {
+                lastException = e;
+                LOG.warn("Attempt {}/{} failed for URL {}: {}. Retrying in {} ms...",
+                        attempt, maxRetries, url, e.getMessage(), backoff);
+
+                if (attempt < maxRetries) {
+                    try {
+                        Thread.sleep(backoff);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new IOException("Interrupted during retry backoff", ie);
+                    }
+                    backoff = (long) (backoff * backoffMultiplier);
+                }
+            }
+        }
+
+        throw new IOException("Failed to fetch URL after " + maxRetries + " attempts: " + url, lastException);
     }
+
 
     private void processImage(Path originalOutputPath, BufferedImage croppedImage) throws Exception {
 
