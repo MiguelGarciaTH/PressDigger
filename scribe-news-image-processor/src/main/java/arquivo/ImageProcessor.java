@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.ConsumerFactory;
+import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.stereotype.Component;
 import org.springframework.util.backoff.FixedBackOff;
@@ -31,15 +32,23 @@ public class ImageProcessor {
 @Configuration
 class ConfigKafkaListener {
     @Bean
-    ConcurrentKafkaListenerContainerFactory<?, ?> kafkaListenerContainerFactory(KafkaProperties kafkaProperties,
-                                                                                ConcurrentKafkaListenerContainerFactoryConfigurer configurer,
-                                                                                ConsumerFactory<Object, Object> kafkaConsumerFactory) {
-        final ConcurrentKafkaListenerContainerFactory<Object, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
+    ConcurrentKafkaListenerContainerFactory<?, ?> kafkaListenerContainerFactory(
+            KafkaProperties kafkaProperties,
+            ConcurrentKafkaListenerContainerFactoryConfigurer configurer,
+            ConsumerFactory<Object, Object> kafkaConsumerFactory) {
+
+        final ConcurrentKafkaListenerContainerFactory<Object, Object> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
         configurer.configure(factory, kafkaConsumerFactory);
         factory.setCommonErrorHandler(new DefaultErrorHandler(new FixedBackOff(0L, 2L)));
         factory.setConcurrency(kafkaProperties.getListener().getConcurrency());
+
+        // Add this explicitly to be safe:
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
+
         return factory;
     }
+
 }
 
 @Configuration

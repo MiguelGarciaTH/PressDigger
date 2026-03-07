@@ -159,15 +159,11 @@ public class ImageProcessorListener {
             LOG.trace("Sent title {} to text summary topic", responseItem.get("title").asText());
 
             printStats();
+            ack.acknowledge();
         } catch (Exception e) {
-            LOG.error("Failed to parse record as JSON or process image", e);
-        } finally {
-            // acknowledge exactly once here
-            try {
-                ack.acknowledge();
-            } catch (Exception e) {
-                LOG.error("Failed to acknowledge record: {}", e.getMessage());
-            }
+            LOG.error("Failed to process record", e);
+            throw new RuntimeException(e); // let DefaultErrorHandler retry
+            // do NOT ack — error handler will retry or send to DLT
         }
     }
 
