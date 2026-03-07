@@ -137,7 +137,7 @@ public class TextEmbeddingListener {
             LOG.trace("Stored article {} with id {}", article.getTitle(), article.getId());
 
             // create keywords for the article using YAKE
-            final List<YakeClient.Keyword> extractedKeywords = yakeClient.extract(summary, "pt", 5, 2);
+            final List<YakeClient.Keyword> extractedKeywords = yakeClient.extract(summary, "pt", 5, 4);
             if (!extractedKeywords.isEmpty()) {
                 final List<ArticleKeywordScore> articleKeywordScores = new ArrayList<>(extractedKeywords.size());
                 for (YakeClient.Keyword extractedKeyword : extractedKeywords) {
