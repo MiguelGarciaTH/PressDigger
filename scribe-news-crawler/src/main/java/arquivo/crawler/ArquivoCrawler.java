@@ -114,6 +114,12 @@ public class ArquivoCrawler {
             urlRepository.save(new Url(url.getSite(), url.getPersonName(), url.getUrl()));
 
             // fetch all items for the next pages (pagination loop)
+            if(arquivoResponse.isNull()){
+                LOG.warn("Null response for URL: {}. Skipping pagination.", url.getUrl());
+                metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_INCOMPLETE_TOTAL, 1);
+                return;
+            }
+
             while (arquivoResponse.has("next_page")) {
                 final String nextPageUrl = java.net.URLDecoder.decode(arquivoResponse.get("next_page").asText(), StandardCharsets.UTF_8);
                 final JsonNode arquivoResponseNextPages = webClientService.get(nextPageUrl, "arquivo.pt");
