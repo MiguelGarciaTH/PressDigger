@@ -6,6 +6,7 @@ import arquivo.model.Url;
 import arquivo.repository.*;
 import arquivo.services.MetricService;
 import arquivo.services.WebClientService;
+import arquivo.utils.BloomFilter;
 import arquivo.utils.KafkaPublisher;
 import arquivo.utils.UrlValidator;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -58,9 +59,11 @@ public class ArquivoCrawler {
     private final WebClientService webClientService;
     private final MetricService metricService;
 
-    private final Set<Integer> titleCache;
     private final ObjectMapper objectMapper;
     private final KafkaPublisher kafkaPublisher;
+
+    private final BloomFilter bloomFilter;
+
 
     private long responseItemsCollectedTotal, responseItemsSentToKafkaTotal, responseItemsIncompleteTotal, responseItemsDuplicateTotal,
             responseItemsNotNewsArticleTotal, responseItemsInvalidUrlTotal;
@@ -80,11 +83,11 @@ public class ArquivoCrawler {
         this.articleRepository = articleRepository;
         this.urlRepository = urlRepository;
         this.metricService = metricService;
-        this.titleCache = new HashSet<>();
         this.objectMapper = new ObjectMapper();
         this.webClientService = new WebClientService(rateLimiterRepository);
 
         this.kafkaPublisher = new KafkaPublisher(kafkaTemplate, topic);
+        this.bloomFilter = new BloomFilter(250_000, 0.01);
 
         // read metrics values, in case the crawler was restarted, to not lose the progress
         responseItemsCollectedTotal = metricService.loadValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_COLLECTED_TOTAL);
@@ -178,12 +181,13 @@ public class ArquivoCrawler {
     private boolean articleExists(String title, String siteName) {
         final String normalizedTitle = normalizeTitle(title);
         final int articleHash = getArticleHash(normalizedTitle, siteName);
-        if (titleCache.contains(articleHash) || articleRepository.existsByArticleHash(articleHash)) {
+        if (bloomFilter.mightContain(articleHash+"") || articleRepository.existsByArticleHash(articleHash)) {
+
             return true;
-        } else {
-            titleCache.add(articleHash);
+        }else {
+            bloomFilter.add(articleHash+"");
+            return false;
         }
-        return false;
     }
 
     private static int getArticleHash(String normalizedTitle, String siteName) {
