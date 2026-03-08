@@ -1,114 +1,101 @@
-# ScribeRef
+# PressDigger
 
-A comprehensive news article processing pipeline that discovers, processes, and provides semantic search capabilities for Portuguese news articles from the Arquivo.pt digital archive.
+<p align="center">
+  <img src="/scribe-news-web/public/pressdigger-logo.svg" alt="PressDigger" width="1000"/>
+</p>
+
 
 ## Overview
 
-ScribeRef is a modular microservices-based system designed to crawl, process, analyze, and serve news articles from Portugal's web archive (Arquivo.pt). The system leverages modern NLP techniques, including text embeddings and OpenAI's API, to enable intelligent article summarization and semantic search.
+PressDigger is a tool for journalists, researchers, and the general public to explore and analyze Portuguese Politicians (see db folder for all the people added) news articles from Arquivo.pt. The system provides powerful search capabilities, article summarization, and semantic analysis to help users discover relevant news content efficiently.
 
-The project consists of multiple Spring Boot microservices that communicate via Apache Kafka, along with Python-based auxiliary services for OCR and text embeddings, and a React-based web interface for end users.
+The inspiration for PressDigger was the microfilm reader machines that appeared on several american thriller movies, where police officers and detectives would search for news articles in a large archive of microfilms. PressDigger is a modern digital version of that concept, allowing users to search and analyze news articles from the comfort of their own devices.
+
+Main features:
+
+1. Search: The user can type keywords of phrases which want to search;
+2. Text editor: The user can write a text and the system will return the most relevant news articles related to each paragraph of the text;
+3. See public collections (based on most relevant keywords found in the articles);
+4. See author collections: collection for the newspaper article authors; 
+5. Create private collections with the articles the user wants;
+6. Annotate articles with comments;
+7. Web application display in Portugues and English languages;
+
+The features 4, 5 and 6 required login (supported by google login);
+
+PressDigger is a modular microservices-based system designed to crawl, process, analyze, and serve news articles from Portugal's web archive (Arquivo.pt). It leverages modern NLP techniques, including text embeddings and OpenAI's API, to enable intelligent article summarization and semantic search, through multiple Spring Boot microservices that communicate via Apache Kafka, along with Python-based auxiliary services for OCR and text embeddings, and a React-based web interface for end users.
+
+NOTE: There are multiple references to "ScribeRef" in the codebase and documentation. This was the original project name during development, but the final product is branded as "PressDigger". The name "ScribeRef" may still appear in module names, package names, and some documentation, but it refers to the same system now called PressDigger.
 
 ## Architecture
 
-ScribeRef follows a microservices architecture with event-driven communication:
+### Backend processing pipeline
+
+![PressDigger](/assets/PressDigger.jpg?raw=true)
+
+### Backend REST Server + Frontend Web Application
+
+![PressDigger](/assets/PressDigger2.jpg?raw=true)
+
+## Project Structure
 
 ```
-┌─────────────────┐
-│  Arquivo.pt API │
-└────────┬────────┘
-         │
-         ▼
-┌──────────────────┐      ┌─────────────┐
-│ News Crawler     │─────▶│   Kafka     │
-└──────────────────┘      └──────┬──────┘
-                                 │
-         ┌───────────────────────┼───────────────────────┐
-         ▼                       ▼                       ▼
-┌──────────────────┐    ┌──────────────────┐   ┌──────────────────┐
-│ Image Processor  │    │ Text Processor   │   │Embeddings        │
-│                  │    │                  │   │Processor         │
-└────────┬─────────┘    └────────┬─────────┘   └────────┬─────────┘
-         │                       │                       │
-         └───────────────────────┼───────────────────────┘
-                                 ▼
-                         ┌──────────────┐
-                         │  PostgreSQL  │
-                         │  + pgvector  │
-                         └──────┬───────┘
-                                │
-                                ▼
-                ┌──────────────────────────────┐
-                │    REST API    │   Web UI    │
-                └──────────────────────────────┘
+ScribeRef/
+├── scribe-news-crawler/              # Article discovery service
+├── scribe-news-image-processor/      # Image analysis service
+├── scribe-news-text-processor/       # Text summarization service
+├── scribe-news-embeddings-processor/ # Vector embeddings service
+├── scribe-news-rest/                 # REST API service
+├── scribe-news-lib/                  # Shared library
+├── scribe-news-crawler-persons/      # Python person data crawler
+├── scribe-news-web/                  # React web frontend
+├── docker/                           # Docker compose + auxiliary services
+│   ├── embedding-service/            # Text embedding service (port 8000)
+│   ├── ocr-service/                  # OCR text detection service (port 8001)
+│   ├── yake-service/                 # Keyword extraction service (port 8002)
+│   ├── spacy-service/                # Named entity recognition service (port 8003)
+│   └── scribe-ref-db-dev.yml         # Development environment compose file
+├── db/                               # Database schema and seed data
+├── images/                           # Downloaded article screenshots
+│   ├── original/                     # Full-size images
+│   └── small/                        # Thumbnail images
+├── pom.xml                           # Parent Maven configuration
+└── README.md                         # This file
 ```
 
 ## Components
 
 ### Backend Services (Spring Boot)
 
-#### 1. **scribe-news-crawler**
-Discovers news articles from Arquivo.pt digital archive using keyword and site-based searches. Publishes discovered articles to Kafka for downstream processing.
+| # | Service | Description | Stack | Port | Docs |
+|---|---------|-------------|-------|------|------|
+| 1 | **scribe-news-crawler** | Discovers news articles from Arquivo.pt using keyword and site-based searches. Publishes discovered articles to Kafka for downstream processing. | Spring Boot, Kafka, Arquivo.pt API | — | [README](scribe-news-crawler/README.md) |
+| 2 | **scribe-news-image-processor** | Processes article screenshots: blank page detection, OCR text filtering, auto-cropping and thumbnail generation. | Spring Boot, Kafka, Thumbnailator | — | [README](scribe-news-image-processor/README.md) |
+| 3 | **scribe-news-text-processor** | Uses OpenAI's API to summarize article content, extract published dates and filter irrelevant articles. | Spring Boot, Kafka, OpenAI API | — | [README](scribe-news-text-processor/README.md) |
+| 4 | **scribe-news-embeddings-processor** | Generates and stores 1024-dim vector embeddings for article chunks to enable semantic similarity search via pgvector. | Spring Boot, Kafka, PostgreSQL + pgvector | — | [README](scribe-news-embeddings-processor/README.md) |
+| 5 | **scribe-news-rest** | RESTful API for text search, semantic search, image streaming, collections and user management. | Spring Boot, Spring Data JPA, pgvector | 8085 | [README](scribe-news-rest/README.md) |
+| 6 | **scribe-news-lib** | Shared library with common domain models, repositories, Kafka publishers, rate limiting and embedding client. | Spring Data JPA, Spring Kafka | — | [README](scribe-news-lib/README.md) |
 
-- **Technology**: Spring Boot, Spring Kafka, Arquivo.pt API
-- **[Documentation](scribe-news-crawler/README.md)**
+### Auxiliary Python Services (Docker)
 
-#### 2. **scribe-news-image-processor**
-Processes images from crawled articles with advanced image analysis including blank page detection, OCR text extraction, and auto-cropping.
+| # | Service | Description | Model / Engine | Port | Docs |
+|---|---------|-------------|----------------|------|------|
+| 7 | **embedding-service** | Converts text to 1024-dim vectors for semantic search. Used by the embeddings processor and REST API at query time. | `intfloat/multilingual-e5-large` | 8000 | [README](docker/embedding-service/README.md) |
+| 8 | **ocr-service** | Detects and extracts Portuguese text from article screenshots, filtering out blank and non-article images. | Tesseract OCR (`por`) | 8001 | [README](docker/ocr-service/README.md) |
+| 9 | **yake-service** | Extracts the most relevant keywords and key-phrases from article summaries for tagging and collection generation. | YAKE (unsupervised, University of Porto) | 8002 | [README](docker/yake-service/README.md) |
+| 10 | **spacy-service** | Named Entity Recognition to identify person names in article text, used for author extraction. | `pt_core_news_lg` + `en_core_web_sm` | 8003 | [README](docker/spacy-service/README.md) |
 
-- **Technology**: Spring Boot, Kafka, Thumbnailator, OCR libraries
-- **[Documentation](scribe-news-image-processor/README.md)**
+### Person Data Crawler
 
-#### 3. **scribe-news-text-processor**
-Leverages OpenAI's API to generate article summaries and extract meaningful insights from article content.
-
-- **Technology**: Spring Boot, Kafka, OpenAI Java Client
-- **[Documentation](scribe-news-text-processor/README.md)**
-
-#### 4. **scribe-news-embeddings-processor**
-Generates and stores vector embeddings for article content to enable semantic similarity search. Chunks article text and creates semantic representations stored in PostgreSQL with pgvector.
-
-- **Technology**: Spring Boot, Kafka, PostgreSQL + pgvector, Hypersistence Utils
-- **[Documentation](scribe-news-embeddings-processor/README.md)**
-
-#### 5. **scribe-news-rest**
-RESTful API for querying articles with support for text search, semantic search using vector embeddings, and image content streaming.
-
-- **Technology**: Spring Boot Web, Spring Data JPA, PostgreSQL + pgvector
-- **[Documentation](scribe-news-rest/README.md)**
-
-#### 6. **scribe-news-lib**
-Shared library containing common domain models, repositories, and utilities used across all backend services. Provides Kafka publishers, rate limiting, and text embedding client integrations.
-
-- **Technology**: Spring Data JPA, Spring Kafka, Hypersistence Utils
-- **[Documentation](scribe-news-lib/README.md)**
-
-### Auxiliary Services
-
-#### 7. **scribe-news-person-crawler**
-Python script that crawls Portuguese government member data from Wikidata (ministers and secretaries from 1974-present) for reference and analysis.
-
-- **Technology**: Python 3, SPARQL, Wikidata
-- **[Documentation](scribe-news-crawler-persons/README.md)**
-
-#### 8. **embedding-service** (Docker)
-Python-based service that provides text embedding generation endpoints for semantic analysis.
-
-- **Technology**: Python, FastAPI
-- **Port**: 8000
-
-#### 9. **ocr-service** (Docker)
-OCR service for extracting text from images in news articles.
-
-- **Technology**: Python, OCR libraries
-- **Port**: 8001
+| # | Service | Description | Stack | Docs |
+|---|---------|-------------|-------|------|
+| 11 | **scribe-news-person-crawler** | Python script that crawls Portuguese government member data from Wikidata (ministers and secretaries from 1974–present). | Python 3, SPARQL, Wikidata | [README](scribe-news-crawler-persons/README.md) |
 
 ### Frontend
 
-#### 10. **scribe-news-web**
-React-based web interface for searching and browsing news articles with a modern, responsive UI.
-
-- **Technology**: React, TypeScript, Vite, Tailwind CSS
-- **[Documentation](scribe-news-web/README.md)**
+| # | Service | Description | Stack | Port | Docs |
+|---|---------|-------------|-------|------|------|
+| 12 | **scribe-news-web** | React web interface for searching, browsing, annotating articles and managing collections. | React 18, TypeScript, Vite, Tailwind CSS | 5173 | [README](scribe-news-web/README.md) |
 
 ### Infrastructure
 
@@ -143,16 +130,6 @@ Apache Kafka for event-driven communication between microservices.
 - **OpenAI API** (text summarization)
 - **Text Embedding Models** (semantic search)
 - **OCR libraries** (image text extraction)
-
-## Prerequisites
-
-- **Java 21** or higher
-- **Maven 3.6+**
-- **Node.js 18+** (for web frontend)
-- **Docker & Docker Compose**
-- **PostgreSQL 16** with pgvector extension (or use Docker)
-- **Apache Kafka** (or use Docker)
-- **OpenAI API key** (for text processing)
 
 ## Quick Start
 
@@ -225,66 +202,24 @@ Each component has its own `application.properties` or configuration file. Commo
 - **Arquivo.pt API**: Endpoints and search parameters
 - **Embedding service**: Service endpoint URLs
 
+Add an `.env` file in the project root with the following environment variables (replace placeholders with actual values):
+
+```shell
+IMAGE_PROCESSOR_CONCURRENCY=6
+IMAGE_PROCESSOR_TOPIC="image-processor-topic"
+
+TEXT_PROCESSOR_CONCURRENCY=6
+TEXT_PROCESSOR_TOPIC="text-processor-topic"
+
+EMBEDDING_PROCESSOR_CONCURRENCY=6
+EMBEDDING_PROCESSOR_TOPIC="embedding-processor-topic"
+
+OPEN_IA_API_KEY={THE_OPEN_IA_API_KEY}
+
+GOOGLE_CLIENT_ID={THE_GOOGLE_GOOGLE_CLIENT_ID}
+GOOGLE_CLIENT_SECRET={THE_GOOGLE_CLIENT_SECRET}
+
+IMAGES_BASE_PATH={THE_IMAGE_PATH_BASE_FOLDER}
+```
+
 Refer to individual component READMEs for detailed configuration options.
-
-## Project Structure
-
-```
-ScribeRef/
-├── scribe-news-crawler/           # Article discovery service
-├── scribe-news-image-processor/   # Image analysis service
-├── scribe-news-text-processor/    # Text summarization service
-├── scribe-news-embeddings-processor/ # Vector embeddings service
-├── scribe-news-rest/              # REST API service
-├── scribe-news-lib/               # Shared library
-├── scribe-news-person-crawler/    # Python person data crawler
-├── scribe-news-web/               # React web frontend
-├── docker/                        # Docker compose configurations
-│   ├── embedding-service/         # Text embedding service
-│   ├── ocr-service/              # OCR service
-│   └── scribe-ref-db-dev.yml     # Development environment
-├── db/                            # Database schema and seed data
-├── pom.xml                        # Parent Maven configuration
-└── README.md                      # This file
-```
-
-## Development
-
-### Running Tests
-
-```bash
-# Run all tests
-mvn test
-
-# Run tests for a specific module
-cd scribe-news-rest
-mvn test
-```
-
-### Building for Production
-
-```bash
-# Build all modules
-mvn clean package
-
-# Build specific module
-cd scribe-news-rest
-mvn clean package
-```
-
-JAR files will be generated in each module's `target/` directory.
-
-## License
-
-This project is part of the Arquivo.pt initiative for preserving and analyzing Portuguese web content.
-
-## Contributing
-
-Contributions are welcome! Please ensure:
-- Code follows existing patterns and styles
-- Tests are included for new features
-- Documentation is updated accordingly
-
-## Support
-
-For issues and questions, please refer to the individual component READMEs or contact the Arquivo.pt team.
