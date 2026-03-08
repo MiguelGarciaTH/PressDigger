@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Component
 @ConditionalOnProperty(name = "scribe-ref.arquivo.scribe-news-embeddings-processor.enable", havingValue = "true")
@@ -42,7 +43,10 @@ public class TextEmbeddingListener {
 
     private final MetricService metricService;
 
-    private long responseItemsIncompleteTotal, responseItemsReceivedTotal, responseItemsStoredTotal;
+    private final AtomicLong responseItemsIncompleteTotal = new AtomicLong(0);
+    private final AtomicLong responseItemsReceivedTotal = new AtomicLong(0);
+    private final AtomicLong responseItemsStoredTotal = new AtomicLong(0);
+
     private final LocalDateTime start = LocalDateTime.now(ZoneOffset.UTC);
     private LocalDateTime nextProgressLog = start.plusMinutes(SHOW_STATS_INTERVAL_MINS);
     private final TextEmbeddingClient textEmbeddingClient;
@@ -79,9 +83,9 @@ public class TextEmbeddingListener {
         this.textEmbeddingClient = new TextEmbeddingClient(url, objectMapper, false);
         this.yakeClient = new YakeClient("http://localhost:8002");
 
-        responseItemsIncompleteTotal = metricService.loadValue(ARQUIVO_EMBEDDINGS_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL);
-        responseItemsReceivedTotal = metricService.loadValue(ARQUIVO_EMBEDDINGS_PROCESSOR_RESPONSE_ITEMS_RECEIVED_TOTAL);
-        responseItemsStoredTotal = metricService.loadValue(ARQUIVO_EMBEDDINGS_PROCESSOR_RESPONSE_ITEMS_STORED_TOTAL);
+        responseItemsIncompleteTotal.set(metricService.loadValue(ARQUIVO_EMBEDDINGS_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL));
+        responseItemsReceivedTotal.set(metricService.loadValue(ARQUIVO_EMBEDDINGS_PROCESSOR_RESPONSE_ITEMS_RECEIVED_TOTAL));
+        responseItemsStoredTotal.set(metricService.loadValue(ARQUIVO_EMBEDDINGS_PROCESSOR_RESPONSE_ITEMS_STORED_TOTAL));
     }
 
     @KafkaListener(
@@ -90,15 +94,14 @@ public class TextEmbeddingListener {
             concurrency = "${scribe-ref.arquivo.scribe-news-embeddings-processor.kafka.to-listen.concurrency}")
     public void listener(ConsumerRecord<String, String> record, Acknowledgment ack, @Header(KafkaHeaders.RECEIVED_PARTITION) int partition) {
         LOG.trace("Received on topic {} on partition {} record {}", record.topic(), partition, record.value());
-        responseItemsReceivedTotal++;
-        metricService.updateValue(ARQUIVO_EMBEDDINGS_PROCESSOR_RESPONSE_ITEMS_RECEIVED_TOTAL, 1);
+
+        metricService.updateValue(ARQUIVO_EMBEDDINGS_PROCESSOR_RESPONSE_ITEMS_RECEIVED_TOTAL, responseItemsReceivedTotal.incrementAndGet());
 
         try {
             String payload = record.value();
             if (payload == null || payload.isBlank()) {
                 LOG.warn("Empty payload for key {}", record.key());
-                responseItemsIncompleteTotal++;
-                metricService.updateValue(ARQUIVO_EMBEDDINGS_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL, 1);
+                metricService.updateValue(ARQUIVO_EMBEDDINGS_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL, responseItemsIncompleteTotal.incrementAndGet() );
                 return;
             }
 
@@ -107,8 +110,7 @@ public class TextEmbeddingListener {
             final Site site = siteRepository.findById(responseItem.get("siteId").asInt()).orElse(null);
             if (site == null) {
                 LOG.warn("Site with id {} not found, skipping article {}", responseItem.get("siteId").asInt(), responseItem.get("title").asText());
-                responseItemsIncompleteTotal++;
-                metricService.updateValue(ARQUIVO_EMBEDDINGS_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL, 1);
+                metricService.updateValue(ARQUIVO_EMBEDDINGS_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL, responseItemsIncompleteTotal.incrementAndGet());
                 return;
             }
 
@@ -135,8 +137,8 @@ public class TextEmbeddingListener {
                             responseItem.get("smallImagePath").asText()
                     )
             );
-            responseItemsStoredTotal++;
-            metricService.updateValue(ARQUIVO_EMBEDDINGS_PROCESSOR_RESPONSE_ITEMS_STORED_TOTAL, 1);
+
+            metricService.updateValue(ARQUIVO_EMBEDDINGS_PROCESSOR_RESPONSE_ITEMS_STORED_TOTAL, responseItemsStoredTotal.incrementAndGet());
             LOG.trace("Stored article {} with id {}", article.getTitle(), article.getId());
 
             // create keywords for the article using YAKE
@@ -267,9 +269,9 @@ public class TextEmbeddingListener {
         final LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
         if (now.isAfter(nextProgressLog)) {
             LOG.info("------------------------------------");
-            LOG.info("Total response items received: {}", responseItemsReceivedTotal);
-            LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal);
-            LOG.info("Total response items stored: {}", responseItemsStoredTotal);
+            LOG.info("Total response items received: {}", responseItemsReceivedTotal.get());
+            LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal.get());
+            LOG.info("Total response items stored: {}", responseItemsStoredTotal.get());
             LOG.info("Elapsed time: {} minutes", java.time.Duration.between(start, now).toMinutes());
             while (!now.isBefore(nextProgressLog)) {
                 nextProgressLog = nextProgressLog.plusMinutes(SHOW_STATS_INTERVAL_MINS);

@@ -32,6 +32,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Component
 @ConditionalOnProperty(name = "scribe-ref.arquivo.scribe-news-image-processor.enable", havingValue = "true")
@@ -55,7 +56,13 @@ public class ImageProcessorListener {
 
     private final ImageTextDetector imageTextDetector;
 
-    private long responseItemsReceivedTotal, blankImagesTotal, noTextImageTotal, responseItemsIncompleteTotal, duplicateFilesTotal, responseItemsSentToKafkaTotal;
+    private final AtomicLong responseItemsReceivedTotal = new AtomicLong(0);
+    private final AtomicLong blankImagesTotal = new AtomicLong(0);
+    private final AtomicLong noTextImageTotal = new AtomicLong(0);
+    private final AtomicLong responseItemsIncompleteTotal = new AtomicLong(0);
+    private final AtomicLong duplicateFilesTotal = new AtomicLong(0);
+    private final AtomicLong responseItemsSentToKafkaTotal = new AtomicLong(0);
+
     private final LocalDateTime start = LocalDateTime.now(ZoneOffset.UTC);
     private LocalDateTime nextProgressLog = start.plusMinutes(SHOW_STATS_INTERVAL_MINS);
 
@@ -90,12 +97,12 @@ public class ImageProcessorListener {
         this.imageTextDetector = imageTextDetector;
         this.kafkaPublisher = new KafkaPublisher(kafkaTemplate, topic);
 
-        responseItemsReceivedTotal = metricService.loadValue(ARQUIVO_IMAGE_PROCESSOR_RECEIVED_MESSAGES_TOTAL);
-        blankImagesTotal = metricService.loadValue(ARQUIVO_IMAGE_PROCESSOR_BLANK_IMAGES_TOTAL);
-        responseItemsIncompleteTotal = metricService.loadValue(ARQUIVO_IMAGE_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL);
-        duplicateFilesTotal = metricService.loadValue(ARQUIVO_IMAGE_PROCESSOR_DUPLICATE_FILES_TOTAL);
-        noTextImageTotal = metricService.loadValue(ARQUIVO_IMAGE_PROCESSOR_NO_TEXT_IMAGES_TOTAL);
-        responseItemsSentToKafkaTotal = metricService.loadValue(ARQUIVO_IMAGE_PROCESSOR_RESPONSE_ITEMS_SENT_TO_KAFKA_TOTAL);
+        responseItemsReceivedTotal.set(metricService.loadValue(ARQUIVO_IMAGE_PROCESSOR_RECEIVED_MESSAGES_TOTAL));
+        blankImagesTotal.set(metricService.loadValue(ARQUIVO_IMAGE_PROCESSOR_BLANK_IMAGES_TOTAL));
+        responseItemsIncompleteTotal.set(metricService.loadValue(ARQUIVO_IMAGE_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL));
+        duplicateFilesTotal.set(metricService.loadValue(ARQUIVO_IMAGE_PROCESSOR_DUPLICATE_FILES_TOTAL));
+        noTextImageTotal.set(metricService.loadValue(ARQUIVO_IMAGE_PROCESSOR_NO_TEXT_IMAGES_TOTAL));
+        responseItemsSentToKafkaTotal.set(metricService.loadValue(ARQUIVO_IMAGE_PROCESSOR_RESPONSE_ITEMS_SENT_TO_KAFKA_TOTAL));
 
         directory = Paths.get(imagePathDirectory).toAbsolutePath().normalize();
         LOG.info("Configured image directory: {}", directory);
@@ -115,13 +122,13 @@ public class ImageProcessorListener {
             concurrency = "${scribe-ref.arquivo.scribe-news-image-processor.kafka.to-listen.concurrency}")
     public void listener(ConsumerRecord<String, String> record, Acknowledgment ack, @Header(KafkaHeaders.RECEIVED_PARTITION) int partition) {
         LOG.trace("Received on topic {} on partition {} record {}", record.topic(), partition, record.value());
-        metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_RECEIVED_MESSAGES_TOTAL, responseItemsReceivedTotal++);
+        metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_RECEIVED_MESSAGES_TOTAL, responseItemsReceivedTotal.incrementAndGet());
 
         try {
             String payload = record.value();
             if (payload == null || payload.isBlank()) {
                 LOG.warn("Empty payload for key {}", record.key());
-                metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL, responseItemsIncompleteTotal++);
+                metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL, responseItemsIncompleteTotal.incrementAndGet());
                 return;
             }
 
@@ -137,7 +144,7 @@ public class ImageProcessorListener {
             boolean isDuplicate = Files.exists(originalOutputPath);
             if (isDuplicate) {
                 LOG.debug("Skipping processing for {} because outputs exist", originalOutputPath);
-                metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_DUPLICATE_FILES_TOTAL, duplicateFilesTotal++);
+                metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_DUPLICATE_FILES_TOTAL, duplicateFilesTotal.incrementAndGet());
             } else {
                 // process only if not duplicate
                 final BufferedImage image = getImage(responseItem.get("linkToScreenshot").asText());
@@ -162,7 +169,7 @@ public class ImageProcessorListener {
                     .put("linkToScreenshot", responseItem.get("linkToScreenshot").asText());
 
             kafkaPublisher.send(articleToTextSummary);
-            metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_RESPONSE_ITEMS_SENT_TO_KAFKA_TOTAL, responseItemsSentToKafkaTotal++);
+            metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_RESPONSE_ITEMS_SENT_TO_KAFKA_TOTAL, responseItemsSentToKafkaTotal.incrementAndGet());
             LOG.trace("Sent title {} to text summary topic", responseItem.get("title").asText());
 
             printStats();
@@ -181,7 +188,7 @@ public class ImageProcessorListener {
             url = uri.toURL();
         } catch (MalformedURLException e) {
             LOG.error("Invalid url {}", e.getMessage());
-            metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL, responseItemsIncompleteTotal++);
+            metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL, responseItemsIncompleteTotal.incrementAndGet());
             return null;
         }
 
@@ -190,25 +197,24 @@ public class ImageProcessorListener {
             image = ImageIO.read(in);
         } catch (Exception e) {
             LOG.error("Failed to fetch image: {}", e.getMessage());
-            responseItemsIncompleteTotal++;
-            metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL, 1);
+            metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL, responseItemsIncompleteTotal.incrementAndGet());
             return null;
         }
 
         if (image == null) {
             LOG.warn("ImageIO.read returned null for URL {}", imageUrl);
-            metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL, responseItemsIncompleteTotal++);
+            metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL, responseItemsIncompleteTotal.incrementAndGet());
             return null;
         }
 
         // Check if truly blank (uniform color)
         if (ImageBlankDetector.isBlank(image, 30, 0.20, 5)) {
-            metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_BLANK_IMAGES_TOTAL, blankImagesTotal++);
+            metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_BLANK_IMAGES_TOTAL, blankImagesTotal.incrementAndGet());
             return null;
         }
 
         if (!imageTextDetector.hasText(image, 250)) {
-            metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_NO_TEXT_IMAGES_TOTAL, noTextImageTotal++);
+            metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_NO_TEXT_IMAGES_TOTAL, noTextImageTotal.incrementAndGet());
             return null;
         }
 
@@ -288,12 +294,12 @@ public class ImageProcessorListener {
         final LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
         if (now.isAfter(nextProgressLog)) {
             LOG.info("------------------------------------");
-            LOG.info("Total received messages: {}", responseItemsReceivedTotal);
-            LOG.info("Total blank images: {}", blankImagesTotal);
-            LOG.info("Total no-text images: {}", noTextImageTotal);
-            LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal);
-            LOG.info("Total duplicate files skipped: {}", duplicateFilesTotal);
-            LOG.info("Total response items sent to Kafka: {}", responseItemsSentToKafkaTotal);
+            LOG.info("Total received messages: {}", responseItemsReceivedTotal.get());
+            LOG.info("Total blank images: {}", blankImagesTotal.get());
+            LOG.info("Total no-text images: {}", noTextImageTotal.get());
+            LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal.get());
+            LOG.info("Total duplicate files skipped: {}", duplicateFilesTotal.get());
+            LOG.info("Total response items sent to Kafka: {}", responseItemsSentToKafkaTotal.get());
             LOG.info("Elapsed time: {} minutes", java.time.Duration.between(start, now).toMinutes());
             while (!now.isBefore(nextProgressLog)) {
                 nextProgressLog = nextProgressLog.plusMinutes(SHOW_STATS_INTERVAL_MINS);
