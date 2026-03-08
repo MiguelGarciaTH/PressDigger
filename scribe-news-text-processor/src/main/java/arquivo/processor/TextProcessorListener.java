@@ -33,6 +33,11 @@ public class TextProcessorListener {
 
     private static final Logger LOG = LoggerFactory.getLogger(TextProcessorListener.class);
     public static final int SHOW_STATS_INTERVAL_MINS = 1;
+    public static final String ARQUIVO_TEXT_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL = "arquivo_text_processor_response_items_incomplete_total";
+    public static final String ARQUIVO_TEXT_PROCESSOR_RESPONSE_ITEMS_RECEIVED_TOTAL = "arquivo_text_processor_response_items_received_total";
+    public static final String ARQUIVO_TEXT_PROCESSOR_OPEN_IA_RESPONSE_ERRORS_TOTAL = "arquivo_text_processor_open_ia_response_errors_total";
+    public static final String ARQUIVO_TEXT_PROCESSOR_RESPONSE_ITEMS_SENT_TO_KAFKA_TOTAL = "arquivo_text_processor_response_items_sent_to_kafka_total";
+    public static final String ARQUIVO_TEXT_PROCESSOR_SUMMARY_IS_NOT_RELEVANT = "arquivo_text_processor_summary_is_not_relevant";
 
     private final KafkaPublisher kafkaPublisher;
 
@@ -61,11 +66,11 @@ public class TextProcessorListener {
         this.kafkaPublisher = new KafkaPublisher(kafkaTemplate, topic);
         this.objectMapper = new ObjectMapper();
 
-        responseItemsIncompleteTotal = metricService.loadValue("arquivo_text_processor_response_items_incomplete_total");
-        responseItemsReceivedTotal = metricService.loadValue("arquivo_text_processor_response_items_received_total");
-        openAiResponseErrorsTotal = metricService.loadValue("arquivo_text_processor_open_ia_response_errors_total");
-        responseItemsSentToKafkaTotal = metricService.loadValue("arquivo_text_processor_response_items_sent_to_kafka_total");
-        notRelevantTotal = metricService.loadValue("arquivo_text_processor_summary_is_not_relevant");
+        responseItemsIncompleteTotal = metricService.loadValue(ARQUIVO_TEXT_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL);
+        responseItemsReceivedTotal = metricService.loadValue(ARQUIVO_TEXT_PROCESSOR_RESPONSE_ITEMS_RECEIVED_TOTAL);
+        openAiResponseErrorsTotal = metricService.loadValue(ARQUIVO_TEXT_PROCESSOR_OPEN_IA_RESPONSE_ERRORS_TOTAL);
+        responseItemsSentToKafkaTotal = metricService.loadValue(ARQUIVO_TEXT_PROCESSOR_RESPONSE_ITEMS_SENT_TO_KAFKA_TOTAL);
+        notRelevantTotal = metricService.loadValue(ARQUIVO_TEXT_PROCESSOR_SUMMARY_IS_NOT_RELEVANT);
 
         final String apiKey = environment.getProperty("scribe-ref.arquivo.scribe-news-text-processor.open-ai.api-key");
 
@@ -84,14 +89,14 @@ public class TextProcessorListener {
         LOG.trace("Received on topic {} on partition {} record {}", record.topic(), partition, record.value());
 
         responseItemsReceivedTotal++;
-        metricService.updateValue("arquivo_text_processor_response_items_received_total", 1);
+        metricService.updateValue(ARQUIVO_TEXT_PROCESSOR_RESPONSE_ITEMS_RECEIVED_TOTAL, 1);
 
         try {
             String payload = record.value();
             if (payload == null || payload.isBlank()) {
                 LOG.warn("Empty payload for key {}", record.key());
                 responseItemsIncompleteTotal++;
-                metricService.updateValue("arquivo_text_processor_response_items_incomplete_total", 1);
+                metricService.updateValue(ARQUIVO_TEXT_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL, 1);
                 return;
             }
 
@@ -106,7 +111,7 @@ public class TextProcessorListener {
                     || responseItem.get("linkToExtractedText").asText().isBlank()) {
                 LOG.error("Incomplete response item (should not happen); missing linkToExtractedText: {}", payload);
                 responseItemsIncompleteTotal++;
-                metricService.updateValue("arquivo_text_processor_response_items_incomplete_total", 1);
+                metricService.updateValue(ARQUIVO_TEXT_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL, 1);
                 return;
             }
 
@@ -115,7 +120,7 @@ public class TextProcessorListener {
             if (!passesRelevancePreScreen(rawText, responseItem.get("person").asText())) {
                 LOG.debug("Failed relevance pre-screen, skipping OpenAI summarization");
                 notRelevantTotal++;
-                metricService.updateValue("arquivo_text_processor_summary_is_not_relevant", 1);
+                metricService.updateValue(ARQUIVO_TEXT_PROCESSOR_SUMMARY_IS_NOT_RELEVANT, 1);
                 return;
             }
 
@@ -128,19 +133,19 @@ public class TextProcessorListener {
             } catch (Exception ex) {
                 LOG.error("Failed to parse JSON from OpenAI: {}", openAiResponseString, ex);
                 openAiResponseErrorsTotal++;
-                metricService.updateValue("arquivo_text_processor_open_ia_response_errors_total", 1);
+                metricService.updateValue(ARQUIVO_TEXT_PROCESSOR_OPEN_IA_RESPONSE_ERRORS_TOTAL, 1);
             }
             if (openAiResponse == null) {
                 LOG.error("Incomplete response item, missing linkToExtractedText: {}", payload);
                 openAiResponseErrorsTotal++;
-                metricService.updateValue("arquivo_text_processor_open_ia_response_errors_total", 1);
+                metricService.updateValue(ARQUIVO_TEXT_PROCESSOR_OPEN_IA_RESPONSE_ERRORS_TOTAL, 1);
                 return;
             }
             final String personName = responseItem.get("person").asText();
             if (!openAiIntegration.isAbout(openAiResponse.get("summary").asText(), personName)) {
                 LOG.debug("Summary is not about: {}", personName);
                 notRelevantTotal++;
-                metricService.updateValue("arquivo_text_processor_summary_is_not_relevant", 1);
+                metricService.updateValue(ARQUIVO_TEXT_PROCESSOR_SUMMARY_IS_NOT_RELEVANT, 1);
                 return;
             }
 

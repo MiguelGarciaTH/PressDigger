@@ -34,6 +34,9 @@ public class TextEmbeddingListener {
 
     private static final Logger LOG = LoggerFactory.getLogger(TextEmbeddingListener.class);
     public static final int SHOW_STATS_INTERVAL_MINS = 1;
+    public static final String ARQUIVO_EMBEDDINGS_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL = "arquivo_embeddings_processor_response_items_incomplete_total";
+    public static final String ARQUIVO_EMBEDDINGS_PROCESSOR_RESPONSE_ITEMS_RECEIVED_TOTAL = "arquivo_embeddings_processor_response_items_received_total";
+    public static final String ARQUIVO_EMBEDDINGS_PROCESSOR_RESPONSE_ITEMS_STORED_TOTAL = "arquivo_embeddings_processor_response_items_stored_total";
 
     private final ObjectMapper objectMapper;
 
@@ -76,9 +79,9 @@ public class TextEmbeddingListener {
         this.textEmbeddingClient = new TextEmbeddingClient(url, objectMapper, false);
         this.yakeClient = new YakeClient("http://localhost:8002");
 
-        responseItemsIncompleteTotal = metricService.loadValue("arquivo_embeddings_processor_response_items_incomplete_total");
-        responseItemsReceivedTotal = metricService.loadValue("arquivo_embeddings_processor_response_items_received_total");
-        responseItemsStoredTotal = metricService.loadValue("arquivo_embeddings_processor_response_items_stored_total");
+        responseItemsIncompleteTotal = metricService.loadValue(ARQUIVO_EMBEDDINGS_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL);
+        responseItemsReceivedTotal = metricService.loadValue(ARQUIVO_EMBEDDINGS_PROCESSOR_RESPONSE_ITEMS_RECEIVED_TOTAL);
+        responseItemsStoredTotal = metricService.loadValue(ARQUIVO_EMBEDDINGS_PROCESSOR_RESPONSE_ITEMS_STORED_TOTAL);
     }
 
     @KafkaListener(
@@ -88,14 +91,14 @@ public class TextEmbeddingListener {
     public void listener(ConsumerRecord<String, String> record, Acknowledgment ack, @Header(KafkaHeaders.RECEIVED_PARTITION) int partition) {
         LOG.trace("Received on topic {} on partition {} record {}", record.topic(), partition, record.value());
         responseItemsReceivedTotal++;
-        metricService.updateValue("arquivo_embeddings_processor_response_items_received_total", 1);
+        metricService.updateValue(ARQUIVO_EMBEDDINGS_PROCESSOR_RESPONSE_ITEMS_RECEIVED_TOTAL, 1);
 
         try {
             String payload = record.value();
             if (payload == null || payload.isBlank()) {
                 LOG.warn("Empty payload for key {}", record.key());
                 responseItemsIncompleteTotal++;
-                metricService.updateValue("arquivo_embeddings_processor_response_items_incomplete_total", 1);
+                metricService.updateValue(ARQUIVO_EMBEDDINGS_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL, 1);
                 return;
             }
 
@@ -105,7 +108,7 @@ public class TextEmbeddingListener {
             if (site == null) {
                 LOG.warn("Site with id {} not found, skipping article {}", responseItem.get("siteId").asInt(), responseItem.get("title").asText());
                 responseItemsIncompleteTotal++;
-                metricService.updateValue("arquivo_embeddings_processor_response_items_incomplete_total", 1);
+                metricService.updateValue(ARQUIVO_EMBEDDINGS_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL, 1);
                 return;
             }
 
@@ -133,7 +136,7 @@ public class TextEmbeddingListener {
                     )
             );
             responseItemsStoredTotal++;
-            metricService.updateValue("arquivo_embeddings_processor_response_items_stored_total", 1);
+            metricService.updateValue(ARQUIVO_EMBEDDINGS_PROCESSOR_RESPONSE_ITEMS_STORED_TOTAL, 1);
             LOG.trace("Stored article {} with id {}", article.getTitle(), article.getId());
 
             // create keywords for the article using YAKE
