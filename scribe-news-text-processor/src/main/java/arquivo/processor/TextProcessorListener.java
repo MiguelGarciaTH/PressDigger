@@ -232,10 +232,10 @@ public class TextProcessorListener {
 
         // Require at least 3 full name mentions or 5 last name mentions
         // and name should appear in first 20% of text (headline/lead)
-        int firstFifth = lowerText.length() / 5;
-        boolean inLead = lowerText.substring(0, Math.min(firstFifth, lowerText.length())).contains(lowerName);
+        //int firstFifth = lowerText.length() / 5;
+        //boolean inLead = lowerText.substring(0, Math.min(firstFifth, lowerText.length())).contains(lowerName);
 
-        return (count >= 3 || (lastNameCount >= 5 && inLead));
+        return (count >= 3 || (lastNameCount >= 5));
     }
 
 
