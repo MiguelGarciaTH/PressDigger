@@ -117,7 +117,7 @@ public class ArquivoCrawler {
             urlRepository.save(new Url(url.getSite(), url.getPersonName(), url.getUrl()));
 
             // fetch all items for the next pages (pagination loop)
-            if(arquivoResponse.isNull()){
+            if (arquivoResponse == null || arquivoResponse.isNull()) {
                 LOG.warn("Null response for URL: {}. Skipping pagination.", url.getUrl());
                 metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_INCOMPLETE_TOTAL, responseItemsIncompleteTotal++);
                 return;
@@ -181,11 +181,11 @@ public class ArquivoCrawler {
     private boolean articleExists(String title, String siteName) {
         final String normalizedTitle = normalizeTitle(title);
         final int articleHash = getArticleHash(normalizedTitle, siteName);
-        if (bloomFilter.mightContain(articleHash+"") || articleRepository.existsByArticleHash(articleHash)) {
+        if (bloomFilter.mightContain(articleHash + "") || articleRepository.existsByArticleHash(articleHash)) {
 
             return true;
-        }else {
-            bloomFilter.add(articleHash+"");
+        } else {
+            bloomFilter.add(articleHash + "");
             return false;
         }
     }
