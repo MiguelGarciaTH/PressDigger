@@ -23,12 +23,21 @@ export const SITES_URL = `${API_BASE}/sites`
 export const PUBLIC_COLLECTIONS_URL = `${API_BASE}/collections/public`
 export const PRIVATE_COLLECTIONS_URL = `${API_BASE}/collections`
 export const JOURNALIST_COLLECTIONS_URL = `${API_BASE}/collections/journalists`
+export const AUTHORS_URL = `${API_BASE}/authors`
 export const ANNOTATIONS_URL = `${API_BASE}/annotations`
 export function annotationByArticleUrl(articleId: number) {
   return `${API_BASE}/annotations/article/${articleId}`
 }
 export function annotationUrl(annotationId: number) {
   return `${API_BASE}/annotations/${annotationId}`
+}
+
+export function authorArticlesUrl(authorId: number, page = 0, size = 20) {
+  return `${API_BASE}/authors/${authorId}/articles?page=${page}&size=${size}`
+}
+
+export function authorArticleCountUrl(authorId: number) {
+  return `${API_BASE}/authors/${authorId}/articles/count`
 }
 
 export function publicCollectionArticlesUrl(collectionId: number, page = 0, size = 20) {

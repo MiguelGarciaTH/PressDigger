@@ -418,11 +418,11 @@ export default function Sidebar() {
           </button>
 
           <button
-            style={rowStyle(activePanel === "journalists")}
-            onClick={() => handleCollectionClick("journalists")}
+            style={rowStyle(isActivePath("/journalists"))}
+            onClick={() => handleNav("/journalists")}
             title={!expanded ? t.navJournalists : undefined}
-            onMouseEnter={(e) => { if (activePanel !== "journalists") e.currentTarget.style.background = "rgba(255,255,255,0.06)" }}
-            onMouseLeave={(e) => { if (activePanel !== "journalists") e.currentTarget.style.background = "transparent" }}
+            onMouseEnter={(e) => { if (!isActivePath("/journalists")) e.currentTarget.style.background = "rgba(255,255,255,0.06)" }}
+            onMouseLeave={(e) => { if (!isActivePath("/journalists")) e.currentTarget.style.background = "transparent" }}
           >
             <span style={iconWrap}><JournalistCollectionIcon /></span>
             {expanded && <span>{t.navJournalists}</span>}

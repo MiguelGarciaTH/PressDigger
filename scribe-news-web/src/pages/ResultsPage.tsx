@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react"
 import { useSearchParams, useLocation, useNavigate } from "react-router-dom"
-import { SEARCH_URL, publicCollectionArticlesUrl, privateCollectionArticlesUrl, annotationByArticleUrl } from "../config"
+import { SEARCH_URL, publicCollectionArticlesUrl, privateCollectionArticlesUrl, authorArticlesUrl, annotationByArticleUrl } from "../config"
 import { createWorker } from 'tesseract.js'
 import SiteFilter from "../components/SiteFilter"
 import { useAuth } from "../components/useAuth"
@@ -42,6 +42,11 @@ export default function ResultsPage() {
   const collectionType = params.get("type") as "public" | "private" | null // "public" or "private"
   const collectionName = params.get("name") ?? "Collection"
   const isCollectionMode = collectionId !== null && collectionType !== null
+
+  // Author mode detection
+  const authorId = params.get("authorId") ? Number(params.get("authorId")) : null
+  const authorName = params.get("authorName") ?? "Journalist"
+  const isAuthorMode = authorId !== null
 
   const [query, setQuery] = useState<string>(initialQuery)
 
@@ -500,12 +505,14 @@ export default function ResultsPage() {
 
   const loadMore = useCallback(async () => {
     if (loading || last) return
-    if (!isCollectionMode && !query) return
+    if (!isCollectionMode && !isAuthorMode && !query) return
     setLoading(true)
     const nextPage = page + 1
     try {
       let res: Response
-      if (isCollectionMode) {
+      if (isAuthorMode) {
+        res = await fetch(authorArticlesUrl(authorId!, nextPage))
+      } else if (isCollectionMode) {
         const url = collectionType === "private"
           ? privateCollectionArticlesUrl(collectionId!, nextPage)
           : publicCollectionArticlesUrl(collectionId!, nextPage)
@@ -531,9 +538,22 @@ export default function ResultsPage() {
     }
   }, [query, page, last, loading, selectedSiteIds, isCollectionMode, collectionId, collectionType])
 
-  // Load initial — for search mode (from state) or collection mode
+  // Load initial — for search mode (from state), collection mode, or author mode
   useEffect(() => {
     if (frames.length > 0 || loading) return
+    if (isAuthorMode) {
+      setLoading(true)
+      fetch(authorArticlesUrl(authorId!, 0))
+        .then((r) => { if (!r.ok) throw new Error(`${r.status}`); return r.json() })
+        .then((data) => {
+          setFrames(data.content ?? [])
+          setPage(0)
+          setLast(!!data.last)
+        })
+        .catch((err) => console.error("Author load error:", err))
+        .finally(() => setLoading(false))
+      return
+    }
     if (isCollectionMode) {
       // Fetch first page of collection articles
       setLoading(true)
@@ -553,7 +573,7 @@ export default function ResultsPage() {
     }
     if (!query) return
     loadMore()
-  }, [query, isCollectionMode])
+  }, [query, isCollectionMode, isAuthorMode])
 
   // Load more on scroll
   useEffect(() => {
@@ -596,17 +616,17 @@ export default function ResultsPage() {
     doSearch()
   }, [selectedSiteIds, startDate, endDate])
 
-  if (!isCollectionMode && !query) return <div className="max-w-3xl mx-auto p-6"><h2 className="text-xl font-semibold mb-4">Microfilm</h2><p className="text-gray-500">No query provided.</p></div>
+  if (!isCollectionMode && !isAuthorMode && !query) return <div className="max-w-3xl mx-auto p-6"><h2 className="text-xl font-semibold mb-4">Microfilm</h2><p className="text-gray-500">No query provided.</p></div>
   if (frames.length === 0 && !loading) return (
     <div style={{ position: "fixed", inset: 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", color: "#eee", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
-      <p style={{ color: "#888", fontSize: 15 }}>{isCollectionMode ? t.noArticlesInCollection : t.noResultsFor(query)}</p>
-      <button onClick={() => navigate(isCollectionMode ? `/collections/${collectionType}` : "/")} style={{ marginTop: 16, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "8px 16px", color: "#eee", cursor: "pointer", fontSize: 14 }}>
+      <p style={{ color: "#888", fontSize: 15 }}>{isCollectionMode || isAuthorMode ? t.noArticlesInCollection : t.noResultsFor(query)}</p>
+      <button onClick={() => isAuthorMode ? navigate(-1) : navigate(isCollectionMode ? `/collections/${collectionType}` : "/")} style={{ marginTop: 16, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "8px 16px", color: "#eee", cursor: "pointer", fontSize: 14 }}>
         <span style={{ fontSize: 18, fontWeight: 900 }}>←</span> {t.back}
       </button>
     </div>
   )
 
-  const backPath = isCollectionMode ? `/collections/${collectionType}` : "/"
+  const backPath = isAuthorMode ? -1 as const : isCollectionMode ? `/collections/${collectionType}` : "/"
 
   const selected = frames[selectedIndex] ?? {}
   const article = selected
@@ -635,6 +655,8 @@ export default function ResultsPage() {
         </button>
         {isCollectionMode ? (
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 500 }}>{collectionName}</h2>
+        ) : isAuthorMode ? (
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 500 }}>{authorName}</h2>
         ) : (
           <>
         <SiteFilter selectedSiteIds={selectedSiteIds} onChangeSelection={setSelectedSiteIds} variant="dark" />

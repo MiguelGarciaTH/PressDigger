@@ -9,6 +9,7 @@ const ResultsPage = lazy(() => import("./pages/ResultsPage"))
 const EditorSearchPage = lazy(() => import("./pages/EditorSearchPage"))
 const PublicCollectionsPage = lazy(() => import("./pages/PublicCollectionsPage"))
 const PrivateCollectionsPage = lazy(() => import("./pages/PrivateCollectionsPage"))
+const JournalistsPage = lazy(() => import("./pages/JournalistsPage"))
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -46,6 +47,7 @@ export default function App() {
             <Route path="/editor-search" element={<EditorSearchPage />} />
             <Route path="/collections/public" element={<PublicCollectionsPage />} />
             <Route path="/collections/private" element={<PrivateCollectionsPage />} />
+            <Route path="/journalists" element={<JournalistsPage />} />
           </Routes>
         </Suspense>
       </main>

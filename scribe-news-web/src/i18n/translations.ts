@@ -68,6 +68,10 @@ export const translations = {
     loadingMore: "Loading more...",
     scrollForMore: "Scroll for more",
 
+    // JournalistsPage
+    journalists: "Journalists",
+    noJournalistsFound: "No journalists found",
+
     // PublicCollectionsPage
     publicCollections: "Public Collections",
 
@@ -168,6 +172,10 @@ export const translations = {
     view: "Ver",
     loadingMore: "A carregar mais...",
     scrollForMore: "Deslize para ver mais",
+
+    // JournalistsPage
+    journalists: "Jornalistas",
+    noJournalistsFound: "Nenhum jornalista encontrado",
 
     // PublicCollectionsPage
     publicCollections: "Coleções Públicas",
