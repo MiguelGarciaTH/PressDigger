@@ -220,11 +220,11 @@ export default function ResultsPage() {
     if (scale <= 1) setTranslate({ x: 0, y: 0 })
   }, [scale])
 
-  // Fetch annotation for the currently selected article
+  // Fetch annotation for the currently selected article (private collections only)
   useEffect(() => {
     setArticleAnnotation(null)
     const id = frames[selectedIndex]?.id
-    if (!user || !id) return
+    if (!user || !id || collectionType !== "private") return
     let cancelled = false
     ;(async () => {
       try {
@@ -883,7 +883,7 @@ export default function ResultsPage() {
                 ⛶ {t.fit}
               </button>
               <BookmarkButton articleId={article.id} />
-              <AnnotationButton articleId={article.id} controlledAnnotation={articleAnnotation} onAnnotationSaved={setArticleAnnotation} />
+              {collectionType === "private" && <AnnotationButton articleId={article.id} controlledAnnotation={articleAnnotation} onAnnotationSaved={setArticleAnnotation} />}
             </div>
           </div>
         </div>
@@ -937,7 +937,7 @@ export default function ResultsPage() {
             {article.summary ?? t.noSummary}
           </p>
 
-          {articleAnnotation && (
+          {articleAnnotation && collectionType === "private" && (
             <div style={{
               marginTop: 4,
               padding: "10px 12px",
