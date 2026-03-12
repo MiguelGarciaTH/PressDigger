@@ -165,8 +165,8 @@ export default function AnnotationButton({ articleId, style, controlledAnnotatio
           padding: "0 12px",
           borderRadius: 16,
           border: "none",
-          background: "rgba(255,255,255,0.1)",
-          color: "#fff",
+          background: hasAnnotation ? "rgba(255,180,50,0.18)" : "rgba(255,255,255,0.1)",
+          color: hasAnnotation ? "#e8b84b" : "#fff",
           fontSize: 12,
           cursor: "pointer",
           display: "flex",
@@ -174,16 +174,16 @@ export default function AnnotationButton({ articleId, style, controlledAnnotatio
           gap: 4,
           transition: "background 150ms",
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.2)" }}
-        onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.1)" }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = hasAnnotation ? "rgba(255,180,50,0.28)" : "rgba(255,255,255,0.2)" }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = hasAnnotation ? "rgba(255,180,50,0.18)" : "rgba(255,255,255,0.1)" }}
       >
         {/* Annotation / note icon */}
         <svg
           width="14"
           height="14"
           viewBox="0 0 24 24"
-          fill={hasAnnotation ? "#fff" : "none"}
-          stroke="#fff"
+          fill={hasAnnotation ? "#e8b84b" : "none"}
+          stroke={hasAnnotation ? "#e8b84b" : "#fff"}
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -205,10 +205,10 @@ export default function AnnotationButton({ articleId, style, controlledAnnotatio
             left: popoverPos.left,
             transform: closing ? "translateY(calc(-100% + 6px))" : "translateY(-100%)",
             width: 280,
-            background: "rgba(12,12,12,0.82)",
+            background: "rgba(20,15,5,0.92)",
             backdropFilter: "blur(16px)",
             WebkitBackdropFilter: "blur(16px)",
-            border: "1px solid rgba(255,255,255,0.12)",
+            border: "1px solid rgba(255,180,50,0.25)",
             borderRadius: 10,
             boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
             zIndex: 10000,
@@ -221,12 +221,16 @@ export default function AnnotationButton({ articleId, style, controlledAnnotatio
           <div style={{
             padding: "10px 14px 8px",
             fontSize: 11,
-            color: "#777",
+            color: "#a07010",
             fontWeight: 600,
             textTransform: "uppercase",
             letterSpacing: 0.5,
-            borderBottom: "1px solid rgba(255,255,255,0.07)",
+            borderBottom: "1px solid rgba(255,180,50,0.15)",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
           }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="#c8960c" stroke="#c8960c" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
             {hasAnnotation ? t.yourAnnotation : t.addAnnotation}
           </div>
 
@@ -238,7 +242,7 @@ export default function AnnotationButton({ articleId, style, controlledAnnotatio
                 <p style={{
                   margin: "0 0 10px",
                   fontSize: 13,
-                  color: "#ccc",
+                  color: "#bba060",
                   lineHeight: 1.6,
                   whiteSpace: "pre-wrap",
                   wordBreak: "break-word",
@@ -287,11 +291,11 @@ export default function AnnotationButton({ articleId, style, controlledAnnotatio
                   style={{
                     width: "100%",
                     boxSizing: "border-box",
-                    background: "rgba(255,255,255,0.05)",
-                    border: "1px solid rgba(255,255,255,0.12)",
+                    background: "rgba(255,180,50,0.05)",
+                    border: "1px solid rgba(255,180,50,0.2)",
                     borderRadius: 6,
                     padding: "8px 10px",
-                    color: "#ddd",
+                    color: "#bba060",
                     fontSize: 13,
                     lineHeight: 1.6,
                     outline: "none",
@@ -299,33 +303,34 @@ export default function AnnotationButton({ articleId, style, controlledAnnotatio
                     resize: "vertical",
                     transition: "border-color 150ms",
                   }}
-                  onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)" }}
-                  onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)" }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(255,180,50,0.5)" }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(255,180,50,0.2)" }}
                 />
                 <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8, gap: 8 }}>
                   <button
                     onClick={closePopover}
                     style={{
-                      background: "none",
-                      border: "1px solid rgba(255,255,255,0.12)",
+                      background: "rgba(255,255,255,0.08)",
+                      border: "1px solid rgba(255,255,255,0.2)",
                       borderRadius: 6,
                       padding: "5px 12px",
-                      color: "#777",
+                      color: "#ccc",
                       fontSize: 12,
                       cursor: "pointer",
                     }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.14)"; e.currentTarget.style.color = "#fff" }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; e.currentTarget.style.color = "#ccc" }}
                   >
                     {t.cancel}
                   </button>
                   <button
                     onClick={handleSave}
-                    disabled={!draft.trim() || saving}
                     style={{
-                      background: draft.trim() ? "#3aa" : "rgba(58,170,170,0.25)",
-                      border: "none",
+                      background: draft.trim() ? "#7a5200" : "rgba(255,180,50,0.15)",
+                      border: draft.trim() ? "1px solid #b87800" : "1px solid rgba(255,180,50,0.25)",
                       borderRadius: 6,
                       padding: "5px 14px",
-                      color: draft.trim() ? "#000" : "#555",
+                      color: "#ffffff",
                       fontSize: 12,
                       fontWeight: 600,
                       cursor: draft.trim() && !saving ? "pointer" : "default",
