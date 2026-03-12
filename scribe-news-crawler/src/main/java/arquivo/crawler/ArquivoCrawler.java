@@ -152,6 +152,8 @@ public class ArquivoCrawler {
                 }
 
             }
+            url.setProcessed(true);
+            urlRepository.save(url);
             printStats();
         }
 
