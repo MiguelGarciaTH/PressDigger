@@ -27,6 +27,35 @@ PressDigger is a modular microservices-based system designed to crawl, process, 
 
 NOTE: There are multiple references to "ScribeRef" in the codebase and documentation. This was the original project name during development, but the final product is branded as "PressDigger". The name "ScribeRef" may still appear in module names, package names, and some documentation, but it refers to the same system now called PressDigger.
 
+## Technology Stack
+
+### Backend
+- **Java 21**
+- **Spring Boot 3.5.3**
+- **Spring Data JPA**
+- **Spring Kafka**
+- **PostgreSQL 16** with **pgvector** extension
+- **Maven** (build tool)
+
+### Frontend
+- **React 18**
+- **TypeScript**
+- **Vite** (build tool)
+- **Tailwind CSS**
+
+### Infrastructure
+- **Apache Kafka 3.8.1**
+- **Docker & Docker Compose**
+- **Python 3** (auxiliary services)
+
+### AI/ML
+- **OpenAI API** (text summarization)
+- **Text Embedding Models** — `intfloat/multilingual-e5-large` (semantic search)
+- **OCR** — Tesseract (`por`) (image text extraction)
+- **YAKE** (unsupervised keyword extraction)
+- **spaCy** — `pt_core_news_lg` + `en_core_web_sm` (named entity recognition)
+
+
 ## Architecture
 
 ### Backend processing pipeline
@@ -97,39 +126,6 @@ ScribeRef/
 |---|---------|-------------|-------|------|------|
 | 12 | **scribe-news-web** | React web interface for searching, browsing, annotating articles and managing collections. | React 18, TypeScript, Vite, Tailwind CSS | 5173 | [README](scribe-news-web/README.md) |
 
-### Infrastructure
-
-#### Database
-PostgreSQL with pgvector extension for storing articles, metadata, and vector embeddings. Database schema and seed data are in the `db/` directory.
-
-#### Message Broker
-Apache Kafka for event-driven communication between microservices.
-
-## Technology Stack
-
-### Backend
-- **Java 21**
-- **Spring Boot 3.5.3**
-- **Spring Data JPA**
-- **Spring Kafka**
-- **PostgreSQL 16** with **pgvector** extension
-- **Maven** (build tool)
-
-### Frontend
-- **React 18**
-- **TypeScript**
-- **Vite** (build tool)
-- **Tailwind CSS**
-
-### Infrastructure
-- **Apache Kafka 3.8.1**
-- **Docker & Docker Compose**
-- **Python 3** (auxiliary services)
-
-### AI/ML
-- **OpenAI API** (text summarization)
-- **Text Embedding Models** (semantic search)
-- **OCR libraries** (image text extraction)
 
 ## Quick Start
 
