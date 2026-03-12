@@ -2,9 +2,77 @@
   <img src="public/pressdigger-logo.svg" alt="PressDigger" width="500"/>
 </p>
 
-# React + TypeScript + Vite
+# PressDigger — Web Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React web interface for [PressDigger](../README.md), a tool for journalists, researchers, and the general public to explore and analyze Portuguese news articles from [Arquivo.pt](https://arquivo.pt).
+
+---
+
+## Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | React 18 |
+| Language | TypeScript |
+| Build tool | Vite |
+| Styling | Tailwind CSS + inline CSS-in-JS |
+| Routing | React Router v6 |
+| Auth | Google OAuth (via backend session) |
+| i18n | Custom context (EN / PT) |
+| Backend API | Spring Boot REST at `localhost:8085` (configurable via `VITE_API_URL`) |
+
+---
+
+## Features
+
+### Search
+- **Keyword search** — full-text search across all indexed articles
+- **Editor / paragraph search** — paste or write a text; the system returns the most relevant articles per paragraph
+- Filter results by **date range** and **news site**
+- Infinite scroll on results
+
+### Article Viewer
+- Microfilm-style image viewer with zoom, pan, and fit controls
+- Thumbnail strip for quick navigation between articles in the same result set
+- **OCR text extraction** — extract the raw text from an article image
+- **Bookmark** articles to private collections
+
+### Collections
+- **Public collections** — curated keyword-based collections browsable without login
+- **Private collections** — personal article lists; requires Google login
+  - Add/remove articles
+  - **Annotate articles** with personal notes (private collections only)
+
+### Journalists
+- Browse all article authors in a paginated grid (infinite scroll)
+- View article count per author
+- Click an author to see all their articles
+- Scroll position is restored when navigating back
+
+### Internationalization
+- Full UI in **English** and **Portuguese**, switchable at runtime
+
+### Authentication
+- Google Login button
+- Protected routes and features (private collections, annotations, bookmarks)
+
+---
+
+## Development
+
+```bash
+npm install
+npm run dev
+```
+
+App runs at `http://localhost:5173` by default.
+
+To point at a different backend:
+
+```bash
+VITE_API_URL=http://my-server:8085 npm run dev
+```
+
 
 Currently, two official plugins are available:
 
