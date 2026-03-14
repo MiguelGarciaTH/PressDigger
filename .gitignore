@@ -3,6 +3,9 @@
 **/target/
 
 .env
+**/.env.production
+
+scripts/*
 
 # optionally ignore other common build dirs
 **/out/
