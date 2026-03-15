@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { AUTH_GOOGLE_CALLBACK_URL, GOOGLE_AUTH_URL } from '../config'
 
 const CLIENT_ID = "807515834617-frk9phljibrjdknohfuau39o1j6ovgjt.apps.googleusercontent.com"
 
@@ -22,7 +23,7 @@ export default function GoogleLoginButton() {
 
   const handleCredentialResponse = async (response: any) => {
     try {
-      const res = await fetch('http://localhost:8085/api/auth/google/callback', {
+      const res = await fetch(AUTH_GOOGLE_CALLBACK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -41,7 +42,7 @@ export default function GoogleLoginButton() {
 
   // Fallback: redirect to Spring Security OAuth2 login
   const handleFallbackLogin = () => {
-    window.location.href = 'http://localhost:8085/oauth2/authorization/google'
+    window.location.href = GOOGLE_AUTH_URL
   }
 
   useEffect(() => {

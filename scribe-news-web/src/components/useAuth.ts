@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-
-const API_URL = 'http://localhost:8085'
+import { AUTH_USER_URL, AUTH_LOGOUT_URL } from '../config'
 
 interface User {
   googleId: string
@@ -14,7 +13,7 @@ export function useAuth() {
   const [loading, setLoading] = useState(true)
 
   const checkSession = useCallback(() => {
-    fetch(`${API_URL}/api/auth/user`, { credentials: 'include' })
+    fetch(AUTH_USER_URL, { credentials: 'include' })
       .then(r => r.ok ? r.json() : null)
       .then(data => setUser(data))
       .catch(() => setUser(null))
@@ -45,7 +44,7 @@ export function useAuth() {
   }, [checkSession])
 
   const logout = async () => {
-    await fetch(`${API_URL}/api/auth/logout`, {
+    await fetch(AUTH_LOGOUT_URL, {
       method: 'POST',
       credentials: 'include'
     })

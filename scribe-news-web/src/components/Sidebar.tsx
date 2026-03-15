@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
-import { PUBLIC_COLLECTIONS_URL, PRIVATE_COLLECTIONS_URL, JOURNALIST_COLLECTIONS_URL } from "../config"
+import { PUBLIC_COLLECTIONS_URL, PRIVATE_COLLECTIONS_URL, JOURNALIST_COLLECTIONS_URL, GOOGLE_AUTH_URL } from "../config"
 import { useAuth } from "./useAuth"
 import { useLang } from "../contexts/LanguageContext"
 
@@ -165,14 +165,14 @@ export default function Sidebar() {
 
   function handleCollectionClick(panel: PanelType) {
     if (panel === "private" && !user) {
-      window.location.href = "http://localhost:8085/oauth2/authorization/google"
+      window.location.href = GOOGLE_AUTH_URL
       return
     }
     setActivePanel((prev) => (prev === panel ? null : panel))
   }
 
   function handleLogin() {
-    window.location.href = "http://localhost:8085/oauth2/authorization/google"
+    window.location.href = GOOGLE_AUTH_URL
   }
 
   const panelTitles: Record<string, string> = {
@@ -404,7 +404,7 @@ export default function Sidebar() {
             style={rowStyle(isActivePath("/collections/private"))}
             onClick={() => {
               if (!user) {
-                window.location.href = "http://localhost:8085/oauth2/authorization/google"
+                window.location.href = GOOGLE_AUTH_URL
                 return
               }
               handleNav("/collections/private")

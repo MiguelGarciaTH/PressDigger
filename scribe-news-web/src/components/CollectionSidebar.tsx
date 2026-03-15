@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { PUBLIC_COLLECTIONS_URL, PRIVATE_COLLECTIONS_URL, JOURNALIST_COLLECTIONS_URL } from "../config"
+import { PUBLIC_COLLECTIONS_URL, PRIVATE_COLLECTIONS_URL, JOURNALIST_COLLECTIONS_URL, GOOGLE_AUTH_URL } from "../config"
 
 interface Collection {
   id: number
@@ -126,7 +126,7 @@ export default function CollectionSidebar({ user }: { user: any }) {
     // Private collections require login
     if (panel === "private" && !user) {
       // Trigger Google login
-      window.location.href = "http://localhost:8085/oauth2/authorization/google"
+      window.location.href = GOOGLE_AUTH_URL
       return
     }
     // Toggle panel

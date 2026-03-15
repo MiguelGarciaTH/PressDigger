@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { PRIVATE_COLLECTIONS_URL } from "../config"
+import { PRIVATE_COLLECTIONS_URL, GOOGLE_AUTH_URL } from "../config"
 import { useAuth } from "../components/useAuth"
 import { useLang } from "../contexts/LanguageContext"
 
@@ -32,7 +32,7 @@ export default function PrivateCollectionsPage() {
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!authLoading && !user) {
-      window.location.href = "http://localhost:8085/oauth2/authorization/google"
+      window.location.href = GOOGLE_AUTH_URL
     }
   }, [authLoading, user])
 

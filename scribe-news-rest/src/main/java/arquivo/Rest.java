@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
@@ -20,10 +21,13 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
-import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import java.util.List;
 import java.util.Map;
 
 @SpringBootApplication
@@ -41,15 +45,29 @@ class SecurityConfig {
 
     private final UserRepository userRepository;
 
+    @Value("${app.frontend-url:http://localhost:5173}")
+    private String frontendUrl;
+
     public SecurityConfig(UserRepository userRepository) {
         this.userRepository = userRepository;
     }
 
     @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOriginPatterns(List.of("*"));
+        config.setAllowedMethods(List.of("*"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(true);
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
+
+    @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .cors(cors -> {
-                })
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
@@ -73,7 +91,6 @@ class SecurityConfig {
         return (HttpServletRequest request, HttpServletResponse response, Authentication authentication) -> {
             OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
 
-            // Store user info in session (same format as your GSI flow)
             Map<String, Object> user = Map.of(
                     "googleId", oAuth2User.getAttribute("sub"),
                     "email", oAuth2User.getAttribute("email"),
@@ -86,23 +103,13 @@ class SecurityConfig {
                 userRepository.save(new User(oAuth2User.getAttribute("name"), oAuth2User.getAttribute("email"), oAuth2User.getAttribute("sub")));
             }
 
-            // Redirect to frontend
-            response.sendRedirect("http://localhost:5173");
+            response.sendRedirect(frontendUrl);
         };
     }
 }
 
 @Configuration
 class WebConfig implements WebMvcConfigurer {
-
-    @Override
-    public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/**")
-                .allowedOriginPatterns("*") // Recommended way for Spring Boot 3+
-                .allowedMethods("*")
-                .allowedHeaders("*")
-                .allowCredentials(true);
-    }
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
