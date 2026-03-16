@@ -120,6 +120,8 @@ public class ArquivoCrawler {
             if (arquivoResponse == null || arquivoResponse.isNull()) {
                 LOG.warn("Null response for URL: {}. Skipping pagination.", url.getUrl());
                 metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_INCOMPLETE_TOTAL, responseItemsIncompleteTotal++);
+                url.setProcessed(true);
+                urlRepository.save(url);
                 return;
             }
 
