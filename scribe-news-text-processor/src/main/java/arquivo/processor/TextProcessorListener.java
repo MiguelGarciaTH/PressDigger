@@ -57,7 +57,7 @@ public class TextProcessorListener {
 
     private final HttpClient httpClient;
 
-    private final OpenAiIntegration openAiIntegration;
+    private final OpenAiIntegrationSummary openAiIntegrationSummary;
 
     private final AuthorExtractor authorExtractor;
 
@@ -80,7 +80,7 @@ public class TextProcessorListener {
 
         final String apiKey = environment.getProperty("scribe-ref.arquivo.scribe-news-text-processor.open-ai.api-key");
 
-        this.openAiIntegration = new OpenAiIntegration(apiKey);
+        this.openAiIntegrationSummary = new OpenAiIntegrationSummary(apiKey);
 
         httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
@@ -127,7 +127,7 @@ public class TextProcessorListener {
             }
 
             // use open IA to sumerize the text could be done here
-            final String openAiResponseString = openAiIntegration.summarizeText(rawText);
+            final String openAiResponseString = openAiIntegrationSummary.summarizeText(rawText);
 
             JsonNode openAiResponse = null;
             try {
@@ -143,7 +143,7 @@ public class TextProcessorListener {
                 return;
             }
             final String personName = responseItem.get("person").asText();
-            if (!openAiIntegration.isAbout(openAiResponse.get("summary").asText(), personName)) {
+            if (!openAiIntegrationSummary.isAbout(openAiResponse.get("summary").asText(), personName)) {
                 LOG.debug("Summary is not about: {}", personName);
                 metricService.updateValue(ARQUIVO_TEXT_PROCESSOR_OPEN_IA_RESPONSE_ERRORS_TOTAL, openAiResponseErrorsTotal.incrementAndGet());
                 return;
