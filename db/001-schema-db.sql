@@ -180,6 +180,8 @@ CREATE TABLE "user" (
     email       VARCHAR(255),
     name        VARCHAR(255),
     created_at  TIMESTAMP DEFAULT NOW(),
+    openai_usage_count integer NOT NULL DEFAULT 0,
+    openai_usage_last_timestamp TIMESTAMP,
 
     CONSTRAINT user_pk PRIMARY KEY (id)
 );

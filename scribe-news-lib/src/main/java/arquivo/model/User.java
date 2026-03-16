@@ -31,6 +31,11 @@ public class User {
     @JsonIgnore
     private Set<Collection> collections = new HashSet<>();
 
+    private int openaiUsageCount = 0;
+
+    private LocalDateTime openaiUsageLastTimestamp;
+
+
     public User() {
     }
 
@@ -83,5 +88,21 @@ public class User {
 
     public void setCollections(Set<Collection> collections) {
         this.collections = collections;
+    }
+
+    public LocalDateTime getOpenaiUsageLastTimestamp() {
+        return openaiUsageLastTimestamp;
+    }
+
+    public void setOpenaiUsageLastTimestamp(LocalDateTime openaiUsageLastTimestamp) {
+        this.openaiUsageLastTimestamp = openaiUsageLastTimestamp;
+    }
+
+    public int getOpenaiUsageCount() {
+        return openaiUsageCount;
+    }
+
+    public void setOpenaiUsageCount(int openaiUsageCount) {
+        this.openaiUsageCount = openaiUsageCount;
     }
 }
