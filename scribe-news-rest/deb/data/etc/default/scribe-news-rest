@@ -7,6 +7,11 @@ DB_PASSWORD="example-password"
 
 GOOGLE_REDIRECT_URI="https://example.com/scribe-news-rest/oauth2/callback"
 
+OPEN_IA_API_KEY="OPEN_IA_API_KEY"
+
+OPEN_IA_MAX_USAGE=5
+OPEN_IA_MAX_USAGE_PERIOD="PT05D"
+
 LOGGING_CONFIG=/etc/ScribeRef/logs/scribe-news-rest.xml
 
 # set JVM options here

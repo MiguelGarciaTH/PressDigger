@@ -5,6 +5,8 @@ import arquivo.service.ArticleService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -36,7 +38,22 @@ public class ArticleController {
         return articleService.search(inputText.text(), siteIds, startDate, endDate, pageable);
     }
 
-    record SearchInputText(String text) {
-
+    @PostMapping("/narrative")
+    public ArticleService.NarrativeResult createNarrative(@AuthenticationPrincipal OAuth2User user,
+                                                          @RequestBody SearchInputText inputText,
+                                                          @RequestParam List<Integer> siteIds,
+                                                          @RequestParam LocalDateTime startDate,
+                                                          @RequestParam LocalDateTime endDate) {
+        return articleService.createNarrative(user.getAttribute("sub"), inputText.text(), siteIds, startDate, endDate);
     }
+
+    record SearchInputText(String text) {
+    }
+
+    @GetMapping("/narrative/usage")
+    public ArticleService.NarrativeUsageResult getNarrativeUsage(@AuthenticationPrincipal OAuth2User user) {
+        return articleService.getNarrativeUsage(user.getAttribute("sub"));
+    }
+
+
 }

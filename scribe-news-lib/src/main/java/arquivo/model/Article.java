@@ -116,6 +116,22 @@ public class Article {
         this.title = title;
     }
 
+    public Author getAuthor() {
+        return author;
+    }
+
+    public void setAuthor(Author author) {
+        this.author = author;
+    }
+
+    public Site getSite() {
+        return site;
+    }
+
+    public void setSite(Site site) {
+        this.site = site;
+    }
+
     public String getLinkToArchive() {
         return linkToArchive;
     }
