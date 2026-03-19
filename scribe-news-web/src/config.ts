@@ -26,7 +26,12 @@ export const AUTH_USER_URL = `${API_BASE}/auth/user`
 export const AUTH_LOGOUT_URL = `${API_BASE}/auth/logout`
 export const AUTH_GOOGLE_CALLBACK_URL = `${API_BASE}/auth/google/callback`
 export const SEARCH_URL = `${API_BASE}/articles/search`
+export const NARRATIVE_URL = `${API_BASE}/articles/narrative`
+export const NARRATIVE_USAGE_URL = `${API_BASE}/articles/narrative/usage`
 export const SITES_URL = `${API_BASE}/sites`
+export function articleUrl(articleId: number) {
+  return `${API_BASE}/articles/${articleId}`
+}
 export const PUBLIC_COLLECTIONS_URL = `${API_BASE}/collections/public`
 export const PRIVATE_COLLECTIONS_URL = `${API_BASE}/collections`
 export const JOURNALIST_COLLECTIONS_URL = `${API_BASE}/collections/journalists`

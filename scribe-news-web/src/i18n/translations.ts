@@ -38,6 +38,20 @@ export const translations = {
     textEditor: "Text Editor",
     selectAtLeastOneSite: "You need to select at least one site",
 
+    // AI Narrative
+    articleSearch: "Article Search",
+    aiDigest: "AI Narrative",
+    digestPlaceholder: "Ask about a topic to generate a narrative…",
+    generateDigest: "Narrate",
+    digestGenerating: "Generating…",
+    usesLeftThisWeek: (n: number) => `${n} of 5 uses left this week`,
+    digestLimitReached: "Weekly limit reached",
+    digestResetsOn: (d: string) => `Available again on ${d}`,
+    digestLoginRequired: "Sign in to use AI Digest",
+    digestNotEnoughArticles: "Not enough relevant articles found. Try broadening your search or date range.",
+    digestReferences: "References",
+    digestNoResult: "No narrative was generated.",
+
     // ResultsPage
     searchArticlesPlaceholder: "Search articles...",
     noArticlesInCollection: "No articles in this collection.",
@@ -142,6 +156,20 @@ export const translations = {
     searching: "A pesquisar…",
     textEditor: "Editor de Texto",
     selectAtLeastOneSite: "Precisa de selecionar pelo menos um site",
+
+    // AI Narrative
+    articleSearch: "Pesquisa de Artigos",
+    aiDigest: "AI Narrativa",
+    digestPlaceholder: "Pergunte sobre um tema para gerar uma narrativa…",
+    generateDigest: "Narrar",
+    digestGenerating: "A gerar…",
+    usesLeftThisWeek: (n: number) => `${n} de 5 utilizações restantes esta semana`,
+    digestLimitReached: "Limite semanal atingido",
+    digestResetsOn: (d: string) => `Disponível novamente em ${d}`,
+    digestLoginRequired: "Inicie sessão para usar o AI Digest",
+    digestNotEnoughArticles: "Não foram encontrados artigos suficientes. Tente alargar a pesquisa ou o intervalo de datas.",
+    digestReferences: "Referências",
+    digestNoResult: "Nenhuma narrativa foi gerada.",
 
     // ResultsPage
     searchArticlesPlaceholder: "Pesquisar artigos...",

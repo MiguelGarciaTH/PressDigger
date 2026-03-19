@@ -1,9 +1,16 @@
 import { useState, useRef, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { SEARCH_URL } from "../config"
+import { SEARCH_URL, NARRATIVE_URL, NARRATIVE_USAGE_URL } from "../config"
 import SiteFilter from "../components/SiteFilter"
 import DateRangeFilter, { DEFAULT_START, todayStr } from "../components/DateRangeFilter"
 import { useLang } from "../contexts/LanguageContext"
+import { useAuth } from "../components/useAuth"
+
+interface NarrativeUsage {
+  usageCount: number
+  canUse: boolean
+  resetOn: string
+}
 
 export default function SearchPage() {
   const [query, setQuery] = useState("")
@@ -12,9 +19,12 @@ export default function SearchPage() {
   const [selectedSiteIds, setSelectedSiteIds] = useState<number[]>([])
   const [startDate, setStartDate] = useState(DEFAULT_START)
   const [endDate, setEndDate] = useState(todayStr())
+  const [mode, setMode] = useState<"search" | "digest">("search")
+  const [usage, setUsage] = useState<NarrativeUsage | null>(null)
   const navigate = useNavigate()
   const abortRef = useRef<AbortController | null>(null)
   const { t } = useLang()
+  const { user } = useAuth()
 
   useEffect(() => {
     document.title = "PressDigger"
@@ -22,6 +32,17 @@ export default function SearchPage() {
       abortRef.current?.abort()
     }
   }, [])
+
+  // Fetch usage whenever digest mode is active and user is logged in
+  useEffect(() => {
+    if (mode !== "digest" || !user) return
+    let cancelled = false
+    fetch(NARRATIVE_USAGE_URL, { credentials: "include" })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (!cancelled) setUsage(data) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [mode, user])
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -31,11 +52,19 @@ export default function SearchPage() {
       return
     }
 
+    if (mode === "digest") {
+      if (!user) { setError(t.digestLoginRequired); return }
+      await submitDigest()
+    } else {
+      await submitSearch()
+    }
+  }
+
+  async function submitSearch() {
     setLoading(true)
     setError(null)
     const controller = new AbortController()
     abortRef.current = controller
-
     try {
       const siteParam = selectedSiteIds.length > 0 ? `&siteIds=${selectedSiteIds.join(',')}` : ''
       const dateParams = `&startDate=${startDate}T00:00:00&endDate=${endDate}T23:59:59`
@@ -45,12 +74,10 @@ export default function SearchPage() {
         body: JSON.stringify({ text: query }),
         signal: controller.signal,
       })
-
       if (!res.ok) {
         const txt = await res.text()
         throw new Error(txt || `Request failed: ${res.status}`)
       }
-
       const data = await res.json()
       navigate("/results", { state: { query, results: data, selectedSiteIds, startDate, endDate } })
     } catch (err: any) {
@@ -59,6 +86,62 @@ export default function SearchPage() {
     } finally {
       setLoading(false)
       abortRef.current = null
+    }
+  }
+
+  async function submitDigest() {
+    setLoading(true)
+    setError(null)
+    const controller = new AbortController()
+    abortRef.current = controller
+    try {
+      const siteParam = selectedSiteIds.length > 0 ? `&siteIds=${selectedSiteIds.join(',')}` : ''
+      const dateParams = `&startDate=${startDate}T00:00:00&endDate=${endDate}T23:59:59`
+      const res = await fetch(`${NARRATIVE_URL}?page=0&size=20${siteParam}${dateParams}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: query }),
+        signal: controller.signal,
+        credentials: "include",
+      })
+      if (res.status === 429) {
+        const body = await res.json()
+        setError(body?.message ?? t.digestLimitReached)
+        // Refresh usage to show updated reset date
+        fetch(NARRATIVE_USAGE_URL, { credentials: "include" })
+          .then(r => r.ok ? r.json() : null)
+          .then(data => setUsage(data))
+          .catch(() => {})
+        return
+      }
+      if (!res.ok) {
+        let msg = `Request failed: ${res.status}`
+        try {
+          const body = await res.json()
+          if (body?.message?.toLowerCase().includes("not enough")) {
+            msg = t.digestNotEnoughArticles
+          } else if (body?.message) {
+            msg = body.message
+          }
+        } catch { /* ignore parse error */ }
+        throw new Error(msg)
+      }
+      const narrative = await res.json()
+      navigate("/digest", { state: { query, narrative, selectedSiteIds, startDate, endDate } })
+    } catch (err: any) {
+      if (err?.name === "AbortError") return
+      setError(err?.message ?? "Unknown error")
+    } finally {
+      setLoading(false)
+      abortRef.current = null
+    }
+  }
+
+  function formatResetDate(iso: string) {
+    try {
+      return new Date(iso).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })
+    } catch {
+      return iso
     }
   }
 
@@ -99,6 +182,60 @@ export default function SearchPage() {
       </svg>
 
       <div style={{ position: "relative" }}>
+      {/* Mode toggle */}
+      <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
+        <div style={{ display: "flex", background: "rgba(255,255,255,0.07)", borderRadius: 20, padding: 3 }}>
+          <button
+            type="button"
+            onClick={() => { setMode("search"); setError(null) }}
+            style={{
+              background: mode === "search" ? "rgba(255,255,255,0.13)" : "transparent",
+              border: "none",
+              borderRadius: 17,
+              padding: "6px 16px",
+              color: mode === "search" ? "#eee" : "#777",
+              fontSize: 13,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              transition: "all 150ms",
+            }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            {t.articleSearch}
+          </button>
+          <button
+            type="button"
+            onClick={() => { setMode("digest"); setError(null) }}
+            style={{
+              background: mode === "digest" ? "rgba(58,170,170,0.18)" : "transparent",
+              border: "none",
+              borderRadius: 17,
+              padding: "6px 16px",
+              color: mode === "digest" ? "#3aa" : "#777",
+              fontSize: 13,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              transition: "all 150ms",
+            }}
+          >
+            {/* Sparkle/AI icon */}
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2l2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74Z"/>
+              <path d="M19 2l.9 2.7L22 6l-2.1.7L19 9l-.9-2.7L16 6l2.1-.7Z" opacity=".6"/>
+              <path d="M5 16l.6 1.8L7.4 18l-1.4.5L5 20l-.6-1.8L2.6 18l1.4-.5Z" opacity=".4"/>
+            </svg>
+            {t.aiDigest}
+          </button>
+        </div>
+      </div>
+
+      <div style={{ position: "relative" }}>
       <form onSubmit={onSubmit} style={{
         display: "flex",
         alignItems: "center",
@@ -113,22 +250,24 @@ export default function SearchPage() {
           width="20" 
           height="20" 
           viewBox="0 0 24 24" 
-          fill="none" 
-          stroke="#333" 
-          strokeWidth="2" 
-          strokeLinecap="round" 
-          strokeLinejoin="round"
+          fill={mode === "digest" ? "#3aa" : "#333"}
           style={{ flexShrink: 0 }}
         >
-          <circle cx="11" cy="11" r="8" />
-          <path d="m21 21-4.35-4.35" />
+          {mode === "digest" ? (
+            <path d="M12 2l2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74Z"/>
+          ) : (
+            <>
+              <circle cx="11" cy="11" r="8" fill="none" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="m21 21-4.35-4.35" fill="none" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </>
+          )}
         </svg>
         <input
           autoFocus
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder={t.searchPlaceholder}
+          placeholder={mode === "digest" ? t.digestPlaceholder : t.searchPlaceholder}
           disabled={loading}
           style={{
             flex: 1,
@@ -157,13 +296,38 @@ export default function SearchPage() {
               flexShrink: 0,
             }}
           >
-            {loading ? "..." : t.go}
+            {loading
+              ? "..."
+              : mode === "digest" ? t.generateDigest : t.go}
           </button>
         )}
       </form>
+
       <div style={{ position: "absolute", left: "calc(100% + 10px)", top: "50%", transform: "translateY(-50%)", display: "flex", gap: 10, alignItems: "center" }}>
         <SiteFilter selectedSiteIds={selectedSiteIds} onChangeSelection={setSelectedSiteIds} variant="dark" />
         <DateRangeFilter startDate={startDate} endDate={endDate} onChangeRange={(s, e) => { setStartDate(s); setEndDate(e) }} variant="dark" />
+      </div>
+      </div>
+
+      {/* Usage/error — always rendered at fixed height to keep layout stable */}
+      <div style={{ height: 28, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {error ? (
+          <span style={{ fontSize: 12, color: mode === "search" ? "#e05555" : "#e8a838", display: "inline-flex", alignItems: "center", gap: 5 }}>
+            {mode === "digest" && <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L1 21h22L12 2zm0 3.5L20.5 19h-17L12 5.5zm-1 5.5v4h2v-4h-2zm0 6v2h2v-2h-2z"/></svg>}
+            {error}
+          </span>
+        ) : mode === "digest" && !user ? (
+          <span style={{ fontSize: 12, color: "#666" }}>{t.digestLoginRequired}</span>
+        ) : mode === "digest" && usage?.canUse ? (
+          <span style={{ fontSize: 12, color: "#666" }}>
+            {t.usesLeftThisWeek(5 - usage.usageCount)}
+          </span>
+        ) : mode === "digest" && usage && !usage.canUse ? (
+          <span style={{ fontSize: 12, color: "#e8a838", display: "inline-flex", alignItems: "center", gap: 5 }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L1 21h22L12 2zm0 3.5L20.5 19h-17L12 5.5zm-1 5.5v4h2v-4h-2zm0 6v2h2v-2h-2z"/></svg>
+            {t.digestLimitReached} · {t.digestResetsOn(formatResetDate(usage.resetOn))}
+          </span>
+        ) : null}
       </div>
       </div>
 
@@ -217,25 +381,17 @@ export default function SearchPage() {
             display: "inline-flex",
             alignItems: "center",
             gap: 8,
-            color: "#aaa",
+            color: "#484848",
             fontSize: 13,
             textDecoration: "none",
             padding: "6px 10px",
             borderRadius: 12,
-            border: "1px solid rgba(255,255,255,0.12)",
-            background: "rgba(255,255,255,0.04)",
-            transition: "all 200ms",
+            border: "none",
+            background: "transparent",
+            transition: "color 200ms",
           }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = "#eee"
-            e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"
-            e.currentTarget.style.background = "rgba(255,255,255,0.08)"
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = "#aaa"
-            e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"
-            e.currentTarget.style.background = "rgba(255,255,255,0.04)"
-          }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = "#888" }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = "#484848" }}
         >
           <svg
             width="16"
@@ -256,25 +412,17 @@ export default function SearchPage() {
             display: "inline-flex",
             alignItems: "center",
             gap: 8,
-            color: "#aaa",
+            color: "#484848",
             fontSize: 13,
             textDecoration: "none",
             padding: "6px 10px",
             borderRadius: 12,
-            border: "1px solid rgba(255,255,255,0.12)",
-            background: "rgba(255,255,255,0.04)",
-            transition: "all 200ms",
+            border: "none",
+            background: "transparent",
+            transition: "color 200ms",
           }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = "#eee"
-            e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"
-            e.currentTarget.style.background = "rgba(255,255,255,0.08)"
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = "#aaa"
-            e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"
-            e.currentTarget.style.background = "rgba(255,255,255,0.04)"
-          }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = "#888" }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = "#484848" }}
         >
           <svg
             width="16"
@@ -295,25 +443,17 @@ export default function SearchPage() {
             display: "inline-flex",
             alignItems: "center",
             gap: 8,
-            color: "#aaa",
+            color: "#484848",
             fontSize: 13,
             textDecoration: "none",
             padding: "6px 10px",
             borderRadius: 12,
-            border: "1px solid rgba(255,255,255,0.12)",
-            background: "rgba(255,255,255,0.04)",
-            transition: "all 200ms",
+            border: "none",
+            background: "transparent",
+            transition: "color 200ms",
           }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = "#eee"
-            e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"
-            e.currentTarget.style.background = "rgba(255,255,255,0.08)"
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = "#aaa"
-            e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"
-            e.currentTarget.style.background = "rgba(255,255,255,0.04)"
-          }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = "#888" }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = "#484848" }}
         >
           <svg
             width="16"
@@ -334,8 +474,7 @@ export default function SearchPage() {
         </a>
       </div>
 
-      {loading && <div style={{ color: "#aaa", fontSize: 14 }}>{t.searching}</div>}
-      {error && <div style={{ color: "#e55", fontSize: 14 }}>{error}</div>}
+      {loading && <div style={{ color: "#aaa", fontSize: 14 }}>{mode === "digest" ? t.digestGenerating : t.searching}</div>}
     </div>
   )
 }

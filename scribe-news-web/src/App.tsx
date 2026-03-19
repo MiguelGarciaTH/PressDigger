@@ -7,6 +7,7 @@ import { LanguageProvider } from "./contexts/LanguageContext"
 const SearchPage = lazy(() => import("./pages/SearchPage"))
 const ResultsPage = lazy(() => import("./pages/ResultsPage"))
 const EditorSearchPage = lazy(() => import("./pages/EditorSearchPage"))
+const DigestPage = lazy(() => import("./pages/DigestPage"))
 const PublicCollectionsPage = lazy(() => import("./pages/PublicCollectionsPage"))
 const PrivateCollectionsPage = lazy(() => import("./pages/PrivateCollectionsPage"))
 const JournalistsPage = lazy(() => import("./pages/JournalistsPage"))
@@ -45,6 +46,7 @@ export default function App() {
             <Route path="/" element={<SearchPage />} />
             <Route path="/results" element={<ResultsPage />} />
             <Route path="/editor-search" element={<EditorSearchPage />} />
+            <Route path="/digest" element={<DigestPage />} />
             <Route path="/collections/public" element={<PublicCollectionsPage />} />
             <Route path="/collections/private" element={<PrivateCollectionsPage />} />
             <Route path="/journalists" element={<JournalistsPage />} />
