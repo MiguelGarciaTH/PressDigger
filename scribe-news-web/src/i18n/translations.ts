@@ -40,7 +40,7 @@ export const translations = {
 
     // AI Narrative
     articleSearch: "Article Search",
-    aiDigest: "AI Narrative",
+    aiDigest: "IA Narrative",
     digestPlaceholder: "Ask about a topic to generate a narrative…",
     generateDigest: "Narrate",
     digestGenerating: "Generating…",
@@ -159,7 +159,7 @@ export const translations = {
 
     // AI Narrative
     articleSearch: "Pesquisa de Artigos",
-    aiDigest: "AI Narrativa",
+    aiDigest: "Narrativa IA",
     digestPlaceholder: "Pergunte sobre um tema para gerar uma narrativa…",
     generateDigest: "Narrar",
     digestGenerating: "A gerar…",

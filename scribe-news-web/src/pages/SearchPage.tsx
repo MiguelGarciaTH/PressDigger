@@ -298,7 +298,7 @@ export default function SearchPage() {
           >
             {loading
               ? "..."
-              : mode === "digest" ? t.generateDigest : t.go}
+              : t.go}
           </button>
         )}
       </form>
