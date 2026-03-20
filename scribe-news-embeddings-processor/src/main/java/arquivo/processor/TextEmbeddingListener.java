@@ -3,6 +3,7 @@ package arquivo.processor;
 import arquivo.model.*;
 import arquivo.repository.*;
 import arquivo.services.MetricService;
+import arquivo.services.OpenAiEmbeddingClient;
 import arquivo.services.TextEmbeddingClient;
 import arquivo.utils.UrlNormalizer;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -11,6 +12,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.env.Environment;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -49,11 +51,10 @@ public class TextEmbeddingListener {
 
     private final LocalDateTime start = LocalDateTime.now(ZoneOffset.UTC);
     private LocalDateTime nextProgressLog = start.plusMinutes(SHOW_STATS_INTERVAL_MINS);
-    private final TextEmbeddingClient textEmbeddingClient;
+    private final OpenAiEmbeddingClient embeddingClient; // replaces TextEmbeddingClient
     private final YakeClient yakeClient;
 
     private final ArticleRepository articleRepository;
-    private final ArticleChunkRepository articleChunkRepository;
     private final ArticleChunkMediumRepository articleChunkMediumRepository;
     private final SiteRepository siteRepository;
     private final KeywordRepository keywordRepository;
@@ -61,26 +62,23 @@ public class TextEmbeddingListener {
     private final AuthorRepository authorRepository;
 
     @Autowired
-    public TextEmbeddingListener(Environment environment,
-                                 MetricService metricService,
+    public TextEmbeddingListener(MetricService metricService,
                                  ArticleRepository articleRepository,
-                                 ArticleChunkRepository articleChunkRepository,
                                  ArticleChunkMediumRepository articleChunkMediumRepository,
                                  SiteRepository siteRepository,
                                  KeywordRepository keywordRepository,
                                  ArticleKeywordScoreRepository articleKeywordScoreRepository,
-                                 AuthorRepository authorRepository) {
+                                 AuthorRepository authorRepository,
+                                 @Value("${scribe-ref.arquivo.scribe-news-embeddings-processor.open-ai.api-key}") String apiKey) {
         this.metricService = metricService;
         this.objectMapper = new ObjectMapper();
         this.articleRepository = articleRepository;
-        this.articleChunkRepository = articleChunkRepository;
         this.articleChunkMediumRepository = articleChunkMediumRepository;
         this.siteRepository = siteRepository;
         this.keywordRepository = keywordRepository;
         this.articleKeywordScoreRepository = articleKeywordScoreRepository;
         this.authorRepository = authorRepository;
-        final String url = environment.getProperty("scribe-ref.arquivo.scribe-embeddings-processor.embedding-service-url");
-        this.textEmbeddingClient = new TextEmbeddingClient(url, objectMapper, false);
+        this.embeddingClient = new OpenAiEmbeddingClient(apiKey); // same key, new use
         this.yakeClient = new YakeClient("http://localhost:8002");
 
         responseItemsIncompleteTotal.set(metricService.loadValue(ARQUIVO_EMBEDDINGS_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL));
@@ -101,7 +99,7 @@ public class TextEmbeddingListener {
             String payload = record.value();
             if (payload == null || payload.isBlank()) {
                 LOG.warn("Empty payload for key {}", record.key());
-                metricService.updateValue(ARQUIVO_EMBEDDINGS_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL, responseItemsIncompleteTotal.incrementAndGet() );
+                metricService.updateValue(ARQUIVO_EMBEDDINGS_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL, responseItemsIncompleteTotal.incrementAndGet());
                 return;
             }
 
@@ -155,30 +153,14 @@ public class TextEmbeddingListener {
                 articleKeywordScoreRepository.saveAll(articleKeywordScores);
             }
 
-
             // Create both chunk lists first
-            final List<String> chunks = createChanksBySentence(summary);
             final List<String> chunksMedium = createChunksByThreeSentences(summary);
-
-            // Process both in parallel using CompletableFuture
-            CompletableFuture<Void> processSmallChunks = CompletableFuture.runAsync(() -> {
-                int i = 0;
-                for (String chunk : chunks) {
-                    final JsonNode embeddingResponseParagraph = textEmbeddingClient.getEmbeddings(chunk).get("embedding");
-                    articleChunkRepository.save(new ArticleChunk(article, i++, chunk, textEmbeddingClient.toFloatArray(embeddingResponseParagraph)));
-                }
-            });
-
-            CompletableFuture<Void> processMediumChunks = CompletableFuture.runAsync(() -> {
-                int i = 0;
-                for (String chunk : chunksMedium) {
-                    final JsonNode embeddingResponseParagraph = textEmbeddingClient.getEmbeddings(chunk).get("embedding");
-                    articleChunkMediumRepository.save(new ArticleChunkMedium(article, i++, chunk, textEmbeddingClient.toFloatArray(embeddingResponseParagraph)));
-                }
-            });
-
-            // Wait for both to complete
-            CompletableFuture.allOf(processSmallChunks, processMediumChunks).join();
+            int i = 0;
+            for (String chunk : chunksMedium) {
+                String normalizedText = chunk.trim().replaceAll("[.,;:!?]+$", "");
+                float[] vector = embeddingClient.getEmbedding(normalizedText);
+                articleChunkMediumRepository.save(new ArticleChunkMedium(article, i++, chunk, vector));
+            }
 
             printStats();
         } catch (Exception e) {
@@ -198,21 +180,6 @@ public class TextEmbeddingListener {
             return null;
         }
         return authorRepository.findByName(authorName.trim()).orElseGet(() -> authorRepository.save(new Author(authorName.trim())));
-    }
-
-    public List<String> createChanksBySentence(String summary) {
-        List<String> sentences = new ArrayList<>();
-        BreakIterator iterator = BreakIterator.getSentenceInstance(new Locale("pt", "PT"));
-        iterator.setText(summary);
-
-        int start = iterator.first();
-        for (int end = iterator.next(); end != BreakIterator.DONE; start = end, end = iterator.next()) {
-            String sentence = summary.substring(start, end).trim();
-            if (!sentence.isEmpty()) {
-                sentences.add(sentence);
-            }
-        }
-        return sentences;
     }
 
     public List<String> createChunksByThreeSentences(String summary) {

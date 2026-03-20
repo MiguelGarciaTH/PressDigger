@@ -25,6 +25,12 @@
             <artifactId>jackson-datatype-hibernate6</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.openai</groupId>
+            <artifactId>openai-java</artifactId>
+            <version>4.11.0</version>
+        </dependency>
+
 
     </dependencies>
 

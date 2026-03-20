@@ -83,9 +83,10 @@ CREATE TABLE article_chunk (
 CREATE INDEX idx_chunks_tsv
 ON article_chunk USING GIN (tsv);
 
-CREATE INDEX idx_chunks_embedding
-ON article_chunk USING ivfflat (embedding vector_cosine_ops)
-WITH (lists = 100);
+DROP INDEX idx_chunks_medium_embedding;
+CREATE INDEX idx_chunks_medium_embedding
+    ON article_chunk_medium USING hnsw (embedding vector_cosine_ops)
+    WITH (m = 16, ef_construction = 64);
 
 CREATE SEQUENCE IF NOT EXISTS article_chunk_medium_seq START WITH 1 INCREMENT BY 1;
 
@@ -106,8 +107,8 @@ CREATE INDEX idx_chunks_medium_tsv
 ON article_chunk_medium USING GIN (tsv);
 
 CREATE INDEX idx_chunks_medium_embedding
-ON article_chunk_medium USING ivfflat (embedding vector_cosine_ops)
-WITH (lists = 100);
+  ON article_chunk_medium USING ivfflat (embedding vector_cosine_ops)
+  WITH (lists = 100);
 
 
 CREATE SEQUENCE IF NOT EXISTS keyword_seq START WITH 1 INCREMENT BY 1;

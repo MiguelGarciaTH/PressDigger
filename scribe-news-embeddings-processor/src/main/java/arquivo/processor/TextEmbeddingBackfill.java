@@ -1,20 +1,18 @@
 package arquivo.processor;
 
 import arquivo.model.Article;
-import arquivo.model.ArticleChunk;
-import arquivo.repository.ArticleChunkRepository;
+import arquivo.model.ArticleChunkMedium;
+import arquivo.repository.ArticleChunkMediumRepository;
 import arquivo.repository.ArticleRepository;
 import arquivo.services.MetricService;
-import arquivo.services.TextEmbeddingClient;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import arquivo.services.OpenAiEmbeddingClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
-import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
 import java.text.BreakIterator;
@@ -31,29 +29,26 @@ public class TextEmbeddingBackfill {
     private static final Logger LOG = LoggerFactory.getLogger(TextEmbeddingBackfill.class);
     public static final int SHOW_STATS_INTERVAL_MINS = 1;
 
-    private final ObjectMapper objectMapper;
-
     private final MetricService metricService;
 
     private long fetchedArticlesWithoutMediumChunksTotal, savedArticlesWithMediumChunksTotal, savedMediumChunksTotal;
     private final LocalDateTime start = LocalDateTime.now(ZoneOffset.UTC);
     private LocalDateTime nextProgressLog = start.plusMinutes(SHOW_STATS_INTERVAL_MINS);
-    private final TextEmbeddingClient textEmbeddingClient;
+    private final OpenAiEmbeddingClient embeddingClient; // replaces TextEmbeddingClient
 
     private final ArticleRepository articleRepository;
-    private final ArticleChunkRepository articleChunkRepository;
+    private final ArticleChunkMediumRepository articleChunkRepository;
 
     @Autowired
-    public TextEmbeddingBackfill(Environment environment,
-                                 MetricService metricService,
+    public TextEmbeddingBackfill(MetricService metricService,
                                  ArticleRepository articleRepository,
-                                 ArticleChunkRepository articleChunkRepository) {
+                                 ArticleChunkMediumRepository articleChunkRepository,
+                                 @Value("${scribe-ref.arquivo.scribe-news-embeddings-processor.open-ai.api-key}") String apiKey) {
+
         this.metricService = metricService;
-        this.objectMapper = new ObjectMapper();
         this.articleRepository = articleRepository;
         this.articleChunkRepository = articleChunkRepository;
-        final String url = environment.getProperty("scribe-ref.arquivo.scribe-embeddings-processor.embedding-service-url");
-        this.textEmbeddingClient = new TextEmbeddingClient(url, objectMapper, false);
+        this.embeddingClient = new OpenAiEmbeddingClient(apiKey); // same key, new use
 
         fetchedArticlesWithoutMediumChunksTotal = metricService.loadValue("arquivo_embeddings_processor_fechted_items_without_medium_chunks_total");
         savedArticlesWithMediumChunksTotal = metricService.loadValue("arquivo_embeddings_processor_saved_items_with_medium_chunks_total");
@@ -68,14 +63,16 @@ public class TextEmbeddingBackfill {
         LOG.info("Fetched {} articles without medium chunks", articles.size());
         fetchedArticlesWithoutMediumChunksTotal = fetchedArticlesWithoutMediumChunksTotal + articles.size();
 
+        int j = 0;
         for (Article article : articles) {
-            final List<String> chunks = createChunksByThreeSentences(article.getTitle());
+            final List<String> chunks = createChunksByThreeSentences(article.getSummary());
             int i = 0;
             for (String chunk : chunks) {
-                final JsonNode embeddingResponseParagraph = textEmbeddingClient.getEmbeddings(chunk).get("embedding");
-                articleChunkRepository.save(new ArticleChunk(article, i++, chunk, textEmbeddingClient.toFloatArray(embeddingResponseParagraph)));
-                LOG.info("Saved chunk for article id {} ( {}/{} )", article.getId(), i, articles.size());
+                String normalizedText = chunk.trim().replaceAll("[.,;:!?]+$", "");
+                float[] vector = embeddingClient.getEmbedding(normalizedText);
+                articleChunkRepository.save(new ArticleChunkMedium(article, i++, chunk, vector));
             }
+            LOG.info("Saved {} chunks for article id {} ( {}/{} )", i, article.getId(), j++, articles.size());
         }
 
         metricService.updateValue("arquivo_embeddings_processor_fechted_items_without_medium_chunks_total", articles.size());

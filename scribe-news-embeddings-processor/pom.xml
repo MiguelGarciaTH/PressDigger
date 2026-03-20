@@ -24,6 +24,13 @@
             <version>${project.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.openai</groupId>
+            <artifactId>openai-java</artifactId>
+            <version>4.11.0</version>
+        </dependency>
+
+
     </dependencies>
     <build>
         <!-- deb packaging config -->

@@ -4,8 +4,11 @@ import arquivo.exceptions.ResourceNotFoundException;
 import arquivo.model.Article;
 import arquivo.model.Site;
 import arquivo.model.User;
-import arquivo.repository.*;
-import arquivo.services.TextEmbeddingClient;
+import arquivo.repository.ArticleChunkMediumRepository;
+import arquivo.repository.ArticleRepository;
+import arquivo.repository.SiteRepository;
+import arquivo.repository.UserRepository;
+import arquivo.services.OpenAiEmbeddingClient;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -30,9 +33,9 @@ import java.util.List;
 public class ArticleService {
 
     private final ArticleRepository articleRepository;
-    private final ArticleChunkRepository articleChunkRepository;
+    private final ArticleChunkMediumRepository articleChunkRepository;
     private final UserRepository userRepository;
-    private final TextEmbeddingClient textEmbeddingClient;
+    private final OpenAiEmbeddingClient embeddingClient; // replaces TextEmbeddingClient
     private final OpenAiIntegrationNarrative openAiIntegrationNarrative;
     private final SiteRepository siteRepository;
     private final ObjectMapper objectMapper;
@@ -46,7 +49,7 @@ public class ArticleService {
     public ArticleService(Environment environment,
                           ArticleRepository articleRepository,
                           UserRepository userRepository,
-                          ArticleChunkRepository articleChunkRepository,
+                          ArticleChunkMediumRepository articleChunkRepository,
                           SiteRepository siteRepository,
                           @Value("${scribe-ref.arquivo.scribe-news-rest.open-ai.api-key}") String apiKey) {
 
@@ -55,7 +58,7 @@ public class ArticleService {
         this.articleChunkRepository = articleChunkRepository;
         this.siteRepository = siteRepository;
         final String url = environment.getProperty("scribe-ref.arquivo.scribe-rest.embedding-service-url");
-        this.textEmbeddingClient = new TextEmbeddingClient(url, new ObjectMapper(), true);
+        this.embeddingClient = new OpenAiEmbeddingClient(apiKey); // same key, new use
         this.openAiIntegrationNarrative = new OpenAiIntegrationNarrative(apiKey);
         this.objectMapper = new ObjectMapper();
         this.objectMapper.configure(JsonParser.Feature.ALLOW_UNQUOTED_CONTROL_CHARS, true);
@@ -75,13 +78,8 @@ public class ArticleService {
         // Normalize input text: trim, remove trailing punctuation
         String normalizedText = inputText.trim().replaceAll("[.,;:!?]+$", "");
 
-        JsonNode embedded = textEmbeddingClient
-                .getEmbeddings(normalizedText)
-                .get("embedding");
-
-        float[] queryEmbedding = textEmbeddingClient.toFloatArray(embedded);
-
-        String pgVector = textEmbeddingClient.toPgVectorLiteral(queryEmbedding);
+        float[] vector = embeddingClient.getEmbedding(normalizedText);
+        String pgVector = embeddingClient.toPgVectorLiteral(vector);
 
         // Use original input text for full-text search (it handles punctuation well)
         return articleChunkRepository.searchByText(siteIds, startDate, endDate, pgVector, inputText, pageable);
@@ -99,9 +97,8 @@ public class ArticleService {
         }
 
         final String normalizedText = inputText.trim().replaceAll("[.,;:!?]+$", "");
-        final JsonNode embedded = textEmbeddingClient.getEmbeddings(normalizedText).get("embedding");
-        float[] queryEmbedding = textEmbeddingClient.toFloatArray(embedded);
-        final String pgVector = textEmbeddingClient.toPgVectorLiteral(queryEmbedding);
+        float[] vector = embeddingClient.getEmbedding(normalizedText);
+        String pgVector = embeddingClient.toPgVectorLiteral(vector);
 
         final List<Article> articles = articleChunkRepository.searchByTextToNarrative(siteIds, startDate, endDate, pgVector, inputText, 7, 20);
         if (articles.size() < 3) {

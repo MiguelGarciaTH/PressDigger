@@ -57,6 +57,10 @@ public class Article {
     List<ArticleChunk> articleChunks;
 
     @OneToMany(mappedBy = "article", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
+    List<ArticleChunkMedium> articleChunksMedium;
+
+    @OneToMany(mappedBy = "article", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<ArticleKeywordScore> articleKeywordsScore;
 
     public Article() {
@@ -190,6 +194,14 @@ public class Article {
 
     public List<ArticleKeywordScore> getArticleKeywordsScore() {
         return articleKeywordsScore;
+    }
+
+    public List<ArticleChunkMedium> getArticleChunksMedium() {
+        return articleChunksMedium;
+    }
+
+    public void setArticleChunksMedium(List<ArticleChunkMedium> articleChunksMedium) {
+        this.articleChunksMedium = articleChunksMedium;
     }
 
     public void setArticleKeywordsScore(List<ArticleKeywordScore> articleKeywordsScore) {
