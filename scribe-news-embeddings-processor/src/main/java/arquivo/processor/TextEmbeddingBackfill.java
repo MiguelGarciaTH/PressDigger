@@ -62,19 +62,19 @@ public class TextEmbeddingBackfill {
 
     @EventListener(ApplicationReadyEvent.class)
     public void backfill() {
+        LOG.info("Starting backfill process for articles chunks...");
+        final List<Article> articles = articleRepository.findAllWithouChunks();
 
-        final List<Article> articles = articleRepository.findAllWithoutMediumChunks();
-
-        LOG.trace("Fetched {} articles without medium chunks", articles.size());
+        LOG.info("Fetched {} articles without medium chunks", articles.size());
         fetchedArticlesWithoutMediumChunksTotal = fetchedArticlesWithoutMediumChunksTotal + articles.size();
 
-        for(Article article : articles) {
-            // TODO: THIS IS NOT WORKING -- NEEDS FIXING, if we need to backfill only certain articles
+        for (Article article : articles) {
             final List<String> chunks = createChunksByThreeSentences(article.getTitle());
             int i = 0;
             for (String chunk : chunks) {
                 final JsonNode embeddingResponseParagraph = textEmbeddingClient.getEmbeddings(chunk).get("embedding");
                 articleChunkRepository.save(new ArticleChunk(article, i++, chunk, textEmbeddingClient.toFloatArray(embeddingResponseParagraph)));
+                LOG.info("Saved chunk for article id {} ( {}/{} )", article.getId(), i, articles.size());
             }
         }
 

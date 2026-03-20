@@ -74,7 +74,7 @@ CREATE TABLE article_chunk (
     chunk_index INT NOT NULL,
     content TEXT NOT NULL,
     tsv tsvector GENERATED ALWAYS AS (to_tsvector('portuguese', content)) STORED,
-    embedding vector(1024) NOT NULL,
+    embedding vector(384) NOT NULL
 
     CONSTRAINT article_chunk_pk PRIMARY KEY (id),
     CONSTRAINT article_chunk_fk_article_id FOREIGN KEY (article_id) REFERENCES article(id)

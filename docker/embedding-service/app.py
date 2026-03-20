@@ -4,7 +4,7 @@ from sentence_transformers import SentenceTransformer
 
 app = FastAPI()
 
-model = SentenceTransformer("intfloat/multilingual-e5-large")
+model = SentenceTransformer("intfloat/multilingual-e5-small")
 
 class EmbedRequest(BaseModel):
     text: str

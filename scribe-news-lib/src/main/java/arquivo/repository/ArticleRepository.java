@@ -18,7 +18,7 @@ public interface ArticleRepository extends JpaRepository<Article, Integer> {
     Optional<Article> findById(int articleId);
 
     @Query("SELECT a FROM Article a WHERE SIZE(a.articleChunks) = 0")
-    List<Article> findAllWithoutMediumChunks();
+    List<Article> findAllWithouChunks();
 
     Page<Article> getArticlesByAuthorId(int authorId, Pageable pageable);
 

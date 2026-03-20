@@ -30,11 +30,10 @@ import java.util.List;
 public class ArticleService {
 
     private final ArticleRepository articleRepository;
-    private final ArticleChunkMediumRepository articleChunkMediumRepository;
+    private final ArticleChunkRepository articleChunkRepository;
     private final UserRepository userRepository;
     private final TextEmbeddingClient textEmbeddingClient;
     private final OpenAiIntegrationNarrative openAiIntegrationNarrative;
-    private final AuthorRepository authorRepository;
     private final SiteRepository siteRepository;
     private final ObjectMapper objectMapper;
 
@@ -47,15 +46,13 @@ public class ArticleService {
     public ArticleService(Environment environment,
                           ArticleRepository articleRepository,
                           UserRepository userRepository,
-                          ArticleChunkMediumRepository articleChunkMediumRepository,
-                          AuthorRepository authorRepository,
+                          ArticleChunkRepository articleChunkRepository,
                           SiteRepository siteRepository,
                           @Value("${scribe-ref.arquivo.scribe-news-rest.open-ai.api-key}") String apiKey) {
 
         this.articleRepository = articleRepository;
         this.userRepository = userRepository;
-        this.articleChunkMediumRepository = articleChunkMediumRepository;
-        this.authorRepository = authorRepository;
+        this.articleChunkRepository = articleChunkRepository;
         this.siteRepository = siteRepository;
         final String url = environment.getProperty("scribe-ref.arquivo.scribe-rest.embedding-service-url");
         this.textEmbeddingClient = new TextEmbeddingClient(url, new ObjectMapper(), true);
@@ -87,7 +84,7 @@ public class ArticleService {
         String pgVector = textEmbeddingClient.toPgVectorLiteral(queryEmbedding);
 
         // Use original input text for full-text search (it handles punctuation well)
-        return articleChunkMediumRepository.searchByText(siteIds, startDate, endDate, pgVector, inputText, pageable);
+        return articleChunkRepository.searchByText(siteIds, startDate, endDate, pgVector, inputText, pageable);
     }
 
     @Transactional
@@ -106,7 +103,7 @@ public class ArticleService {
         float[] queryEmbedding = textEmbeddingClient.toFloatArray(embedded);
         final String pgVector = textEmbeddingClient.toPgVectorLiteral(queryEmbedding);
 
-        final List<Article> articles = articleChunkMediumRepository.searchByTextToNarrative(siteIds, startDate, endDate, pgVector, inputText, 7, 20);
+        final List<Article> articles = articleChunkRepository.searchByTextToNarrative(siteIds, startDate, endDate, pgVector, inputText, 7, 20);
         if (articles.size() < 3) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Not enough relevant articles found to create a narrative. Try broadening your search criteria.");
         }
