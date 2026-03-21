@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
-import { SEARCH_URL, annotationByArticleUrl } from "../config"
+import { SEARCH_URL, annotationByArticleUrl, getImageUrl } from "../config"
 import SiteFilter from "../components/SiteFilter"
 import { useAuth } from "../components/useAuth"
 import DateRangeFilter, { DEFAULT_START, todayStr } from "../components/DateRangeFilter"
@@ -8,20 +8,7 @@ import BookmarkButton from "../components/BookmarkButton"
 import AnnotationButton from "../components/AnnotationButton"
 import { useLang } from "../contexts/LanguageContext"
 
-function getImageUrl(filePath?: string, size: 'small' | 'original' = 'original') {
-  if (!filePath) return ""
-  if (/^https?:\/\//.test(filePath)) return filePath
-  const match = filePath.match(/images\/(small|original)\/([^/]+)$/)
-  if (match) {
-    const [, folder, filename] = match
-    return `/images/${folder}/${filename}`
-  }
-  const filename = filePath.split('/').pop()
-  if (filename) {
-    return `/images/${size}/${filename}`
-  }
-  return ""
-}
+
 
 interface ParagraphResults {
   paragraphIndex: number

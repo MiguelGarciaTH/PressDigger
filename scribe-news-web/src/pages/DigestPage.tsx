@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { useLang } from "../contexts/LanguageContext"
-import { articleUrl } from "../config"
+import { articleUrl, getImageUrl } from "../config"
 import BookmarkButton from "../components/BookmarkButton"
 import AnnotationButton from "../components/AnnotationButton"
 import { useAuth } from "../components/useAuth"
@@ -31,17 +31,7 @@ interface ArticleDetail {
   smallImagePath?: string
 }
 
-function getImageUrl(filePath?: string, size: "small" | "original" = "original") {
-  if (!filePath) return ""
-  if (/^https?:\/\//.test(filePath)) return filePath
-  const match = filePath.match(/images\/(small|original)\/([^/]+)$/)
-  if (match) {
-    const [, folder, filename] = match
-    return `/images/${folder}/${filename}`
-  }
-  const filename = filePath.split("/").pop()
-  return filename ? `/images/${size}/${filename}` : ""
-}
+
 
 function formatDate(iso: string) {
   try {

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react"
 import { useSearchParams, useLocation, useNavigate } from "react-router-dom"
-import { SEARCH_URL, publicCollectionArticlesUrl, privateCollectionArticlesUrl, authorArticlesUrl, annotationByArticleUrl } from "../config"
+import { SEARCH_URL, publicCollectionArticlesUrl, privateCollectionArticlesUrl, authorArticlesUrl, annotationByArticleUrl, getImageUrl } from "../config"
 import { createWorker } from 'tesseract.js'
 import SiteFilter from "../components/SiteFilter"
 import { useAuth } from "../components/useAuth"
@@ -13,20 +13,7 @@ function isHttpUrl(s?: string) {
   return typeof s === "string" && /^https?:\/\//i.test(s)
 }
 
-function getImageUrl(filePath?: string, size: 'small' | 'original' = 'original') {
-  if (!filePath) return ""
-  if (/^https?:\/\//.test(filePath)) return filePath
-  const match = filePath.match(/images\/(small|original)\/([^/]+)$/)
-  if (match) {
-    const [, folder, filename] = match
-    return `/images/${folder}/${filename}`
-  }
-  const filename = filePath.split('/').pop()
-  if (filename) {
-    return `/images/${size}/${filename}`
-  }
-  return ""
-}
+
 
 export default function ResultsPage() {
   const [params] = useSearchParams()

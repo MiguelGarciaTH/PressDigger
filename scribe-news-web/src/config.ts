@@ -59,6 +59,18 @@ export function privateCollectionArticlesUrl(collectionId: number, page = 0, siz
   return `${API_BASE}/collections/${collectionId}/articles?page=${page}&size=${size}`
 }
 
+export function getImageUrl(filePath?: string, size: 'small' | 'original' = 'original'): string {
+  if (!filePath) return ""
+  if (/^https?:\/\//.test(filePath)) return filePath
+  const match = filePath.match(/images\/(small|original)\/([^/]+)$/)
+  if (match) {
+    const [, folder, filename] = match
+    return `${API_BASE}/images/${folder}/${filename}`
+  }
+  const filename = filePath.split('/').pop()
+  return filename ? `${API_BASE}/images/${size}/${filename}` : ""
+}
+
 export function collectionArticleUrl(collectionId: number, articleId: number) {
   return `${API_BASE}/collections/${collectionId}/article/${articleId}`
 }
