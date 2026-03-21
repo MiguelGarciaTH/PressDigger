@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { AUTH_GOOGLE_CALLBACK_URL, GOOGLE_AUTH_URL } from '../config'
 
-const CLIENT_ID = "807515834617-frk9phljibrjdknohfuau39o1j6ovgjt.apps.googleusercontent.com"
+const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string
 
 declare global {
   interface Window {
