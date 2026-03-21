@@ -6,12 +6,6 @@ import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.util.List;
 
-@NamedEntityGraph(
-        name = "Article.withArticleChunks",
-        attributeNodes = {
-                @NamedAttributeNode("articleChunks")
-        }
-)
 @Entity
 public class Article {
 
@@ -51,10 +45,6 @@ public class Article {
 
     @Column(columnDefinition = "text")
     private String smallImagePath;
-
-    @OneToMany(mappedBy = "article", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JsonIgnore
-    List<ArticleChunk> articleChunks;
 
     @OneToMany(mappedBy = "article", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnore
@@ -174,14 +164,6 @@ public class Article {
 
     public void setSmallImagePath(String smallImagePath) {
         this.smallImagePath = smallImagePath;
-    }
-
-    public List<ArticleChunk> getArticleChunks() {
-        return articleChunks;
-    }
-
-    public void setArticleChunks(List<ArticleChunk> articleChunks) {
-        this.articleChunks = articleChunks;
     }
 
     public String getSummary() {

@@ -66,30 +66,7 @@ CREATE TABLE IF NOT EXISTS article (
     CONSTRAINT article_fk_author_id FOREIGN KEY (author_id) REFERENCES author(id)
 );
 
-CREATE SEQUENCE IF NOT EXISTS article_chunk_seq START WITH 1 INCREMENT BY 1;
-
-CREATE TABLE article_chunk (
-    id BIGINT NOT NULL DEFAULT nextval('article_chunk_seq'),
-    article_id BIGINT NOT NULL,
-    chunk_index INT NOT NULL,
-    content TEXT NOT NULL,
-    tsv tsvector GENERATED ALWAYS AS (to_tsvector('portuguese', content)) STORED,
-    embedding vector(384) NOT NULL
-
-    CONSTRAINT article_chunk_pk PRIMARY KEY (id),
-    CONSTRAINT article_chunk_fk_article_id FOREIGN KEY (article_id) REFERENCES article(id)
-);
-
-CREATE INDEX idx_chunks_tsv
-ON article_chunk USING GIN (tsv);
-
-DROP INDEX idx_chunks_medium_embedding;
-CREATE INDEX idx_chunks_medium_embedding
-    ON article_chunk_medium USING hnsw (embedding vector_cosine_ops)
-    WITH (m = 16, ef_construction = 64);
-
 CREATE SEQUENCE IF NOT EXISTS article_chunk_medium_seq START WITH 1 INCREMENT BY 1;
-
 
 CREATE TABLE article_chunk_medium (
     id BIGINT NOT NULL DEFAULT nextval('article_chunk_medium_seq'),
@@ -103,13 +80,13 @@ CREATE TABLE article_chunk_medium (
     CONSTRAINT article_chunk_medium_fk_article_id FOREIGN KEY (article_id) REFERENCES article(id)
 );
 
-CREATE INDEX idx_chunks_medium_tsv
-ON article_chunk_medium USING GIN (tsv);
+CREATE INDEX idx_chunks_tsv
+ON article_chunk USING GIN (tsv);
 
+DROP INDEX idx_chunks_medium_embedding;
 CREATE INDEX idx_chunks_medium_embedding
-  ON article_chunk_medium USING ivfflat (embedding vector_cosine_ops)
-  WITH (lists = 100);
-
+    ON article_chunk_medium USING hnsw (embedding vector_cosine_ops)
+    WITH (m = 16, ef_construction = 64);
 
 CREATE SEQUENCE IF NOT EXISTS keyword_seq START WITH 1 INCREMENT BY 1;
 
