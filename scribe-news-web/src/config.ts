@@ -18,7 +18,6 @@ function getApiBase() {
 }
 
 export const API_BASE = getApiBase().replace(/\/$/, "")
-console.log("[config] API_BASE:", API_BASE)
 // Strip /api suffix to get the server root (for Spring Security OAuth2 endpoints)
 const SERVER_BASE = API_BASE.replace(/\/api$/, "")
 export const GOOGLE_AUTH_URL = `${SERVER_BASE}/oauth2/authorization/google`

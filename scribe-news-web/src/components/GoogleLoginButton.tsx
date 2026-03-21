@@ -31,8 +31,7 @@ export default function GoogleLoginButton() {
       })
 
       if (res.ok) {
-        const user = await res.json()
-        console.log('Logged in:', user)
+        await res.json()
         window.location.reload()
       }
     } catch (error) {
