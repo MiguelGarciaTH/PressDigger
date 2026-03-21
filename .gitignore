@@ -1,6 +1,7 @@
 ### Maven ###
 # Ignore build output in repo root and in any module
 **/target/
+db_dump.sql
 
 .env
 **/.env.production
