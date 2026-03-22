@@ -11,6 +11,60 @@ import {
 } from "../config"
 import { useLang } from "../contexts/LanguageContext"
 
+function PipelineCard({ title, desc }: { title: string; desc: string }) {
+  const [expanded, setExpanded] = useState(false)
+  return (
+    <div style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, background: "rgba(255,255,255,0.02)", overflow: "hidden" }}>
+      <div style={{ padding: "20px 24px 0" }}>
+        <p style={{ margin: "0 0 10px", fontSize: 13, fontWeight: 600, color: "#888", fontFamily: "'Menlo', 'Consolas', monospace", letterSpacing: 0.3 }}>{title}</p>
+        <div style={{ position: "relative" }}>
+          <p style={{
+            margin: 0,
+            fontSize: 14,
+            lineHeight: 1.8,
+            color: "#777",
+            overflow: "hidden",
+            maxHeight: expanded ? "none" : "6.3em",
+            transition: "max-height 300ms ease",
+          }}>{desc}</p>
+          {!expanded && (
+            <div style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: 40,
+              background: "linear-gradient(transparent, rgba(18,18,18,0.95))",
+              pointerEvents: "none",
+            }} />
+          )}
+        </div>
+      </div>
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "100%",
+          padding: "10px 0 12px",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          color: "#555",
+          gap: 4,
+          fontSize: 12,
+        }}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+          style={{ transform: expanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 250ms" }}>
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+    </div>
+  )
+}
+
 interface Site {
   id: number
   name: string
@@ -352,6 +406,19 @@ export default function AboutPage() {
               fontSize: 13,
             }}>
               Architecture diagram coming soon
+            </div>
+
+            {/* Component descriptions */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 24 }}>
+              {([
+                { title: t.aboutCrawlerTitle, desc: t.aboutCrawlerDesc },
+                { title: t.aboutImageTitle, desc: t.aboutImageDesc },
+                { title: t.aboutTextTitle, desc: t.aboutTextDesc },
+                { title: t.aboutEmbeddingsTitle, desc: t.aboutEmbeddingsDesc },
+                { title: t.aboutRestTitle, desc: t.aboutRestDesc },
+              ] as { title: string; desc: string }[]).map(({ title, desc }) => (
+                <PipelineCard key={title} title={title} desc={desc} />
+              ))}
             </div>
           </div>
 
