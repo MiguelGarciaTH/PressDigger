@@ -137,4 +137,14 @@ public class CollectionService {
 
         return collectionRepository.isArticleInCollection(articleId, collectionId, user.getId());
     }
+
+    @Transactional(readOnly = true)
+    public long countPublic() {
+        return collectionRepository.countPublicCollections();
+    }
+
+    @Transactional(readOnly = true)
+    public long countPrivate() {
+        return collectionRepository.countPrivateCollections();
+    }
 }

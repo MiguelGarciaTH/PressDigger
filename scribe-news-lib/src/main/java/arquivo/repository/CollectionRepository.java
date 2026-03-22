@@ -28,6 +28,20 @@ public interface CollectionRepository extends JpaRepository<Collection, Integer>
             """)
     List<CollectionPreview> findPublicCollections();
 
+    @Query("""
+             select count(c)
+             from Collection c
+             where c.isPublic = true
+            """)
+    long countPublicCollections();
+
+    @Query("""
+             select count(c)
+             from Collection c
+             where c.isPublic = false
+            """)
+    long countPrivateCollections();
+
     public record CollectionPreview(int id, String name, String description, int articleCount) {}
 
     @Query("""

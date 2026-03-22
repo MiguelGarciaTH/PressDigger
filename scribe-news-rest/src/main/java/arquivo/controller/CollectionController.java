@@ -4,6 +4,7 @@ import arquivo.model.Article;
 import arquivo.model.Collection;
 import arquivo.repository.CollectionRepository;
 import arquivo.services.CollectionService;
+import org.hibernate.type.CollectionType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -26,6 +27,16 @@ public class CollectionController {
     @GetMapping("/public")
     public List<CollectionRepository.CollectionPreview> getPublicCollections() {
         return collectionService.getPublicCollections();
+    }
+
+    @GetMapping("/count-public")
+    public long countPublicCollections() {
+        return collectionService.countPublic();
+    }
+
+    @GetMapping("/count-private")
+    public long countPrivateCollections() {
+        return collectionService.countPrivate();
     }
 
     @GetMapping("/public/{collectionId}/articles")

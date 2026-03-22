@@ -27,6 +27,11 @@ public class ArticleController {
         return articleService.getArticle(articleId);
     }
 
+    @GetMapping("/count")
+    public long countArticles() {
+        return articleService.count();
+    }
+
     @PostMapping("/search")
     public Page<Article> search(@RequestBody SearchInputText inputText,
                                 @RequestParam List<Integer> siteIds,

@@ -25,6 +25,11 @@ public class AuthorsController {
         return authorRepository.findAll(pageable);
     }
 
+    @GetMapping("/count")
+    public long countAuthors() {
+        return authorRepository.count();
+    }
+
     @GetMapping("/{authorId}/articles")
     public Page<Article> getAuthorsArticles(@PathVariable int authorId, Pageable pageable) {
         return articleRepository.getArticlesByAuthorId(authorId, pageable);

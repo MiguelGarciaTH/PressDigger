@@ -23,4 +23,9 @@ public class SiteController {
         return siteRepository.findAll();
     }
 
+    @GetMapping("/count")
+    public long countSites() {
+        return siteRepository.count();
+    }
+
 }

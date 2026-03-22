@@ -166,6 +166,12 @@ public class ArticleService {
         return new NarrativeUsageResult(usageCount, windowStart, canUse, resetOn);
 
     }
+
+    @Transactional(readOnly = true)
+    public long count() {
+        return articleRepository.count();
+    }
+
     public record NarrativeUsageResult(int usageCount, LocalDateTime windowStart, boolean canUse, LocalDateTime resetOn) {
 
     }

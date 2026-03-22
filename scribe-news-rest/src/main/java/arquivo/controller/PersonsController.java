@@ -17,8 +17,13 @@ public class PersonsController {
         this.personRepository = personRepository;
     }
 
+    @GetMapping("/count")
+    public long countPersons() {
+        return personRepository.count();
+    }
+
     @GetMapping("/find")
-    public Page<Person> search(@RequestParam(defaultValue = "0") int page,
+    public Page<Person> find(@RequestParam(defaultValue = "0") int page,
                                @RequestParam(defaultValue = "20") int size) {
         Pageable pageable = PageRequest.of(page, size);
         return personRepository.findAll(pageable);
