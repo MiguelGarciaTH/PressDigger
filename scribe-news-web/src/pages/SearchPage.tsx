@@ -147,7 +147,7 @@ export default function SearchPage() {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
-      <svg width="340" viewBox="0 0 500 175" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ maxWidth: "90vw" }}>
+      <svg width="520" viewBox="0 0 500 175" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ maxWidth: "90vw" }}>
         {/* Microfilm reader machine */}
         <g transform="translate(25, 18)">
           {/* Machine base */}
@@ -164,14 +164,14 @@ export default function SearchPage() {
           <rect x="16" y="80" width="53" height="1.5" rx="0.5" fill="#333" opacity="0.7"/>
 
           {/* Film reels */}
-          <circle cx="22" cy="38" r="7.5" fill="#505050" stroke="#707070" strokeWidth="1.2"/>
-          <circle cx="22" cy="38" r="4.5" fill="none" stroke="#606060" strokeWidth="0.8"/>
-          <circle cx="22" cy="38" r="2.2" fill="#404040"/>
-          <circle cx="68" cy="38" r="7.5" fill="#505050" stroke="#707070" strokeWidth="1.2"/>
-          <circle cx="68" cy="38" r="4.5" fill="none" stroke="#606060" strokeWidth="0.8"/>
-          <circle cx="68" cy="38" r="2.2" fill="#404040"/>
+          <circle cx="22" cy="100" r="7.5" fill="#505050" stroke="#707070" strokeWidth="1.2"/>
+          <circle cx="22" cy="100" r="4.5" fill="none" stroke="#606060" strokeWidth="0.8"/>
+          <circle cx="22" cy="100" r="2.2" fill="#404040"/>
+          <circle cx="68" cy="100" r="7.5" fill="#505050" stroke="#707070" strokeWidth="1.2"/>
+          <circle cx="68" cy="100" r="4.5" fill="none" stroke="#606060" strokeWidth="0.8"/>
+          <circle cx="68" cy="100" r="2.2" fill="#404040"/>
           {/* Film path */}
-          <path d="M 29.5 38 L 38 38 L 38 45 L 52 45 L 52 38 L 60.5 38" stroke="#606060" strokeWidth="1.8" fill="none"/>
+          <path d="M 29.5 100 L 38 100 L 38 93 L 52 93 L 52 100 L 60.5 100" stroke="#606060" strokeWidth="1.8" fill="none"/>
           {/* Glow */}
           <rect x="12" y="51" width="61" height="36" rx="1" fill="#707070" opacity="0.08"/>
         </g>
