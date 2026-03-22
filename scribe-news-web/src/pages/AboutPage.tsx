@@ -11,6 +11,47 @@ import {
 } from "../config"
 import { useLang } from "../contexts/LanguageContext"
 
+function Lightbox({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose() }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [onClose])
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 9999,
+        background: "rgba(0,0,0,0.88)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: 24,
+      }}
+    >
+      <button
+        onClick={onClose}
+        style={{
+          position: "absolute", top: 20, right: 24,
+          background: "rgba(255,255,255,0.12)",
+          border: "1px solid rgba(255,255,255,0.2)",
+          borderRadius: 8, padding: "6px 12px",
+          color: "#eee", fontSize: 20, lineHeight: 1,
+          cursor: "pointer",
+        }}
+        aria-label="Close"
+      >
+        ×
+      </button>
+      <img
+        src={src}
+        alt={alt}
+        onClick={(e) => e.stopPropagation()}
+        style={{ maxWidth: "100%", maxHeight: "90vh", borderRadius: 12, objectFit: "contain", boxShadow: "0 8px 48px rgba(0,0,0,0.8)" }}
+      />
+    </div>
+  )
+}
+
 function PipelineCard({ title, desc }: { title: string; desc: string }) {
   const [expanded, setExpanded] = useState(false)
   return (
@@ -278,6 +319,7 @@ function PersonsBox({ title, expandLabel, collapseLabel, loadMoreLabel, noMoreLa
 export default function AboutPage() {
   const { t } = useLang()
   const navigate = useNavigate()
+  const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null)
 
   const [stats, setStats] = useState({
     articles: null as number | null,
@@ -393,20 +435,12 @@ export default function AboutPage() {
             <p style={{ margin: "0 0 20px", fontSize: 15, lineHeight: 1.8, color: "#aaa" }}>
               {t.aboutArchitectureDescription}
             </p>
-            {/* TODO: replace with <img src="/architecture.png" alt="Architecture diagram" style={{ width: "100%", borderRadius: 12 }} /> */}
-            <div style={{
-              borderRadius: 12,
-              border: "1px solid rgba(255,255,255,0.08)",
-              background: "rgba(255,255,255,0.02)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              minHeight: 200,
-              color: "#444",
-              fontSize: 13,
-            }}>
-              Architecture diagram coming soon
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <img src="/PressDigger.jpg" alt="Architecture diagram" onClick={() => setLightbox({ src: "/PressDigger.jpg", alt: "Architecture diagram" })} style={{ width: "100%", borderRadius: 12, display: "block", cursor: "zoom-in" }} />
+              <img src="/PressDigger2.jpg" alt="Architecture diagram 2" onClick={() => setLightbox({ src: "/PressDigger2.jpg", alt: "Architecture diagram 2" })} style={{ width: "100%", borderRadius: 12, display: "block", cursor: "zoom-in" }} />
             </div>
+
+            {lightbox && <Lightbox src={lightbox.src} alt={lightbox.alt} onClose={() => setLightbox(null)} />}
 
             {/* Component descriptions */}
             <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 24 }}>
