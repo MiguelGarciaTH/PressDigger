@@ -23,7 +23,7 @@ Main features:
 
 The features 4, 5 and 6 required login (supported by google login);
 
-PressDigger is a modular microservices-based system designed to crawl, process, analyze, and serve news articles from Portugal's web archive (Arquivo.pt). It leverages modern NLP techniques, including text embeddings and OpenAI's API, to enable intelligent article summarization and semantic search, through multiple Spring Boot microservices that communicate via Apache Kafka, along with Python-based auxiliary services for OCR and text embeddings, and a React-based web interface for end users.
+PressDigger is a modular microservices-based system designed to crawl, process, analyze, and serve news articles from Portugal's web archive (Arquivo.pt). It leverages modern NLP techniques, including text embeddings and OpenAI's API, to enable intelligent article summarization and semantic search, through multiple Spring Boot microservices that communicate via Apache Kafka, along with Python-based auxiliary services for OCR, keyword extraction and named entity recognition, and a React-based web interface for end users.
 
 NOTE: There are multiple references to "ScribeRef" in the codebase and documentation. This was the original project name during development, but the final product is branded as "PressDigger". The name "ScribeRef" may still appear in module names, package names, and some documentation, but it refers to the same system now called PressDigger.
 
@@ -49,8 +49,7 @@ NOTE: There are multiple references to "ScribeRef" in the codebase and documenta
 - **Python 3** (auxiliary services)
 
 ### AI/ML
-- **OpenAI API** (text summarization)
-- **Text Embedding Models** — `intfloat/multilingual-e5-large` (semantic search)
+- **OpenAI API** (text summarization + vector embeddings — `text-embedding-3-small`, 1024-dim)
 - **OCR** — Tesseract (`por`) (image text extraction)
 - **YAKE** (unsupervised keyword extraction)
 - **spaCy** — `pt_core_news_lg` + `en_core_web_sm` (named entity recognition)
@@ -79,7 +78,6 @@ ScribeRef/
 ├── scribe-news-crawler-persons/      # Python person data crawler
 ├── scribe-news-web/                  # React web frontend
 ├── docker/                           # Docker compose + auxiliary services
-│   ├── embedding-service/            # Text embedding service (port 8000)
 │   ├── ocr-service/                  # OCR text detection service (port 8001)
 │   ├── yake-service/                 # Keyword extraction service (port 8002)
 │   ├── spacy-service/                # Named entity recognition service (port 8003)
@@ -109,22 +107,21 @@ ScribeRef/
 
 | # | Service | Description | Model / Engine | Port | Docs |
 |---|---------|-------------|----------------|------|------|
-| 7 | **embedding-service** | Converts text to 1024-dim vectors for semantic search. Used by the embeddings processor and REST API at query time. | `intfloat/multilingual-e5-large` | 8000 | [README](docker/embedding-service/README.md) |
-| 8 | **ocr-service** | Detects and extracts Portuguese text from article screenshots, filtering out blank and non-article images. | Tesseract OCR (`por`) | 8001 | [README](docker/ocr-service/README.md) |
-| 9 | **yake-service** | Extracts the most relevant keywords and key-phrases from article summaries for tagging and collection generation. | YAKE (unsupervised, University of Porto) | 8002 | [README](docker/yake-service/README.md) |
-| 10 | **spacy-service** | Named Entity Recognition to identify person names in article text, used for author extraction. | `pt_core_news_lg` + `en_core_web_sm` | 8003 | [README](docker/spacy-service/README.md) |
+| 7 | **ocr-service** | Detects and extracts Portuguese text from article screenshots, filtering out blank and non-article images. | Tesseract OCR (`por`) | 8001 | [README](docker/ocr-service/README.md) |
+| 8 | **yake-service** | Extracts the most relevant keywords and key-phrases from article summaries for tagging and collection generation. | YAKE (unsupervised, University of Porto) | 8002 | [README](docker/yake-service/README.md) |
+| 9 | **spacy-service** | Named Entity Recognition to identify person names in article text, used for author extraction. | `pt_core_news_lg` + `en_core_web_sm` | 8003 | [README](docker/spacy-service/README.md) |
 
 ### Person Data Crawler
 
 | # | Service | Description | Stack | Docs |
 |---|---------|-------------|-------|------|
-| 11 | **scribe-news-person-crawler** | Python script that crawls Portuguese government member data from Wikidata (ministers and secretaries from 1974–present). | Python 3, SPARQL, Wikidata | [README](scribe-news-crawler-persons/README.md) |
+| 10 | **scribe-news-person-crawler** | Python script that crawls Portuguese government member data from Wikidata (ministers and secretaries from 1974–present). | Python 3, SPARQL, Wikidata | [README](scribe-news-crawler-persons/README.md) |
 
 ### Frontend
 
 | # | Service | Description | Stack | Port | Docs |
 |---|---------|-------------|-------|------|------|
-| 12 | **scribe-news-web** | React web interface for searching, browsing, annotating articles and managing collections. | React 18, TypeScript, Vite, Tailwind CSS | 5173 | [README](scribe-news-web/README.md) |
+| 11 | **scribe-news-web** | React web interface for searching, browsing, annotating articles and managing collections. | React 18, TypeScript, Vite, Tailwind CSS | 5173 | [README](scribe-news-web/README.md) |
 
 
 ## Quick Start
@@ -141,7 +138,6 @@ docker-compose -f scribe-ref-db-dev.yml up -d
 This will start:
 - PostgreSQL with pgvector (port 5432)
 - Apache Kafka (port 9092)
-- Embedding service (port 8000)
 - OCR service (port 8001)
 
 ### 2. Build All Modules
@@ -194,9 +190,8 @@ Each component has its own `application.properties` or configuration file. Commo
 
 - **Database connection**: PostgreSQL connection settings
 - **Kafka broker**: Kafka connection and topic configuration
-- **OpenAI API**: API key for text processing
+- **OpenAI API**: API key for text summarization and vector embeddings
 - **Arquivo.pt API**: Endpoints and search parameters
-- **Embedding service**: Service endpoint URLs
 
 Add an `.env` file in the project root with the following environment variables (replace placeholders with actual values):
 
