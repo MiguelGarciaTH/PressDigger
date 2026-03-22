@@ -74,3 +74,10 @@ export function getImageUrl(filePath?: string, size: 'small' | 'original' = 'ori
 export function collectionArticleUrl(collectionId: number, articleId: number) {
   return `${API_BASE}/collections/${collectionId}/article/${articleId}`
 }
+
+export const ARTICLES_COUNT_URL = `${API_BASE}/articles/count`
+export const PERSONS_COUNT_URL = `${API_BASE}/persons/count`
+export const AUTHORS_COUNT_URL = `${API_BASE}/authors/count`
+export const PUBLIC_COLLECTIONS_COUNT_URL = `${API_BASE}/collections/count-public`
+export const PRIVATE_COLLECTIONS_COUNT_URL = `${API_BASE}/collections/count-private`
+export const PERSONS_FIND_URL = `${API_BASE}/persons/find`

@@ -81,6 +81,16 @@ function JournalistCollectionIcon() {
   )
 }
 
+function AboutIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="16" x2="12" y2="12" />
+      <line x1="12" y1="8" x2="12.01" y2="8" />
+    </svg>
+  )
+}
+
 /* Google "G" — monochrome grey SVG */
 function GoogleLogoMono() {
   return (
@@ -426,6 +436,19 @@ export default function Sidebar() {
           >
             <span style={iconWrap}><JournalistCollectionIcon /></span>
             {expanded && <span>{t.navJournalists}</span>}
+          </button>
+
+          <div style={{ height: 1, background: "rgba(255,255,255,0.06)", margin: "10px 4px" }} />
+
+          <button
+            style={rowStyle(isActivePath("/about"))}
+            onClick={() => handleNav("/about")}
+            title={!expanded ? t.navAbout : undefined}
+            onMouseEnter={(e) => { if (!isActivePath("/about")) e.currentTarget.style.background = "rgba(255,255,255,0.06)" }}
+            onMouseLeave={(e) => { if (!isActivePath("/about")) e.currentTarget.style.background = "transparent" }}
+          >
+            <span style={iconWrap}><AboutIcon /></span>
+            {expanded && <span>{t.navAbout}</span>}
           </button>
         </div>
 

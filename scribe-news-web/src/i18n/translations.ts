@@ -118,6 +118,26 @@ export const translations = {
 
     // SiteFilter
     filterBySite: "Filter by site",
+
+    // AboutPage
+    navAbout: "About",
+    aboutTitle: "About PressDigger",
+    aboutDescription: "PressDigger is a research tool built on top of Arquivo.pt, Portugal's web archive. It allows journalists, researchers, and curious minds to search, explore, and analyse thousands of archived newspaper articles spanning decades of Portuguese press coverage.",
+    aboutStatsTitle: "What's inside",
+    aboutArticles: "Articles",
+    aboutPersons: "Persons",
+    aboutAuthors: "Authors",
+    aboutSites: "News Sites",
+    aboutPublicCollections: "Public Collections",
+    aboutPrivateCollections: "Private Collections",
+    aboutSitesBox: "Indexed News Sites",
+    aboutPersonsBox: "Persons",
+    aboutArchitectureTitle: "Architecture",
+    aboutArchitectureDescription: "PressDigger is composed of a backend data pipeline that crawls and indexes archived news from Arquivo.pt, a Spring Boot REST API, and this React frontend.",
+    aboutLoadMore: "Loading…",
+    aboutNoMorePersons: "No more persons",
+    aboutExpand: "Show",
+    aboutCollapse: "Hide",
   },
 
   pt: {
@@ -237,6 +257,26 @@ export const translations = {
 
     // SiteFilter
     filterBySite: "Filtrar por site",
+
+    // AboutPage
+    navAbout: "Sobre",
+    aboutTitle: "Sobre o PressDigger",
+    aboutDescription: "O PressDigger é uma ferramenta de investigação construída sobre o Arquivo.pt, o arquivo web de Portugal. Permite a jornalistas, investigadores e curiosos pesquisar, explorar e analisar milhares de artigos de jornais arquivados ao longo de décadas de imprensa portuguesa.",
+    aboutStatsTitle: "O que está dentro",
+    aboutArticles: "Artigos",
+    aboutPersons: "Pessoas",
+    aboutAuthors: "Autores",
+    aboutSites: "Sites de Notícias",
+    aboutPublicCollections: "Coleções Públicas",
+    aboutPrivateCollections: "Coleções Privadas",
+    aboutSitesBox: "Sites Indexados",
+    aboutPersonsBox: "Pessoas",
+    aboutArchitectureTitle: "Arquitetura",
+    aboutArchitectureDescription: "O PressDigger é composto por um pipeline de dados que recolhe e indexa notícias arquivadas do Arquivo.pt, uma API REST em Spring Boot, e este frontend em React.",
+    aboutLoadMore: "A carregar…",
+    aboutNoMorePersons: "Sem mais pessoas",
+    aboutExpand: "Mostrar",
+    aboutCollapse: "Ocultar",
   },
 } as const satisfies Record<Lang, Record<string, unknown>>
 

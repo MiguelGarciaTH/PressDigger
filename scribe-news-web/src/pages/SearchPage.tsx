@@ -472,6 +472,31 @@ export default function SearchPage() {
           </svg>
           <span>Arquivo.pt</span>
         </a>
+        <button
+          onClick={() => navigate("/about")}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            color: "#484848",
+            fontSize: 13,
+            padding: "6px 10px",
+            borderRadius: 12,
+            border: "none",
+            background: "transparent",
+            cursor: "pointer",
+            transition: "color 200ms",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = "#888" }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = "#484848" }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="16" x2="12" y2="12" />
+            <line x1="12" y1="8" x2="12.01" y2="8" />
+          </svg>
+          <span>{t.navAbout}</span>
+        </button>
       </div>
 
       {loading && <div style={{ color: "#aaa", fontSize: 14 }}>{mode === "digest" ? t.digestGenerating : t.searching}</div>}

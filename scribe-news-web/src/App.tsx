@@ -11,6 +11,7 @@ const DigestPage = lazy(() => import("./pages/DigestPage"))
 const PublicCollectionsPage = lazy(() => import("./pages/PublicCollectionsPage"))
 const PrivateCollectionsPage = lazy(() => import("./pages/PrivateCollectionsPage"))
 const JournalistsPage = lazy(() => import("./pages/JournalistsPage"))
+const AboutPage = lazy(() => import("./pages/AboutPage"))
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -49,8 +50,7 @@ export default function App() {
             <Route path="/digest" element={<DigestPage />} />
             <Route path="/collections/public" element={<PublicCollectionsPage />} />
             <Route path="/collections/private" element={<PrivateCollectionsPage />} />
-            <Route path="/journalists" element={<JournalistsPage />} />
-          </Routes>
+            <Route path="/journalists" element={<JournalistsPage />} />              <Route path="/about" element={<AboutPage />} />          </Routes>
         </Suspense>
       </main>
     </BrowserRouter>
