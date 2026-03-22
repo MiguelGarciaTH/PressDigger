@@ -71,6 +71,8 @@ class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/collections/count-public").permitAll()
+                        .requestMatchers("/collections/count-private").permitAll()
                         .requestMatchers("/collections/public/**").permitAll()
                         .requestMatchers("/collections/**").authenticated()
                         .requestMatchers("/annotations/**").authenticated()
