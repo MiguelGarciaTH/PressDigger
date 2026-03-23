@@ -290,7 +290,7 @@ export default function DigestPage() {
                     onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#1c1c1c"; setTooltipMarker(null) }}
                   >
                     {tooltipMarker === ref.marker && ref.summary && (
-                      <div style={{ position: "absolute", bottom: "calc(100% + 8px)", left: 0, right: 0, background: "#1a1a1a", border: "1px solid #2a4a4a", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#ccc", lineHeight: 1.6, zIndex: 10, pointerEvents: "none", boxShadow: "0 4px 16px rgba(0,0,0,0.6)" }}>
+                      <div style={{ position: "absolute", top: 0, left: "calc(100% + 8px)", width: 280, background: "#1a1a1a", border: "1px solid #2a4a4a", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#ccc", lineHeight: 1.6, zIndex: 10, pointerEvents: "none", boxShadow: "0 4px 16px rgba(0,0,0,0.6)" }}>
                         {ref.summary}
                       </div>
                     )}
