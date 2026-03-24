@@ -26,7 +26,7 @@ public interface CollectionRepository extends JpaRepository<Collection, Integer>
              from Collection c
              where c.isPublic = true
             """)
-    List<CollectionPreview> findPublicCollections();
+    Page<CollectionPreview> findPublicCollections(Pageable pageable);
 
     @Query("""
              select count(c)

@@ -25,8 +25,10 @@ public class CollectionController {
     }
 
     @GetMapping("/public")
-    public List<CollectionRepository.CollectionPreview> getPublicCollections() {
-        return collectionService.getPublicCollections();
+    public Page<CollectionRepository.CollectionPreview> getPublicCollections(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return collectionService.getPublicCollections(PageRequest.of(page, size));
     }
 
     @GetMapping("/count-public")

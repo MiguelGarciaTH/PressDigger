@@ -59,8 +59,8 @@ public class CollectionService {
     }
 
     @Transactional(readOnly = true)
-    public List<CollectionRepository.CollectionPreview> getPublicCollections() {
-        return collectionRepository.findPublicCollections();
+    public Page<CollectionRepository.CollectionPreview> getPublicCollections(Pageable pageable) {
+        return collectionRepository.findPublicCollections(pageable);
     }
 
     @Transactional(readOnly = true)
