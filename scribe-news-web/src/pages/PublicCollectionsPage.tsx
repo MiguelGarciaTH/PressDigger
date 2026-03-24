@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { PUBLIC_COLLECTIONS_URL } from "../config"
 import { useLang } from "../contexts/LanguageContext"
@@ -10,27 +10,66 @@ interface Collection {
   articleCount: number
 }
 
+const PAGE_SIZE = 10
+
 export default function PublicCollectionsPage() {
   const [collections, setCollections] = useState<Collection[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(true)
+  const sentinelRef = useRef<HTMLDivElement | null>(null)
   const navigate = useNavigate()
   const { t } = useLang()
 
+  const fetchPage = useCallback(async (pageIndex: number) => {
+    setLoading(true)
+    try {
+      const url = `${PUBLIC_COLLECTIONS_URL}?page=${pageIndex}&size=${PAGE_SIZE}`
+      const r = await fetch(url, { credentials: "include" })
+      if (!r.ok) throw new Error(`${r.status}`)
+      const data = await r.json()
+      // Support both Spring Page wrapper ({ content, last }) and plain arrays
+      const items: Collection[] = Array.isArray(data) ? data : data.content ?? []
+      const isLast: boolean = Array.isArray(data) ? items.length < PAGE_SIZE : (data.last ?? true)
+      setCollections((prev) => pageIndex === 0 ? items : [...prev, ...items])
+      setHasMore(!isLast)
+    } catch (err: any) {
+      setError(err.message ?? "Failed to load")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     document.title = "Public Collections — PressDigger"
-    fetch(PUBLIC_COLLECTIONS_URL, { credentials: "include" })
-      .then((r) => {
-        if (!r.ok) throw new Error(`${r.status}`)
-        return r.json()
-      })
-      .then((data) => setCollections(data))
-      .catch((err) => setError(err.message ?? "Failed to load"))
-      .finally(() => setLoading(false))
-  }, [])
+    fetchPage(0)
+  }, [fetchPage])
+
+  useEffect(() => {
+    if (!hasMore || loading) return
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setPage((prev) => {
+            const next = prev + 1
+            fetchPage(next)
+            return next
+          })
+        }
+      },
+      { threshold: 0.1 }
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [hasMore, loading, fetchPage])
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", color: "#eee", display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
+      {/* Bottom fade overlay */}
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 260, background: "linear-gradient(to bottom, transparent 0%, rgba(15,15,15,0.6) 40%, rgba(15,15,15,0.92) 70%, #0f0f0f 100%)", pointerEvents: "none", zIndex: 10 }} />
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 20px", borderBottom: "1px solid #222" }}>
         <button
@@ -54,9 +93,9 @@ export default function PublicCollectionsPage() {
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "32px 24px", display: "flex", justifyContent: "center" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "calc(20vh - 60px) 24px 32px", display: "flex", justifyContent: "center", alignItems: "flex-start" }}>
         <div style={{ width: "100%", maxWidth: 900 }}>
-        {loading && (
+        {loading && collections.length === 0 && (
           <p style={{ color: "#888", fontSize: 14, textAlign: "center", padding: 40 }}>{t.loading}</p>
         )}
 
@@ -72,7 +111,7 @@ export default function PublicCollectionsPage() {
           </p>
         )}
 
-        {!loading && !error && collections.length > 0 && (
+        {collections.length > 0 && (
           <div
             style={{
               display: "grid",
@@ -129,6 +168,13 @@ export default function PublicCollectionsPage() {
               </button>
             ))}
           </div>
+        )}
+
+        {/* Sentinel for infinite scroll */}
+        <div ref={sentinelRef} style={{ height: 1 }} />
+
+        {loading && collections.length > 0 && (
+          <p style={{ color: "#888", fontSize: 13, textAlign: "center", padding: "16px 0" }}>{t.loading}</p>
         )}
         </div>
       </div>
