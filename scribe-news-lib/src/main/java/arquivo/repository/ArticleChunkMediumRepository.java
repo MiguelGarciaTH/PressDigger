@@ -87,10 +87,10 @@ public interface ArticleChunkMediumRepository extends JpaRepository<ArticleChunk
                       INNER JOIN article a ON a.id = ac.article_id
                       WHERE
                         (
-                          ac.embedding <=> CAST(:embedding AS vector) < 0.35
+                          ac.embedding <=> CAST(:embedding AS vector) < 0.30
                           OR
                           (
-                            ac.embedding <=> CAST(:embedding AS vector) < 0.55
+                            ac.embedding <=> CAST(:embedding AS vector) < 0.50
                             AND ac.tsv @@ websearch_to_tsquery('portuguese', :text)
                           )
                         )
@@ -99,13 +99,13 @@ public interface ArticleChunkMediumRepository extends JpaRepository<ArticleChunk
                         AND a.published_date >= :startDate
                         AND a.published_date <= :endDate
                       ORDER BY (
-                        (1.0 / (1.0 + (ac.embedding <=> CAST(:embedding AS vector)))) * 0.40
+                        (1.0 / (1.0 + (ac.embedding <=> CAST(:embedding AS vector)))) * 0.55
                         +
                         (
                           COALESCE(ts_rank_cd(ac.tsv, websearch_to_tsquery('portuguese', :text), 32), 0.0)
                           /
                           (1.0 + COALESCE(ts_rank_cd(ac.tsv, websearch_to_tsquery('portuguese', :text), 32), 0.0))
-                        ) * 0.25
+                        ) * 0.35
                         +
                         CASE
                           WHEN to_tsvector('portuguese', COALESCE(a.title, '')) @@ websearch_to_tsquery('portuguese', :text)
@@ -120,7 +120,7 @@ public interface ArticleChunkMediumRepository extends JpaRepository<ArticleChunk
                       SELECT DISTINCT ON (a.id)
                         a.*,
                         (
-                          (1.0 / (1.0 + (ac.embedding <=> CAST(:embedding AS vector)))) * 0.40
+                          (1.0 / (1.0 + (ac.embedding <=> CAST(:embedding AS vector)))) * 0.55
                           +
                           (
                             COALESCE(ts_rank_cd(ac.tsv, websearch_to_tsquery('portuguese', :text), 32), 0.0)
@@ -136,13 +136,13 @@ public interface ArticleChunkMediumRepository extends JpaRepository<ArticleChunk
                           +
                           EXP(
                             -ABS(EXTRACT(EPOCH FROM (a.published_date - bm.best_date)) / 86400.0) / 3.0
-                          ) * 0.25
+                          ) * 0.10
                         ) AS score
                       FROM article_chunk_medium ac
                       INNER JOIN article a ON a.id = ac.article_id
                       CROSS JOIN best_match bm
                       WHERE
-                        ac.embedding <=> CAST(:embedding AS vector) < 0.60
+                        ac.embedding <=> CAST(:embedding AS vector) < 0.45
                         AND a.published_date IS NOT NULL
                         AND ABS(EXTRACT(EPOCH FROM (a.published_date - bm.best_date)) / 86400.0) <= :dayWindow
                         AND a.site_id IN :siteIds

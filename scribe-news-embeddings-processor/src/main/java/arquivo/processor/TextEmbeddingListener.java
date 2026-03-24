@@ -154,11 +154,14 @@ public class TextEmbeddingListener {
             }
 
             // Create both chunk lists first
+            final String title = article.getTitle() != null ? article.getTitle().trim() : "";
             final List<String> chunksMedium = createChunksByThreeSentences(summary);
             int i = 0;
             for (String chunk : chunksMedium) {
-                String normalizedText = chunk.trim().replaceAll("[.,;:!?]+$", "");
-                float[] vector = embeddingClient.getEmbedding(normalizedText);
+                String normalizedChunk = chunk.trim().replaceAll("[.,;:!?]+$", "");
+                // Prepend the article title so each chunk carries topic context for the embedding model
+                String textToEmbed = title.isBlank() ? normalizedChunk : title + "\n" + normalizedChunk;
+                float[] vector = embeddingClient.getEmbedding(textToEmbed);
                 articleChunkMediumRepository.save(new ArticleChunkMedium(article, i++, chunk, vector));
             }
 

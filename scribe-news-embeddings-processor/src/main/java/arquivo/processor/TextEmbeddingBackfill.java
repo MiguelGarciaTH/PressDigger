@@ -65,11 +65,14 @@ public class TextEmbeddingBackfill {
 
         int j = 0;
         for (Article article : articles) {
+            final String title = article.getTitle() != null ? article.getTitle().trim() : "";
             final List<String> chunks = createChunksByThreeSentences(article.getSummary());
             int i = 0;
             for (String chunk : chunks) {
-                String normalizedText = chunk.trim().replaceAll("[.,;:!?]+$", "");
-                float[] vector = embeddingClient.getEmbedding(normalizedText);
+                String normalizedChunk = chunk.trim().replaceAll("[.,;:!?]+$", "");
+                // Prepend the article title so each chunk carries topic context for the embedding model
+                String textToEmbed = title.isBlank() ? normalizedChunk : title + "\n" + normalizedChunk;
+                float[] vector = embeddingClient.getEmbedding(textToEmbed);
                 articleChunkRepository.save(new ArticleChunkMedium(article, i++, chunk, vector));
             }
             LOG.info("Saved {} chunks for article id {} ( {}/{} )", i, article.getId(), j++, articles.size());
