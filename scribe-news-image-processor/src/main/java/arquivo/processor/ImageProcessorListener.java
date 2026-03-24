@@ -221,21 +221,28 @@ public class ImageProcessorListener {
         return image;
     }
 
-    // helper to open URL input stream with configured timeouts
+    // helper to open URL input stream with configured timeouts.
+    // On each retry both the backoff delay AND the timeouts are scaled by backoffMultiplier,
+    // because arquivo can take many seconds to serve an image on the first attempt.
     private InputStream openUrlStreamWithTimeouts(URL url) throws IOException {
         IOException lastException = null;
         long backoff = initialBackoffMs;
+        int connectTimeout = httpConnectTimeoutMs;
+        int readTimeout = httpReadTimeoutMs;
 
         for (int attempt = 1; attempt <= maxRetries; attempt++) {
             try {
+                LOG.debug("Attempt {}/{} for URL {} (connectTimeout={}ms, readTimeout={}ms)",
+                        attempt, maxRetries, url, connectTimeout, readTimeout);
                 URLConnection conn = url.openConnection();
-                conn.setConnectTimeout(httpConnectTimeoutMs);
-                conn.setReadTimeout(httpReadTimeoutMs);
+                conn.setConnectTimeout(connectTimeout);
+                conn.setReadTimeout(readTimeout);
                 return conn.getInputStream();
             } catch (IOException e) {
                 lastException = e;
-                LOG.warn("Attempt {}/{} failed for URL {}: {}. Retrying in {} ms...",
-                        attempt, maxRetries, url, e.getMessage(), backoff);
+                LOG.warn("Attempt {}/{} failed for URL {}: {}. Retrying in {} ms (next timeouts: connect={}ms read={}ms)...",
+                        attempt, maxRetries, url, e.getMessage(), backoff,
+                        (int) (connectTimeout * backoffMultiplier), (int) (readTimeout * backoffMultiplier));
 
                 if (attempt < maxRetries) {
                     try {
@@ -245,6 +252,8 @@ public class ImageProcessorListener {
                         throw new IOException("Interrupted during retry backoff", ie);
                     }
                     backoff = (long) (backoff * backoffMultiplier);
+                    connectTimeout = (int) (connectTimeout * backoffMultiplier);
+                    readTimeout = (int) (readTimeout * backoffMultiplier);
                 }
             }
         }
