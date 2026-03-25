@@ -122,7 +122,7 @@ public class ArquivoCrawler {
                 metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_INCOMPLETE_TOTAL, responseItemsIncompleteTotal++);
                 url.setProcessed(true);
                 urlRepository.save(url);
-                return;
+                continue;
             }
 
             while (arquivoResponse.has("next_page")) {
