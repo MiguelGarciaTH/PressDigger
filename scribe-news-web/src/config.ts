@@ -59,16 +59,30 @@ export function privateCollectionArticlesUrl(collectionId: number, page = 0, siz
   return `${API_BASE}/collections/${collectionId}/articles?page=${page}&size=${size}`
 }
 
+// For <img src>, use a relative path so the browser resolves it against the
+// current origin.  This avoids CSP `img-src 'self'` blocking images when the
+// page is served from press-digger.com (non-www) while API_BASE contains
+// www.press-digger.com.  fetch() calls are unaffected because connect-src
+// already lists the explicit www origin.
+const IMAGE_BASE = (() => {
+  try {
+    const path = new URL(API_BASE).pathname.replace(/\/$/, "")
+    return path || ""
+  } catch {
+    return API_BASE          // dev fallback (plain http://localhost:…)
+  }
+})()
+
 export function getImageUrl(filePath?: string, size: 'small' | 'original' = 'original'): string {
   if (!filePath) return ""
   if (/^https?:\/\//.test(filePath)) return filePath
   const match = filePath.match(/images\/(small|original)\/([^/]+)$/)
   if (match) {
     const [, folder, filename] = match
-    return `${API_BASE}/images/${folder}/${filename}`
+    return `${IMAGE_BASE}/images/${folder}/${filename}`
   }
   const filename = filePath.split('/').pop()
-  return filename ? `${API_BASE}/images/${size}/${filename}` : ""
+  return filename ? `${IMAGE_BASE}/images/${size}/${filename}` : ""
 }
 
 export function collectionArticleUrl(collectionId: number, articleId: number) {
