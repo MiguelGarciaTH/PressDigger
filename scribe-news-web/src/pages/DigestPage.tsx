@@ -5,6 +5,7 @@ import { articleUrl, getImageUrl } from "../config"
 import BookmarkButton from "../components/BookmarkButton"
 import AnnotationButton from "../components/AnnotationButton"
 import { useAuth } from "../components/useAuth"
+import { useIsMobile, MOBILE_NAV_H } from "../hooks/useIsMobile"
 
 interface NarrativeReference {
   marker: string
@@ -47,6 +48,7 @@ export default function DigestPage() {
   const { t } = useLang()
   const { user } = useAuth()
   const state = location.state as { query: string; narrative: NarrativeResult } | null
+  const isMobile = useIsMobile()
 
   // Image viewer state
   const [viewerArticle, setViewerArticle] = useState<ArticleDetail | null>(null)
@@ -206,7 +208,10 @@ export default function DigestPage() {
     <div
       style={{
         position: "fixed",
-        inset: 0,
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: isMobile ? MOBILE_NAV_H : 0,
         background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)",
         color: "#ddd",
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
@@ -290,7 +295,7 @@ export default function DigestPage() {
                     onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#1c1c1c"; setTooltipMarker(null) }}
                   >
                     {tooltipMarker === ref.marker && ref.summary && (
-                      <div style={{ position: "absolute", top: 0, left: "calc(100% + 8px)", width: 280, background: "#1a1a1a", border: "1px solid #2a4a4a", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#ccc", lineHeight: 1.6, zIndex: 10, pointerEvents: "none", boxShadow: "0 4px 16px rgba(0,0,0,0.6)" }}>
+                      <div style={{ position: "absolute", ...(isMobile ? { top: "calc(100% + 4px)", left: 0, right: 0 } : { top: 0, left: "calc(100% + 8px)", width: 280 }), background: "#1a1a1a", border: "1px solid #2a4a4a", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#ccc", lineHeight: 1.6, zIndex: 10, pointerEvents: "none", boxShadow: "0 4px 16px rgba(0,0,0,0.6)" }}>
                         {ref.summary}
                       </div>
                     )}

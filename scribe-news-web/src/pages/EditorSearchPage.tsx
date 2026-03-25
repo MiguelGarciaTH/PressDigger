@@ -7,6 +7,7 @@ import DateRangeFilter, { DEFAULT_START, todayStr } from "../components/DateRang
 import BookmarkButton from "../components/BookmarkButton"
 import AnnotationButton from "../components/AnnotationButton"
 import { useLang } from "../contexts/LanguageContext"
+import { useIsMobile, MOBILE_NAV_H } from "../hooks/useIsMobile"
 
 
 
@@ -375,9 +376,10 @@ export default function EditorSearchPage() {
 
   const hasSearchableParagraphs = paragraphResults.some(p => p.results.length > 0 || p.searching || p.paragraphText.trim().split(/\s+/).length >= 4)
   const isSearching = paragraphResults.some(p => p.searching)
+  const isMobile = useIsMobile()
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", color: "#eee", display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: isMobile ? MOBILE_NAV_H : 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", color: "#eee", display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 20px", borderBottom: "1px solid #222" }}>
         <button
@@ -401,8 +403,22 @@ export default function EditorSearchPage() {
         {isSearching && <div style={{ color: "#888", fontSize: 13 }}>{t.searchingDots}</div>}
       </div>
 
+      {/* Mobile notice */}
+      {isMobile && (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32, gap: 16, textAlign: "center" }}>
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2" />
+            <path d="M8 21h8M12 17v4" />
+          </svg>
+          <p style={{ color: "#666", fontSize: 15, margin: 0, lineHeight: 1.6 }}>
+            The Text Editor works best on a larger screen.<br />
+            <span style={{ color: "#444" }}>Open PressDigger on your desktop for the full experience.</span>
+          </p>
+        </div>
+      )}
+
       {/* Main Content */}
-      <div style={{ flex: 1, display: "flex", overflow: "hidden", padding: 20, paddingTop: 60, position: "relative" }}>
+      <div style={{ flex: 1, display: isMobile ? "none" : "flex", overflow: "hidden", padding: 20, paddingTop: 60, position: "relative" }}>
         {/* Site Filter - left of editor, aligned top */}
         <div style={{
           position: "absolute",

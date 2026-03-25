@@ -5,6 +5,7 @@ import SiteFilter from "../components/SiteFilter"
 import DateRangeFilter, { DEFAULT_START, todayStr } from "../components/DateRangeFilter"
 import { useLang } from "../contexts/LanguageContext"
 import { useAuth } from "../components/useAuth"
+import { useIsMobile, MOBILE_NAV_H } from "../hooks/useIsMobile"
 
 interface NarrativeUsage {
   usageCount: number
@@ -25,6 +26,7 @@ export default function SearchPage() {
   const abortRef = useRef<AbortController | null>(null)
   const { t } = useLang()
   const { user } = useAuth()
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     document.title = "PressDigger"
@@ -146,7 +148,7 @@ export default function SearchPage() {
   }
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: isMobile ? MOBILE_NAV_H : 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
       <svg width="520" viewBox="0 0 500 175" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ maxWidth: "90vw" }}>
         {/* Microfilm reader machine */}
         <g transform="translate(25, 18)">
@@ -242,8 +244,8 @@ export default function SearchPage() {
         background: "rgba(255,255,255,0.95)",
         borderRadius: 24,
         padding: "8px 12px",
-        width: 560,
-        maxWidth: "80vw",
+        width: isMobile ? "min(92vw, 420px)" : 560,
+        maxWidth: isMobile ? undefined : "80vw",
         height: 44,
       }}>
         <svg 
@@ -303,11 +305,19 @@ export default function SearchPage() {
         )}
       </form>
 
-      <div style={{ position: "absolute", left: "calc(100% + 10px)", top: "50%", transform: "translateY(-50%)", display: "flex", gap: 10, alignItems: "center" }}>
+      <div style={{ position: "absolute", left: "calc(100% + 10px)", top: "50%", transform: "translateY(-50%)", display: isMobile ? "none" : "flex", gap: 10, alignItems: "center" }}>
         <SiteFilter selectedSiteIds={selectedSiteIds} onChangeSelection={setSelectedSiteIds} variant="dark" />
         <DateRangeFilter startDate={startDate} endDate={endDate} onChangeRange={(s, e) => { setStartDate(s); setEndDate(e) }} variant="dark" />
       </div>
       </div>
+
+      {/* Mobile: filters below the form */}
+      {isMobile && (
+        <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+          <SiteFilter selectedSiteIds={selectedSiteIds} onChangeSelection={setSelectedSiteIds} variant="dark" />
+          <DateRangeFilter startDate={startDate} endDate={endDate} onChangeRange={(s, e) => { setStartDate(s); setEndDate(e) }} variant="dark" />
+        </div>
+      )}
 
       {/* Usage/error — always rendered at fixed height to keep layout stable */}
       <div style={{ height: 28, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -368,7 +378,7 @@ export default function SearchPage() {
           bottom: 24,
           left: "50%",
           transform: "translateX(-50%)",
-          display: "flex",
+          display: isMobile ? "none" : "flex",
           alignItems: "center",
           gap: 12,
         }}

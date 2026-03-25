@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { PUBLIC_COLLECTIONS_URL } from "../config"
 import { useLang } from "../contexts/LanguageContext"
+import { useIsMobile, MOBILE_NAV_H } from "../hooks/useIsMobile"
 
 interface Collection {
   id: number
@@ -21,6 +22,7 @@ export default function PublicCollectionsPage() {
   const sentinelRef = useRef<HTMLDivElement | null>(null)
   const navigate = useNavigate()
   const { t } = useLang()
+  const isMobile = useIsMobile()
 
   const fetchPage = useCallback(async (pageIndex: number) => {
     setLoading(true)
@@ -67,7 +69,7 @@ export default function PublicCollectionsPage() {
   }, [hasMore, loading, fetchPage])
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", color: "#eee", display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: isMobile ? MOBILE_NAV_H : 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", color: "#eee", display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
       {/* Bottom fade overlay */}
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 260, background: "linear-gradient(to bottom, transparent 0%, rgba(15,15,15,0.6) 40%, rgba(15,15,15,0.92) 70%, #0f0f0f 100%)", pointerEvents: "none", zIndex: 10 }} />
       {/* Header */}

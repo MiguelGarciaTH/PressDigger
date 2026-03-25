@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { PRIVATE_COLLECTIONS_URL, GOOGLE_AUTH_URL } from "../config"
 import { useAuth } from "../components/useAuth"
 import { useLang } from "../contexts/LanguageContext"
+import { useIsMobile, MOBILE_NAV_H } from "../hooks/useIsMobile"
 
 interface Collection {
   id: number
@@ -14,6 +15,7 @@ interface Collection {
 export default function PrivateCollectionsPage() {
   const { user, loading: authLoading } = useAuth()
   const { t } = useLang()
+  const isMobile = useIsMobile()
   const [collections, setCollections] = useState<Collection[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -106,7 +108,7 @@ export default function PrivateCollectionsPage() {
   }
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", color: "#eee", display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: isMobile ? MOBILE_NAV_H : 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", color: "#eee", display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 20px", borderBottom: "1px solid #222" }}>
         <button

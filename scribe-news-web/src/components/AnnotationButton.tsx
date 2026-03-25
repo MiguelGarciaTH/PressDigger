@@ -71,9 +71,11 @@ export default function AnnotationButton({ articleId, style, controlledAnnotatio
     if (!btnRef.current) return
     const rect = btnRef.current.getBoundingClientRect()
     const popoverW = 280
+    const idealLeft = rect.left + rect.width / 2 - popoverW / 2
+    const clampedLeft = Math.max(8, Math.min(window.innerWidth - popoverW - 8, idealLeft))
     setPopoverPos({
       top: rect.top - 10,
-      left: rect.left + rect.width / 2 - popoverW / 2,
+      left: clampedLeft,
     })
   }, [])
 

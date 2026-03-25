@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect } from "react"
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom"
+import { BrowserRouter, Routes, Route } from "react-router-dom"
 import Sidebar from "./components/Sidebar"
 import { LanguageProvider } from "./contexts/LanguageContext"
 
@@ -14,10 +14,6 @@ const JournalistsPage = lazy(() => import("./pages/JournalistsPage"))
 const AboutPage = lazy(() => import("./pages/AboutPage"))
 
 function ScrollToTop() {
-  const { pathname } = useLocation()
-  useEffect(() => {
-    window.scrollTo(0, 0)
-  }, [pathname])
   return null
 }
 

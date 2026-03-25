@@ -2,6 +2,7 @@ import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react
 import { useNavigate } from "react-router-dom"
 import { AUTHORS_URL, authorArticleCountUrl } from "../config"
 import { useLang } from "../contexts/LanguageContext"
+import { useIsMobile, MOBILE_NAV_H } from "../hooks/useIsMobile"
 
 interface Author {
   id: number
@@ -32,6 +33,7 @@ export default function JournalistsPage() {
   const scrollTarget = useRef<number | null>(savedScroll)
   const navigate = useNavigate()
   const { t } = useLang()
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     document.title = "Journalists — PressDigger"
@@ -114,7 +116,7 @@ export default function JournalistsPage() {
   }, [loadMore, authors.length])
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", color: "#eee", display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: isMobile ? MOBILE_NAV_H : 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", color: "#eee", display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
 
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 20px", borderBottom: "1px solid #222" }}>
@@ -134,7 +136,7 @@ export default function JournalistsPage() {
 
       {/* Scrollable grid with fade overlays */}
       {!loading && !error && authors.length > 0 && (
-        <div style={{ flex: 1, position: "relative", overflow: "hidden", marginRight: 52 }}>
+        <div style={{ flex: 1, position: "relative", overflow: "hidden", marginRight: isMobile ? 0 : 52 }}>
           {/* Top fade */}
           <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 72, background: "linear-gradient(to bottom, #090909 0%, transparent 100%)", pointerEvents: "none", zIndex: 1 }} />
           {/* Bottom fade */}
@@ -147,12 +149,12 @@ export default function JournalistsPage() {
               inset: 0,
               overflowY: "auto",
               overflowX: "hidden",
-              padding: "60px 40px",
+              padding: isMobile ? "40px 16px" : "60px 40px",
             }}
           >
             <div style={{
               display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
+              gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)",
               gap: 16,
               maxWidth: 860,
               margin: "0 auto",

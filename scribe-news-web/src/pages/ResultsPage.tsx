@@ -8,6 +8,7 @@ import DateRangeFilter, { DEFAULT_START, todayStr } from "../components/DateRang
 import BookmarkButton from "../components/BookmarkButton"
 import AnnotationButton from "../components/AnnotationButton"
 import { useLang } from "../contexts/LanguageContext"
+import { useIsMobile, MOBILE_NAV_H } from "../hooks/useIsMobile"
 
 function isHttpUrl(s?: string) {
   return typeof s === "string" && /^https?:\/\//i.test(s)
@@ -58,6 +59,8 @@ export default function ResultsPage() {
   const [endDate, setEndDate] = useState<string>(state.endDate ?? todayStr())
   const { user } = useAuth()
   const { t } = useLang()
+  const isMobile = useIsMobile()
+  const [mobileTab, setMobileTab] = useState<"image" | "info">("image")
   const [articleAnnotation, setArticleAnnotation] = useState<{ id: number; text: string } | null>(null)
   const tooltipRef = useRef<HTMLDivElement | null>(null)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
@@ -75,6 +78,11 @@ export default function ResultsPage() {
   const stripStartXRef = useRef(0)
   const stripScrollLeftRef = useRef(0)
   const stripClickTargetRef = useRef<number | null>(null)
+  const scaleRef = useRef(scale)
+  const translateRef = useRef({ x: 0, y: 0 })
+  const activePointersRef = useRef<Map<number, { x: number; y: number }>>(new Map())
+  const pinchStartDistRef = useRef(0)
+  const pinchStartScaleRef = useRef(1)
   const stripDragDistanceRef = useRef(0)
   const sidebarRef = useRef<HTMLDivElement | null>(null)
 
@@ -129,21 +137,30 @@ export default function ResultsPage() {
   const onViewerImgLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget
     imgRef.current = img
-    const paperEl = paperRef.current
-    if (paperEl && img.naturalHeight > 0 && img.naturalWidth > 0) {
-      const paperRect = paperEl.getBoundingClientRect()
-      // Calculate scale to fit image width to 70% of canvas width
-      const targetWidth = paperRect.width * 0.7
-      const scaleToFit = targetWidth / img.naturalWidth
-      const clampedScale = clamp(scaleToFit, 0.1, 3)
-      setScale(clampedScale)
-      setBaselineScale(clampedScale)
-    } else {
+    if (isMobile) {
+      // On mobile the image fills 100% width via CSS — no transform scale needed
       setScale(1)
       setBaselineScale(1)
+    } else {
+      const paperEl = paperRef.current
+      if (paperEl && img.naturalHeight > 0 && img.naturalWidth > 0) {
+        const paperRect = paperEl.getBoundingClientRect()
+        const targetWidth = paperRect.width * 0.7
+        const scaleToFit = targetWidth / img.naturalWidth
+        const clampedScale = clamp(scaleToFit, 0.1, 3)
+        setScale(clampedScale)
+        setBaselineScale(clampedScale)
+      } else {
+        setScale(1)
+        setBaselineScale(1)
+      }
     }
     setTranslate({ x: 0, y: 0 })
-  }, [])
+  }, [isMobile])
+
+  // Keep refs in sync
+  useEffect(() => { scaleRef.current = scale }, [scale])
+  useEffect(() => { translateRef.current = translate }, [translate])
 
   // Double-click to toggle zoom
   const onImageDoubleClick = useCallback(() => {
@@ -154,35 +171,90 @@ export default function ResultsPage() {
     })
   }, [baselineScale])
 
-  const handlePointerMove = useCallback((e: PointerEvent) => {
-    if (!isDraggingRef.current) return
-    const dx = e.clientX - startXRef.current
-    const dy = e.clientY - startYRef.current
-    setTranslate({ x: Math.round(originRef.current.x + dx), y: Math.round(originRef.current.y + dy) })
-  }, [])
+  // Drag handler — pointer events on the paper div
+  useEffect(() => {
+    const paper = paperRef.current
+    if (!paper) return
 
-  const handlePointerUp = useCallback(() => {
-    isDraggingRef.current = false
-    if (viewerRef.current) viewerRef.current.style.cursor = "grab"
-    document.body.style.userSelect = ""
-    window.removeEventListener("pointermove", handlePointerMove)
-    window.removeEventListener("pointerup", handlePointerUp)
-  }, [handlePointerMove])
+    const onDown = (e: PointerEvent) => {
+      if (e.button !== 0 && e.pointerType === "mouse") return
+      if ((e.target as HTMLElement).closest('button, a, [role="button"], [data-sidebar]')) return
+      // If a second touch arrives, skip (let pinch handle it)
+      if (activePointersRef.current.size >= 1 && e.pointerType === "touch") {
+        activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+        isDraggingRef.current = false
+        return
+      }
+      activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      e.preventDefault()
+      isDraggingRef.current = true
+      startXRef.current = e.clientX
+      startYRef.current = e.clientY
+      originRef.current = { ...translateRef.current }
 
-  const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    if (e.button !== 0) return
-    // Don't start drag if clicking on a button, interactive element, or sidebar
-    if ((e.target as HTMLElement).closest('button, a, [role="button"], [data-sidebar]')) return
-    e.preventDefault()
-    isDraggingRef.current = true
-    startXRef.current = e.clientX
-    startYRef.current = e.clientY
-    originRef.current = { x: translate.x, y: translate.y }
-    if (viewerRef.current) viewerRef.current.style.cursor = "grabbing"
-    document.body.style.userSelect = "none"
-    window.addEventListener("pointermove", handlePointerMove)
-    window.addEventListener("pointerup", handlePointerUp)
-  }, [handlePointerMove, handlePointerUp, translate.x, translate.y])
+      const onMove = (ev: PointerEvent) => {
+        if (!isDraggingRef.current) return
+        const dx = ev.clientX - startXRef.current
+        const dy = ev.clientY - startYRef.current
+        setTranslate({ x: Math.round(originRef.current.x + dx), y: Math.round(originRef.current.y + dy) })
+      }
+      const onUp = (ev: PointerEvent) => {
+        activePointersRef.current.delete(ev.pointerId)
+        isDraggingRef.current = false
+        window.removeEventListener("pointermove", onMove)
+        window.removeEventListener("pointerup", onUp)
+      }
+      window.addEventListener("pointermove", onMove)
+      window.addEventListener("pointerup", onUp)
+    }
+
+    paper.addEventListener("pointerdown", onDown, { passive: false })
+    return () => paper.removeEventListener("pointerdown", onDown)
+  }, [frames.length])
+
+  // Pinch-to-zoom — touch events only (most reliable on iOS Safari)
+  useEffect(() => {
+    const paper = paperRef.current
+    if (!paper) return
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        isDraggingRef.current = false
+        pinchStartDistRef.current = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        )
+        pinchStartScaleRef.current = scaleRef.current
+        e.preventDefault()
+      }
+    }
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && pinchStartDistRef.current > 0) {
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        )
+        const next = Math.min(20, Math.max(0.3, pinchStartScaleRef.current * (dist / pinchStartDistRef.current)))
+        setScale(next)
+        e.preventDefault()
+      }
+    }
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) pinchStartDistRef.current = 0
+    }
+    paper.addEventListener("touchstart", onTouchStart, { passive: false })
+    paper.addEventListener("touchmove", onTouchMove, { passive: false })
+    paper.addEventListener("touchend", onTouchEnd)
+    paper.addEventListener("touchcancel", onTouchEnd)
+    return () => {
+      paper.removeEventListener("touchstart", onTouchStart)
+      paper.removeEventListener("touchmove", onTouchMove)
+      paper.removeEventListener("touchend", onTouchEnd)
+      paper.removeEventListener("touchcancel", onTouchEnd)
+    }
+  }, [frames.length])
+
+  const handlePointerDown = useCallback((_e: React.PointerEvent) => { /* handled imperatively */ }, [])
 
   const onSelect = useCallback((idx: number) => {
     setSelectedIndex(idx)
@@ -346,9 +418,14 @@ export default function ResultsPage() {
       tip.insertBefore(sumEl, arrow)
 
       const rect = thumbEl.getBoundingClientRect()
-      tip.style.left = (rect.left + rect.width / 2) + 'px'
+      const tipW = 280
+      const thumbCenterX = rect.left + rect.width / 2
+      const idealLeft = thumbCenterX - tipW / 2
+      const clampedLeft = Math.max(8, Math.min(window.innerWidth - tipW - 8, idealLeft))
+      tip.style.left = clampedLeft + 'px'
+      tip.style.transform = ''
       tip.style.bottom = (window.innerHeight - rect.top + 12) + 'px'
-      tip.style.transform = 'translateX(-50%)'
+      arrow.style.left = Math.round(thumbCenterX - clampedLeft) + 'px'
       tip.style.opacity = '1'
     }
 
@@ -394,6 +471,8 @@ export default function ResultsPage() {
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [selectedIndex, frames.length, onSelect])
+
+
 
   // Resizer
   useEffect(() => {
@@ -619,10 +698,10 @@ export default function ResultsPage() {
   const article = selected
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", padding: "20px 72px 20px 20px", color: "#eee", display: "flex", flexDirection: "column", overflow: "hidden", zIndex: 60, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: isMobile ? MOBILE_NAV_H : 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", padding: isMobile ? "12px 0 0 0" : "20px 72px 20px 20px", color: "#eee", display: "flex", flexDirection: "column", overflow: "hidden", zIndex: 60, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
       
       {/* Header with Search and Results label */}
-      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 12, flexShrink: 0, padding: isMobile ? "0 12px" : 0 }}>
         <button
           onClick={() => navigate(backPath)}
           style={{
@@ -644,6 +723,10 @@ export default function ResultsPage() {
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 500 }}>{collectionName}</h2>
         ) : isAuthorMode ? (
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 500 }}>{authorName}</h2>
+        ) : isMobile ? (
+          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 500, color: "#888", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <span style={{ color: "#eee" }}>"{query}"</span>
+          </h2>
         ) : (
           <>
         <SiteFilter selectedSiteIds={selectedSiteIds} onChangeSelection={setSelectedSiteIds} variant="dark" />
@@ -732,20 +815,46 @@ export default function ResultsPage() {
         )}
       </div>
 
-      <div ref={viewerRef} onPointerDown={handlePointerDown} style={{ flex: 1, height: viewerHeight, display: "flex", gap: 0, overflow: "hidden", cursor: "grab" }}>
-        <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
-          <div ref={paperRef} style={{ width: "100%", height: "100%", background: "#1a1a1a", padding: 12, borderRadius: 6, boxShadow: "0 8px 30px rgba(0,0,0,0.5)", overflow: "hidden", position: "relative" }}>
+      {/* Mobile tab bar */}
+      {isMobile && (
+        <div style={{ display: "flex", flexShrink: 0, borderBottom: "1px solid #222", marginBottom: 8 }}>
+          {(["image", "info"] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setMobileTab(tab)}
+              style={{
+                flex: 1,
+                height: 36,
+                background: "none",
+                border: "none",
+                borderBottom: mobileTab === tab ? "2px solid #eee" : "2px solid transparent",
+                color: mobileTab === tab ? "#eee" : "#555",
+                fontSize: 13,
+                fontWeight: mobileTab === tab ? 600 : 400,
+                cursor: "pointer",
+                transition: "all 150ms",
+              }}
+            >
+              {tab === "image" ? "Article" : "Info"}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div ref={viewerRef} style={{ flex: 1, height: isMobile ? undefined : viewerHeight, display: "flex", gap: 0, overflow: "hidden", cursor: !isMobile || mobileTab === "image" ? "grab" : "default" }}>
+        <div style={{ flex: 1, display: !isMobile || mobileTab === "image" ? "flex" : "none", justifyContent: "center" }}>
+          <div ref={paperRef} style={{ width: "100%", height: "100%", background: "#1a1a1a", padding: isMobile ? 0 : 12, borderRadius: 6, boxShadow: "0 8px 30px rgba(0,0,0,0.5)", overflow: "hidden", position: "relative", touchAction: "none" }}>
             {viewerSrc ? (
               <img ref={imgRef} src={viewerSrc} alt={article.title ?? "article"} onLoad={onViewerImgLoad} onDoubleClick={onImageDoubleClick} draggable={false}
                 style={{ 
                   transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale})`, 
-                  transition: "transform 120ms", 
-                  width: "auto",
+                  transition: isMobile ? "none" : "transform 120ms", 
+                  width: isMobile ? "100%" : "auto",
                   height: "auto",
                   display: "block", 
                   transformOrigin: "center top", 
                   filter: "grayscale(1) contrast(1.05)", 
-                  margin: "0 auto", 
+                  margin: isMobile ? undefined : "0 auto",
                   userSelect: "none" 
                 }} />
             ) : <div style={{ color: "#666" }}>{t.noImage}</div>}
@@ -880,7 +989,7 @@ export default function ResultsPage() {
           data-sidebar
           onPointerDown={(e) => e.stopPropagation()}
           onWheel={(e) => e.stopPropagation()}
-          style={{ width: 320, flexShrink: 0, display: "flex", flexDirection: "column", justifyContent: "flex-start", gap: 12, padding: "16px 16px 16px 24px", cursor: "default", overflowY: "auto" }}
+          style={{ width: isMobile ? "100%" : 320, flexShrink: 0, display: !isMobile || mobileTab === "info" ? "flex" : "none", flexDirection: "column", justifyContent: "flex-start", gap: 12, padding: "16px 16px 16px 24px", cursor: "default", overflowY: "auto" }}
         >
           <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
             <span style={{ color: "#eee", fontWeight: 600, fontSize: 16, lineHeight: 1.4, flex: 1 }}>
@@ -1011,24 +1120,23 @@ export default function ResultsPage() {
         </div>
       )}
 
-      <div id="viewer-resizer" style={{ height: 8, cursor: "row-resize", background: "linear-gradient(90deg,#222,#111,#222)", borderRadius: 4, margin: "12px 0" }} />
+      {!isMobile && <div id="viewer-resizer" style={{ height: 8, cursor: "row-resize", background: "linear-gradient(90deg,#222,#111,#222)", borderRadius: 4, margin: "12px 0" }} />}
 
-      <div ref={stripRef} style={{ display: "flex", gap: 12, padding: 12, overflowX: "auto", background: "#060606", borderRadius: 8, height: 160, cursor: "grab" }}>
-        <div className="strip-spacer" style={{ width: 40, flexShrink: 0 }} />
+      <div ref={stripRef} style={{ display: "flex", gap: isMobile ? 8 : 12, padding: isMobile ? 8 : 12, overflowX: "auto", background: "#060606", borderRadius: 8, height: isMobile ? 90 : 160, cursor: "grab", flexShrink: 0 }}>
+        <div className="strip-spacer" style={{ width: isMobile ? 8 : 40, flexShrink: 0 }} />
         {frames.map((it: any, idx: number) => {
           const thumbUrl = getImageUrl(it.smallImagePath, 'small')
           return (
             <div key={idx} ref={el => { thumbRefs.current[idx] = el }} 
               data-thumb-idx={idx}
-              style={{ flexShrink: 0, width: 200, height: 136, background: "#111", borderRadius: 6, overflow: "hidden", border: selectedIndex === idx ? "2px solid #3aa" : "1px solid #222", cursor: "pointer", position: "relative", transform: selectedIndex === idx ? "scale(1.03)" : "none", transition: "transform 120ms" }}>
+              style={{ flexShrink: 0, width: isMobile ? 110 : 200, height: isMobile ? 74 : 136, background: "#111", borderRadius: 6, overflow: "hidden", border: selectedIndex === idx ? "2px solid #3aa" : "1px solid #222", cursor: "pointer", position: "relative", transform: selectedIndex === idx ? "scale(1.03)" : "none", transition: "transform 120ms" }}>
               {thumbUrl && <img src={thumbUrl} alt={it.title ?? "thumb"} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top", filter: "grayscale(1)", pointerEvents: "none" }} />}
               <div style={{ position: "absolute", left: 6, top: 6, fontSize: 11, color: "#fff", background: "rgba(0,0,0,0.6)", padding: "2px 6px", borderRadius: 4, fontWeight: 500, pointerEvents: "none" }}>{idx + 1}</div>
             </div>
           )
         })}
-        <div className="strip-spacer" style={{ width: 120, flexShrink: 0 }} />
+        <div className="strip-spacer" style={{ width: isMobile ? 8 : 120, flexShrink: 0 }} />
       </div>
     </div>
   )
 }
-

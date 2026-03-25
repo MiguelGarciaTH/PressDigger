@@ -10,6 +10,7 @@ import {
   PERSONS_FIND_URL,
 } from "../config"
 import { useLang } from "../contexts/LanguageContext"
+import { useIsMobile, MOBILE_NAV_H } from "../hooks/useIsMobile"
 
 function Lightbox({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
   useEffect(() => {
@@ -319,6 +320,7 @@ function PersonsBox({ title, expandLabel, collapseLabel, loadMoreLabel, noMoreLa
 export default function AboutPage() {
   const { t } = useLang()
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null)
 
   const [stats, setStats] = useState({
@@ -360,7 +362,10 @@ export default function AboutPage() {
   return (
     <div style={{
       position: "fixed",
-      inset: 0,
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: isMobile ? MOBILE_NAV_H : 0,
       background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)",
       color: "#eee",
       display: "flex",

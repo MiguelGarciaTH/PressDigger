@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom"
 import { PUBLIC_COLLECTIONS_URL, PRIVATE_COLLECTIONS_URL, JOURNALIST_COLLECTIONS_URL, GOOGLE_AUTH_URL } from "../config"
 import { useAuth } from "./useAuth"
 import { useLang } from "../contexts/LanguageContext"
+import { useIsMobile, MOBILE_NAV_H } from "../hooks/useIsMobile"
 
 interface Collection {
   id: number
@@ -110,6 +111,7 @@ export default function Sidebar() {
   const { t, lang, setLang } = useLang()
   const navigate = useNavigate()
   const location = useLocation()
+  const isMobile = useIsMobile()
 
   const [expanded, setExpanded] = useState(false)
   const [activePanel, setActivePanel] = useState<PanelType>(null)
@@ -193,7 +195,163 @@ export default function Sidebar() {
 
   const isActivePath = (path: string) => location.pathname === path
 
-  /* Row style — icon + optional label */
+  /* ── Mobile bottom navigation ──────────────────────────────────── */
+  if (isMobile) {
+    const mobileNavItems = [
+      { icon: <SearchIcon />, path: "/", label: t.navSearch },
+      { icon: <PublicCollectionIcon />, path: "/collections/public", label: t.navPublic },
+      { icon: <PrivateCollectionIcon />, path: "/collections/private", label: t.navPrivate, requireAuth: true },
+      { icon: <JournalistCollectionIcon />, path: "/journalists", label: t.navJournalists },
+      { icon: <AboutIcon />, path: "/about", label: t.navAbout },
+    ] as const
+
+    return (
+      <>
+        <div
+          style={{
+            position: "fixed",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: MOBILE_NAV_H,
+            background: "rgba(10,10,10,0.97)",
+            backdropFilter: "blur(20px)",
+            borderTop: "1px solid rgba(255,255,255,0.07)",
+            zIndex: 9990,
+            display: "flex",
+            alignItems: "center",
+          }}
+        >
+          {mobileNavItems.map((item) => (
+            <button
+              key={item.path}
+              onClick={() => {
+                if ((item as any).requireAuth && !user) {
+                  window.location.href = GOOGLE_AUTH_URL
+                  return
+                }
+                navigate(item.path)
+              }}
+              style={{
+                flex: 1,
+                height: "100%",
+                background: "none",
+                border: "none",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 3,
+                cursor: "pointer",
+                color: isActivePath(item.path) ? "#fff" : "#555",
+                transition: "color 150ms",
+              }}
+            >
+              {item.icon}
+              <span style={{ fontSize: 9, letterSpacing: 0.2, fontWeight: isActivePath(item.path) ? 600 : 400 }}>
+                {item.label}
+              </span>
+            </button>
+          ))}
+
+          {/* Avatar / Login */}
+          <div style={{ flex: 1, height: "100%", position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <button
+              onClick={() => user ? setProfileMenuOpen((v) => !v) : handleLogin()}
+              style={{
+                height: "100%",
+                width: "100%",
+                background: "none",
+                border: "none",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 3,
+                cursor: "pointer",
+                color: "#555",
+              }}
+            >
+              {user ? (
+                <img
+                  src={user.picture}
+                  alt={user.name}
+                  referrerPolicy="no-referrer"
+                  style={{ width: 22, height: 22, borderRadius: "50%", border: "1.5px solid #555", objectFit: "cover" }}
+                />
+              ) : (
+                <GoogleLogoMono />
+              )}
+              <span style={{ fontSize: 9, color: "#555", maxWidth: 52, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {user ? user.name.split(" ")[0] : t.signIn}
+              </span>
+            </button>
+
+            {/* Profile popup – appears above the nav bar */}
+            {profileMenuOpen && user && (
+              <div
+                ref={profileRef}
+                style={{
+                  position: "absolute",
+                  bottom: MOBILE_NAV_H - 4,
+                  right: 4,
+                  background: "#1e1e1e",
+                  border: "1px solid #444",
+                  borderRadius: 10,
+                  padding: "12px 16px",
+                  minWidth: 200,
+                  boxShadow: "0 -4px 16px rgba(0,0,0,0.5)",
+                  zIndex: 10000,
+                }}
+              >
+                <p style={{ margin: "0 0 4px", color: "#eee", fontSize: 14, fontWeight: 600 }}>{user.name}</p>
+                <p style={{ margin: "0 0 6px", color: "#999", fontSize: 12 }}>{user.email}</p>
+                {/* Language toggle */}
+                <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
+                  {(["en", "pt"] as const).map((l) => (
+                    <button
+                      key={l}
+                      onClick={() => setLang(l)}
+                      style={{
+                        flex: 1,
+                        background: lang === l ? "rgba(255,255,255,0.12)" : "none",
+                        border: "1px solid",
+                        borderColor: lang === l ? "#666" : "#333",
+                        borderRadius: 5,
+                        padding: "4px 0",
+                        color: lang === l ? "#fff" : "#555",
+                        fontSize: 11,
+                        fontWeight: lang === l ? 700 : 500,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {l.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={logout}
+                  style={{ width: "100%", padding: "6px 0", background: "transparent", border: "1px solid #666", borderRadius: 6, color: "#e3e3e3", cursor: "pointer", fontSize: 13 }}
+                >
+                  {t.signOut}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Dismiss profile popup on outside tap */}
+        {profileMenuOpen && (
+          <div
+            onClick={() => setProfileMenuOpen(false)}
+            style={{ position: "fixed", inset: 0, zIndex: 9989 }}
+          />
+        )}
+      </>
+    )
+  }
+
+  /* ── Desktop sidebar ────────────────────────────────────────────── */
   const rowStyle = (active: boolean): React.CSSProperties => ({
     display: "flex",
     alignItems: "center",
