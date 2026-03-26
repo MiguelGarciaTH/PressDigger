@@ -21,12 +21,14 @@ This library module provides common functionality and domain models that are sha
 ### Utilities
 - **Kafka Publisher**: Utility for publishing messages to Kafka topics
 - **Rate Limiting Service**: Manages API rate limits
-- **Text Embedding Client**: Integration with text embedding services
+- **OpenAI Embedding Client**: Generates vector embeddings via OpenAI's `text-embedding-3-small` API
+- **OpenAI Narrative Integration**: Generates AI-powered narratives via OpenAI's `gpt-4o-mini` API
 
 ## Technologies
 
 - Spring Data JPA
 - Spring Kafka
+- OpenAI Java Client (embeddings + narrative generation)
 - PostgreSQL with pgvector support
 - Hypersistence Utils for advanced Hibernate features
 

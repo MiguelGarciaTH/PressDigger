@@ -15,13 +15,14 @@ Main features:
 
 1. Search: The user can type keywords of phrases which want to search;
 2. Text editor: The user can write a text and the system will return the most relevant news articles related to each paragraph of the text;
+3. Create a narrative from several news articles: the user can write a text and the system will return a narrative based on the most relevant news articles related to each paragraph of the text;
 3. See public collections (based on most relevant keywords found in the articles);
 4. See author collections: collection for the newspaper article authors; 
 5. Create private collections with the articles the user wants;
 6. Annotate articles with comments;
 7. Web application display in Portugues and English languages;
 
-The features 4, 5 and 6 required login (supported by google login);
+The features 3, 6 and 7 required login (supported by google login);
 
 PressDigger is a modular microservices-based system designed to crawl, process, analyze, and serve news articles from Portugal's web archive (Arquivo.pt). It leverages modern NLP techniques, including text embeddings and OpenAI's API, to enable intelligent article summarization and semantic search, through multiple Spring Boot microservices that communicate via Apache Kafka, along with Python-based auxiliary services for OCR, keyword extraction and named entity recognition, and a React-based web interface for end users.
 
@@ -49,7 +50,7 @@ NOTE: There are multiple references to "ScribeRef" in the codebase and documenta
 - **Python 3** (auxiliary services)
 
 ### AI/ML
-- **OpenAI API** (text summarization + vector embeddings — `text-embedding-3-small`, 1024-dim)
+- **OpenAI API** (text summarization via `gpt-4o-mini` + vector embeddings via `text-embedding-3-small`, 1024-dim)
 - **OCR** — Tesseract (`por`) (image text extraction)
 - **YAKE** (unsupervised keyword extraction)
 - **spaCy** — `pt_core_news_lg` + `en_core_web_sm` (named entity recognition)
@@ -99,9 +100,9 @@ ScribeRef/
 | 1 | **scribe-news-crawler** | Discovers news articles from Arquivo.pt using keyword and site-based searches. Publishes discovered articles to Kafka for downstream processing. | Spring Boot, Kafka, Arquivo.pt API | — | [README](scribe-news-crawler/README.md) |
 | 2 | **scribe-news-image-processor** | Processes article screenshots: blank page detection, OCR text filtering, auto-cropping and thumbnail generation. | Spring Boot, Kafka, Thumbnailator | — | [README](scribe-news-image-processor/README.md) |
 | 3 | **scribe-news-text-processor** | Uses OpenAI's API to summarize article content, extract published dates and filter irrelevant articles. | Spring Boot, Kafka, OpenAI API | — | [README](scribe-news-text-processor/README.md) |
-| 4 | **scribe-news-embeddings-processor** | Generates and stores 1024-dim vector embeddings for article chunks to enable semantic similarity search via pgvector. | Spring Boot, Kafka, PostgreSQL + pgvector | — | [README](scribe-news-embeddings-processor/README.md) |
-| 5 | **scribe-news-rest** | RESTful API for text search, semantic search, image streaming, collections and user management. | Spring Boot, Spring Data JPA, pgvector | 8085 | [README](scribe-news-rest/README.md) |
-| 6 | **scribe-news-lib** | Shared library with common domain models, repositories, Kafka publishers, rate limiting and embedding client. | Spring Data JPA, Spring Kafka | — | [README](scribe-news-lib/README.md) |
+| 4 | **scribe-news-embeddings-processor** | Generates and stores 1024-dim vector embeddings for article chunks to enable semantic similarity search via pgvector. | Spring Boot, Kafka, OpenAI API, PostgreSQL + pgvector | — | [README](scribe-news-embeddings-processor/README.md) |
+| 5 | **scribe-news-rest** | RESTful API for text search, semantic search, image streaming, collections and user management. | Spring Boot, Spring Data JPA, OpenAI API, pgvector | 8085 | [README](scribe-news-rest/README.md) |
+| 6 | **scribe-news-lib** | Shared library with common domain models, repositories, Kafka publishers, rate limiting and OpenAI integration. | Spring Data JPA, Spring Kafka, OpenAI Java Client | — | [README](scribe-news-lib/README.md) |
 
 ### Auxiliary Python Services (Docker)
 
@@ -139,6 +140,8 @@ This will start:
 - PostgreSQL with pgvector (port 5432)
 - Apache Kafka (port 9092)
 - OCR service (port 8001)
+- YAKE keyword extraction service (port 8002)
+- spaCy NER service (port 8003)
 
 ### 2. Build All Modules
 

@@ -20,8 +20,7 @@ This module provides a RESTful API for accessing articles stored in the database
 - Spring Boot Web
 - Spring Data JPA
 - PostgreSQL with pgvector
-- OpenAI Java Client (`text-embedding-3-small`)
-- Spring WebFlux (for streaming)
+- OpenAI Java Client (`text-embedding-3-small` for query embeddings, `gpt-4o-mini` for narrative generation)
 
 
 ## Configuration
