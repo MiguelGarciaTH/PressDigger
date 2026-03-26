@@ -14,7 +14,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.env.Environment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -35,7 +34,7 @@ public class ArticleService {
     private final ArticleRepository articleRepository;
     private final ArticleChunkMediumRepository articleChunkRepository;
     private final UserRepository userRepository;
-    private final OpenAiEmbeddingClient embeddingClient; // replaces TextEmbeddingClient
+    private final OpenAiEmbeddingClient embeddingClient;
     private final OpenAiIntegrationNarrative openAiIntegrationNarrative;
     private final SiteRepository siteRepository;
     private final ObjectMapper objectMapper;
@@ -46,8 +45,7 @@ public class ArticleService {
     @Value("${scribe-ref.arquivo.scribe-news-rest.open-ia.max-usage-period}")
     private Duration maxOpenAIUsagePeriod;
 
-    public ArticleService(Environment environment,
-                          ArticleRepository articleRepository,
+    public ArticleService(ArticleRepository articleRepository,
                           UserRepository userRepository,
                           ArticleChunkMediumRepository articleChunkRepository,
                           SiteRepository siteRepository,
@@ -57,8 +55,7 @@ public class ArticleService {
         this.userRepository = userRepository;
         this.articleChunkRepository = articleChunkRepository;
         this.siteRepository = siteRepository;
-        final String url = environment.getProperty("scribe-ref.arquivo.scribe-rest.embedding-service-url");
-        this.embeddingClient = new OpenAiEmbeddingClient(apiKey); // same key, new use
+        this.embeddingClient = new OpenAiEmbeddingClient(apiKey);
         this.openAiIntegrationNarrative = new OpenAiIntegrationNarrative(apiKey);
         this.objectMapper = new ObjectMapper();
         this.objectMapper.configure(JsonParser.Feature.ALLOW_UNQUOTED_CONTROL_CHARS, true);

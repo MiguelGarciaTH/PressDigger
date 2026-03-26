@@ -4,7 +4,6 @@ import arquivo.model.*;
 import arquivo.repository.*;
 import arquivo.services.MetricService;
 import arquivo.services.OpenAiEmbeddingClient;
-import arquivo.services.TextEmbeddingClient;
 import arquivo.utils.UrlNormalizer;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -14,7 +13,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.core.env.Environment;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.kafka.support.KafkaHeaders;
@@ -51,7 +49,7 @@ public class TextEmbeddingListener {
 
     private final LocalDateTime start = LocalDateTime.now(ZoneOffset.UTC);
     private LocalDateTime nextProgressLog = start.plusMinutes(SHOW_STATS_INTERVAL_MINS);
-    private final OpenAiEmbeddingClient embeddingClient; // replaces TextEmbeddingClient
+    private final OpenAiEmbeddingClient embeddingClient;
     private final YakeClient yakeClient;
 
     private final ArticleRepository articleRepository;
@@ -78,7 +76,7 @@ public class TextEmbeddingListener {
         this.keywordRepository = keywordRepository;
         this.articleKeywordScoreRepository = articleKeywordScoreRepository;
         this.authorRepository = authorRepository;
-        this.embeddingClient = new OpenAiEmbeddingClient(apiKey); // same key, new use
+        this.embeddingClient = new OpenAiEmbeddingClient(apiKey);
         this.yakeClient = new YakeClient("http://localhost:8002");
 
         responseItemsIncompleteTotal.set(metricService.loadValue(ARQUIVO_EMBEDDINGS_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL));

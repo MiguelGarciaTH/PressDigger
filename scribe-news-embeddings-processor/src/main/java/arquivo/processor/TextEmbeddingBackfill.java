@@ -34,7 +34,7 @@ public class TextEmbeddingBackfill {
     private long fetchedArticlesWithoutMediumChunksTotal, savedArticlesWithMediumChunksTotal, savedMediumChunksTotal;
     private final LocalDateTime start = LocalDateTime.now(ZoneOffset.UTC);
     private LocalDateTime nextProgressLog = start.plusMinutes(SHOW_STATS_INTERVAL_MINS);
-    private final OpenAiEmbeddingClient embeddingClient; // replaces TextEmbeddingClient
+    private final OpenAiEmbeddingClient embeddingClient;
 
     private final ArticleRepository articleRepository;
     private final ArticleChunkMediumRepository articleChunkRepository;
@@ -48,7 +48,7 @@ public class TextEmbeddingBackfill {
         this.metricService = metricService;
         this.articleRepository = articleRepository;
         this.articleChunkRepository = articleChunkRepository;
-        this.embeddingClient = new OpenAiEmbeddingClient(apiKey); // same key, new use
+        this.embeddingClient = new OpenAiEmbeddingClient(apiKey);
 
         fetchedArticlesWithoutMediumChunksTotal = metricService.loadValue("arquivo_embeddings_processor_fechted_items_without_medium_chunks_total");
         savedArticlesWithMediumChunksTotal = metricService.loadValue("arquivo_embeddings_processor_saved_items_with_medium_chunks_total");
