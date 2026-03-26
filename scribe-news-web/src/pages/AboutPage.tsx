@@ -64,7 +64,7 @@ function PipelineCard({ title, desc }: { title: string; desc: string }) {
             margin: 0,
             fontSize: 14,
             lineHeight: 1.8,
-            color: "#777",
+            color: "#aaa",
             overflow: "hidden",
             maxHeight: expanded ? "none" : "6.3em",
             transition: "max-height 300ms ease",
@@ -400,9 +400,11 @@ export default function AboutPage() {
         <div style={{ width: "100%", maxWidth: 760, display: "flex", flexDirection: "column", gap: 40 }}>
 
           {/* Description */}
-          <p style={{ margin: 0, fontSize: 15, lineHeight: 1.8, color: "#aaa" }}>
-            {t.aboutDescription}
-          </p>
+          <div style={{ margin: 0, fontSize: 15, lineHeight: 1.8, color: "#aaa" }}>
+            {t.aboutDescription.split("\n\n").map((p, i) => (
+              <p key={i} style={{ margin: i === 0 ? 0 : "16px 0 0" }}>{p}</p>
+            ))}
+          </div>
 
           {/* Stats */}
           <div>
