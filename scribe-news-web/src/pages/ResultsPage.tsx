@@ -209,6 +209,8 @@ export default function ResultsPage() {
 
     const onTouchStart = (e: TouchEvent) => {
       if (e.touches.length === 1) {
+        // Don't hijack taps on interactive elements inside the paper
+        if ((e.target as HTMLElement).closest('button, a, [role="button"], input, textarea')) return
         isDraggingRef.current = true
         pinchStartDistRef.current = 0
         startXRef.current = e.touches[0].clientX
