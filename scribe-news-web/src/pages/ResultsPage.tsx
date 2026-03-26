@@ -80,7 +80,6 @@ export default function ResultsPage() {
   const stripClickTargetRef = useRef<number | null>(null)
   const scaleRef = useRef(scale)
   const translateRef = useRef({ x: 0, y: 0 })
-  const activePointersRef = useRef<Map<number, { x: number; y: number }>>(new Map())
   const pinchStartDistRef = useRef(0)
   const pinchStartScaleRef = useRef(1)
   const stripDragDistanceRef = useRef(0)
@@ -171,21 +170,15 @@ export default function ResultsPage() {
     })
   }, [baselineScale])
 
-  // Drag handler — pointer events on the paper div
+  // Drag handler — mouse pointer events only (desktop)
   useEffect(() => {
     const paper = paperRef.current
     if (!paper) return
 
     const onDown = (e: PointerEvent) => {
-      if (e.button !== 0 && e.pointerType === "mouse") return
+      if (e.pointerType !== "mouse") return
+      if (e.button !== 0) return
       if ((e.target as HTMLElement).closest('button, a, [role="button"], [data-sidebar]')) return
-      // If a second touch arrives, skip (let pinch handle it)
-      if (activePointersRef.current.size >= 1 && e.pointerType === "touch") {
-        activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
-        isDraggingRef.current = false
-        return
-      }
-      activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
       e.preventDefault()
       isDraggingRef.current = true
       startXRef.current = e.clientX
@@ -194,12 +187,9 @@ export default function ResultsPage() {
 
       const onMove = (ev: PointerEvent) => {
         if (!isDraggingRef.current) return
-        const dx = ev.clientX - startXRef.current
-        const dy = ev.clientY - startYRef.current
-        setTranslate({ x: Math.round(originRef.current.x + dx), y: Math.round(originRef.current.y + dy) })
+        setTranslate({ x: Math.round(originRef.current.x + (ev.clientX - startXRef.current)), y: Math.round(originRef.current.y + (ev.clientY - startYRef.current)) })
       }
-      const onUp = (ev: PointerEvent) => {
-        activePointersRef.current.delete(ev.pointerId)
+      const onUp = () => {
         isDraggingRef.current = false
         window.removeEventListener("pointermove", onMove)
         window.removeEventListener("pointerup", onUp)
@@ -212,13 +202,20 @@ export default function ResultsPage() {
     return () => paper.removeEventListener("pointerdown", onDown)
   }, [frames.length])
 
-  // Pinch-to-zoom — touch events only (most reliable on iOS Safari)
+  // Touch handler — single-finger drag + two-finger pinch (mobile, iOS Safari safe)
   useEffect(() => {
     const paper = paperRef.current
     if (!paper) return
 
     const onTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
+      if (e.touches.length === 1) {
+        isDraggingRef.current = true
+        pinchStartDistRef.current = 0
+        startXRef.current = e.touches[0].clientX
+        startYRef.current = e.touches[0].clientY
+        originRef.current = { ...translateRef.current }
+        e.preventDefault()
+      } else if (e.touches.length === 2) {
         isDraggingRef.current = false
         pinchStartDistRef.current = Math.hypot(
           e.touches[0].clientX - e.touches[1].clientX,
@@ -229,7 +226,12 @@ export default function ResultsPage() {
       }
     }
     const onTouchMove = (e: TouchEvent) => {
-      if (e.touches.length === 2 && pinchStartDistRef.current > 0) {
+      if (e.touches.length === 1 && isDraggingRef.current) {
+        const dx = e.touches[0].clientX - startXRef.current
+        const dy = e.touches[0].clientY - startYRef.current
+        setTranslate({ x: Math.round(originRef.current.x + dx), y: Math.round(originRef.current.y + dy) })
+        e.preventDefault()
+      } else if (e.touches.length === 2 && pinchStartDistRef.current > 0) {
         const dist = Math.hypot(
           e.touches[0].clientX - e.touches[1].clientX,
           e.touches[0].clientY - e.touches[1].clientY
@@ -240,7 +242,14 @@ export default function ResultsPage() {
       }
     }
     const onTouchEnd = (e: TouchEvent) => {
-      if (e.touches.length < 2) pinchStartDistRef.current = 0
+      if (e.touches.length === 0) {
+        isDraggingRef.current = false
+        pinchStartDistRef.current = 0
+      } else if (e.touches.length === 1) {
+        // Lifted one finger from a pinch — end both gestures cleanly
+        isDraggingRef.current = false
+        pinchStartDistRef.current = 0
+      }
     }
     paper.addEventListener("touchstart", onTouchStart, { passive: false })
     paper.addEventListener("touchmove", onTouchMove, { passive: false })
