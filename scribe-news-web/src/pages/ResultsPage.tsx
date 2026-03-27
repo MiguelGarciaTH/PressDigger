@@ -61,6 +61,7 @@ export default function ResultsPage() {
   const { t } = useLang()
   const isMobile = useIsMobile()
   const [mobileTab, setMobileTab] = useState<"image" | "info">("image")
+  const [showMinimap, setShowMinimap] = useState(false)
   const [articleAnnotation, setArticleAnnotation] = useState<{ id: number; text: string } | null>(null)
   const tooltipRef = useRef<HTMLDivElement | null>(null)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
@@ -181,6 +182,7 @@ export default function ResultsPage() {
       if ((e.target as HTMLElement).closest('button, a, [role="button"], [data-sidebar]')) return
       e.preventDefault()
       isDraggingRef.current = true
+      setShowMinimap(true)
       startXRef.current = e.clientX
       startYRef.current = e.clientY
       originRef.current = { ...translateRef.current }
@@ -191,6 +193,7 @@ export default function ResultsPage() {
       }
       const onUp = () => {
         isDraggingRef.current = false
+        setShowMinimap(false)
         window.removeEventListener("pointermove", onMove)
         window.removeEventListener("pointerup", onUp)
       }
@@ -212,6 +215,7 @@ export default function ResultsPage() {
         // Don't hijack taps on interactive elements inside the paper
         if ((e.target as HTMLElement).closest('button, a, [role="button"], input, textarea')) return
         isDraggingRef.current = true
+        setShowMinimap(true)
         pinchStartDistRef.current = 0
         startXRef.current = e.touches[0].clientX
         startYRef.current = e.touches[0].clientY
@@ -246,10 +250,12 @@ export default function ResultsPage() {
     const onTouchEnd = (e: TouchEvent) => {
       if (e.touches.length === 0) {
         isDraggingRef.current = false
+        setShowMinimap(false)
         pinchStartDistRef.current = 0
       } else if (e.touches.length === 1) {
         // Lifted one finger from a pinch — end both gestures cleanly
         isDraggingRef.current = false
+        setShowMinimap(false)
         pinchStartDistRef.current = 0
       }
     }
@@ -923,8 +929,8 @@ export default function ResultsPage() {
                 }} />
             ) : <div style={{ color: "#666" }}>{t.noImage}</div>}
 
-            {/* Minimap */}
-            {viewerSrc && imgRef.current && (() => {
+            {/* Minimap — only visible while dragging */}
+            {showMinimap && viewerSrc && imgRef.current && (() => {
               const img = imgRef.current
               const aspectRatio = img.naturalHeight / img.naturalWidth
               // Dynamic height: min 80px, max 160px, based on aspect ratio
