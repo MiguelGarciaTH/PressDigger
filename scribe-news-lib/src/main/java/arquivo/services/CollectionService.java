@@ -32,7 +32,7 @@ public class CollectionService {
     @Transactional
     public Collection createCollection(String googleId, String name, String description) {
         User user = userRepository.findByGoogleId(googleId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found with googleId: " + googleId));
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         Collection collection = new Collection(name, user, description);
         return collectionRepository.save(collection);
@@ -41,7 +41,7 @@ public class CollectionService {
     @Transactional
     public void deleteCollection(String googleId, int collectionId) {
         Collection collection = collectionRepository.findById(collectionId)
-                .orElseThrow(() -> new IllegalArgumentException("Collection not found with id: " + collectionId));
+                .orElseThrow(() -> new IllegalArgumentException("Collection not found"));
 
         if (!collection.getUser().getGoogleId().equals(googleId)) {
             throw new IllegalArgumentException("Collection does not belong to user");
@@ -53,7 +53,7 @@ public class CollectionService {
     @Transactional(readOnly = true)
     public List<CollectionRepository.CollectionPreview> getCollectionsByUser(String googleId) {
         User user = userRepository.findByGoogleId(googleId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found with googleId: " + googleId));
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         return collectionRepository.findPrivateCollectionsByUserId(user.getId());
     }
@@ -77,14 +77,14 @@ public class CollectionService {
     @Transactional
     public Collection addArticleToPublicCollection(int collectionId, int articleId) {
         Collection collection = collectionRepository.findById(collectionId)
-                .orElseThrow(() -> new IllegalArgumentException("Collection not found with id: " + collectionId));
+                .orElseThrow(() -> new IllegalArgumentException("Collection not found"));
 
         if (!collection.isPublic()) {
             throw new IllegalArgumentException("Collection is not public");
         }
 
         Article article = articleRepository.findById(articleId)
-                .orElseThrow(() -> new IllegalArgumentException("Article not found with id: " + articleId));
+                .orElseThrow(() -> new IllegalArgumentException("Article not found"));
 
         collection.getArticles().add(article);
         return collectionRepository.save(collection);
@@ -93,14 +93,14 @@ public class CollectionService {
     @Transactional
     public Collection addArticleToCollection(String googleId, int collectionId, int articleId) {
         Collection collection = collectionRepository.findById(collectionId)
-                .orElseThrow(() -> new IllegalArgumentException("Collection not found with id: " + collectionId));
+                .orElseThrow(() -> new IllegalArgumentException("Collection not found"));
 
         if (!collection.getUser().getGoogleId().equals(googleId)) {
             throw new IllegalArgumentException("Collection does not belong to user");
         }
 
         Article article = articleRepository.findById(articleId)
-                .orElseThrow(() -> new IllegalArgumentException("Article not found with id: " + articleId));
+                .orElseThrow(() -> new IllegalArgumentException("Article not found"));
 
         collection.getArticles().add(article);
         return collectionRepository.save(collection);
@@ -109,7 +109,7 @@ public class CollectionService {
     @Transactional
     public Collection removeArticleFromCollection(String googleId, int collectionId, int articleId) {
         Collection collection = collectionRepository.findById(collectionId)
-                .orElseThrow(() -> new IllegalArgumentException("Collection not found with id: " + collectionId));
+                .orElseThrow(() -> new IllegalArgumentException("Collection not found"));
 
         if (!collection.getUser().getGoogleId().equals(googleId)) {
             throw new IllegalArgumentException("Collection does not belong to user");
@@ -124,7 +124,7 @@ public class CollectionService {
         Integer userId = null;
         if (googleId != null) {
             User user = userRepository.findByGoogleId(googleId)
-                    .orElseThrow(() -> new IllegalArgumentException("User not found with googleId: " + googleId));
+                    .orElseThrow(() -> new IllegalArgumentException("User not found"));
             userId = user.getId();
         }
         return collectionRepository.getArticlesBytCollectionId(collectionId, userId, pageable);
@@ -133,7 +133,7 @@ public class CollectionService {
     @Transactional(readOnly = true)
     public boolean isArticleInCollection(int collectionId, int articleId, String googleId) {
         User user = userRepository.findByGoogleId(googleId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found with googleId: " + googleId));
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         return collectionRepository.isArticleInCollection(articleId, collectionId, user.getId());
     }

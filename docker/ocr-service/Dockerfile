@@ -20,6 +20,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application
 COPY app.py .
 
+# Run as non-root user
+RUN useradd -m appuser
+USER appuser
+
 # Expose port
 EXPOSE 8001
 

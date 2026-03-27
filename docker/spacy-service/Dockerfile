@@ -22,6 +22,10 @@ RUN pip install --no-cache-dir https://github.com/explosion/spacy-models/release
 
 COPY app.py .
 
+# Run as non-root user
+RUN useradd -m appuser
+USER appuser
+
 EXPOSE 8003
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \

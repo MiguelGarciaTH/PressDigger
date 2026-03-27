@@ -35,7 +35,18 @@ public class ImageController {
             @PathVariable String size,
             @PathVariable String filename) throws IOException {
 
-        Path imagePath = imageBasePath.resolve(size).resolve(filename);
+        // Validate path components to prevent path traversal
+        if (size.contains("..") || size.contains("/") || size.contains("\\")
+                || filename.contains("..") || filename.contains("/") || filename.contains("\\")) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        Path imagePath = imageBasePath.resolve(size).resolve(filename).normalize();
+
+        // Ensure resolved path is still under the base path (defense-in-depth)
+        if (!imagePath.startsWith(imageBasePath)) {
+            return ResponseEntity.status(403).build();
+        }
 
         if (!Files.exists(imagePath)) {
             return ResponseEntity.notFound().build();

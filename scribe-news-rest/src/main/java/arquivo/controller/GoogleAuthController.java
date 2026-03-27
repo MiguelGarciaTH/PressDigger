@@ -5,6 +5,8 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import jakarta.servlet.http.HttpSession;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,8 +18,7 @@ import java.util.Map;
 @RequestMapping("/auth")
 public class GoogleAuthController {
 
-    @Value("${google.client.id}")
-    private String clientId;
+    private static final Logger log = LoggerFactory.getLogger(GoogleAuthController.class);
 
     private final GoogleIdTokenVerifier verifier;
 
@@ -34,6 +35,9 @@ public class GoogleAuthController {
     ) {
         try {
             String credential = body.get("credential");
+            if (credential == null || credential.isBlank()) {
+                return ResponseEntity.status(401).body(Map.of("error", "Missing credential"));
+            }
 
             // Verify the Google JWT token
             GoogleIdToken idToken = verifier.verify(credential);
@@ -56,12 +60,12 @@ public class GoogleAuthController {
             );
             session.setAttribute("user", user);
 
-
-
             return ResponseEntity.ok(user);
 
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+            // Log internally but do NOT expose internal error details to the client
+            log.error("Google authentication failed", e);
+            return ResponseEntity.status(500).body(Map.of("error", "Authentication failed"));
         }
     }
 

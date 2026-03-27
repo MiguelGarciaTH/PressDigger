@@ -11,7 +11,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app.py .
 
+RUN pip install --no-cache-dir gunicorn==22.0.0
+
+# Run as non-root user
+RUN useradd -m appuser
+USER appuser
+
 EXPOSE 8002
 
-RUN pip install --no-cache-dir gunicorn
 CMD ["gunicorn", "app:app", "-w", "6", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8002"]

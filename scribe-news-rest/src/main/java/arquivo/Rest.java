@@ -55,10 +55,15 @@ class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("*"));
-        config.setAllowedMethods(List.of("*"));
-        config.setAllowedHeaders(List.of("*"));
+        config.setAllowedOrigins(List.of(
+                frontendUrl,
+                "https://press-digger.com",
+                "https://www.press-digger.com"
+        ));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("Content-Type", "Authorization", "X-Requested-With"));
         config.setAllowCredentials(true);
+        config.setMaxAge(3600L);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
@@ -69,13 +74,19 @@ class SecurityConfig {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
+                .headers(headers -> headers
+                        .contentTypeOptions(opts -> {})       // X-Content-Type-Options: nosniff
+                        .frameOptions(frame -> frame.deny())  // X-Frame-Options: DENY
+                )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/auth/**").permitAll()
                         .requestMatchers("/collections/count-public").permitAll()
                         .requestMatchers("/collections/count-private").permitAll()
                         .requestMatchers("/collections/public/**").permitAll()
                         .requestMatchers("/collections/**").authenticated()
                         .requestMatchers("/annotations/**").authenticated()
+                        .requestMatchers("/articles/narrative/**").authenticated()
                         .anyRequest().permitAll()
                 )
                 .oauth2Login(oauth2 -> oauth2

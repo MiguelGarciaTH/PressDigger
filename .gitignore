@@ -4,6 +4,7 @@
 db_dump.sql
 
 .env
+**/.env.local
 **/.env.production
 
 scripts/*

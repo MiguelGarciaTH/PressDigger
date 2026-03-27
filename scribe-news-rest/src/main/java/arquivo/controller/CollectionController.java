@@ -4,6 +4,11 @@ import arquivo.model.Article;
 import arquivo.model.Collection;
 import arquivo.repository.CollectionRepository;
 import arquivo.services.CollectionService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import org.hibernate.type.CollectionType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -26,8 +31,8 @@ public class CollectionController {
 
     @GetMapping("/public")
     public Page<CollectionRepository.CollectionPreview> getPublicCollections(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
         return collectionService.getPublicCollections(PageRequest.of(page, size));
     }
 
@@ -43,26 +48,26 @@ public class CollectionController {
 
     @GetMapping("/public/{collectionId}/articles")
     public Page<Article> getPublicCollectionArticles(@PathVariable int collectionId,
-                                                     @RequestParam(defaultValue = "0") int page,
-                                                     @RequestParam(defaultValue = "20") int size) {
+                                                     @RequestParam(defaultValue = "0") @Min(0) int page,
+                                                     @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
         return collectionService.getArticlesBytCollectionId(collectionId, null, PageRequest.of(page, size));
     }
 
     @GetMapping("/{collectionId}/articles")
     public Page<Article> getCollection(@AuthenticationPrincipal OAuth2User user,
                                        @PathVariable int collectionId,
-                                       @RequestParam(defaultValue = "0") int page,
-                                       @RequestParam(defaultValue = "20") int size) {
+                                       @RequestParam(defaultValue = "0") @Min(0) int page,
+                                       @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
         return collectionService.getArticlesBytCollectionId(collectionId, user.getAttribute("sub"), PageRequest.of(page, size));
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Collection createCollection(@AuthenticationPrincipal OAuth2User user, @RequestBody CreateCollectionRequest createCollectionRequest) {
+    public Collection createCollection(@AuthenticationPrincipal OAuth2User user, @Valid @RequestBody CreateCollectionRequest createCollectionRequest) {
         return collectionService.createCollection(user.getAttribute("sub"), createCollectionRequest.name, createCollectionRequest.description);
     }
 
-    record CreateCollectionRequest(String name, String description) {
+    record CreateCollectionRequest(@NotBlank @Size(max = 255) String name, @Size(max = 2000) String description) {
     }
 
     @DeleteMapping("/{collectionId}")

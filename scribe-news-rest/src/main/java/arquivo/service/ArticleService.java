@@ -85,7 +85,7 @@ public class ArticleService {
     @Transactional
     public NarrativeResult createNarrative(String googleId, String inputText, List<Integer> siteIds, LocalDateTime startDate, LocalDateTime endDate) {
         User user = userRepository.findByGoogleId(googleId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found with googleId: " + googleId));
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
         if (!canUseOpenAI(user)) {
             final LocalDateTime retryAt = user.getOpenaiUsageLastTimestamp().plus(maxOpenAIUsagePeriod);
             final String retryAtStr = retryAt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
@@ -154,7 +154,7 @@ public class ArticleService {
     @Transactional(readOnly = true)
     public NarrativeUsageResult getNarrativeUsage(String googleId) {
         User user = userRepository.findByGoogleId(googleId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found with googleId: " + googleId));
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         final LocalDateTime windowStart = user.getOpenaiUsageLastTimestamp();
         final int usageCount = user.getOpenaiUsageCount();
