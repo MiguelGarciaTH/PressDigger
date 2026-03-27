@@ -388,7 +388,7 @@ export default function ResultsPage() {
     }
   }, [onSelect, frames.length])
 
-  // Thumbnail hover preview — pure DOM, no React state, no re-renders
+  // Thumbnail preview tooltip — hover on desktop, long-press on mobile
   useEffect(() => {
     const strip = stripRef.current
     if (!strip) return
@@ -403,31 +403,33 @@ export default function ResultsPage() {
     tooltipRef.current = tip
 
     let currentIdx: number | null = null
+    let longPressTimer: ReturnType<typeof setTimeout> | null = null
+    let touchMoved = false
+    let touchStartX = 0
+    let touchStartY = 0
 
-    const show = (thumbEl: Element, idx: number) => {
+    const populate = (idx: number) => {
       const art = frames[idx] ?? {}
       const summary = art.summary || 'No summary available.'
       const trimmed = summary.length > 180 ? summary.substring(0, 180) + '...' : summary
-
-      // Build content (keep arrow as last child)
       while (tip.childNodes.length > 1) tip.removeChild(tip.firstChild!)
       const titleEl = document.createElement('div')
       titleEl.style.cssText = 'font-size:13px;font-weight:600;color:#eee;margin-bottom:6px;line-height:1.3;'
       titleEl.textContent = art.title || 'Untitled'
       tip.insertBefore(titleEl, arrow)
-
       if (art.publishedDate) {
         const dateEl = document.createElement('div')
         dateEl.style.cssText = 'font-size:11px;color:#999;margin-bottom:8px;'
         dateEl.textContent = art.publishedDate
         tip.insertBefore(dateEl, arrow)
       }
-
       const sumEl = document.createElement('div')
       sumEl.style.cssText = 'font-size:12px;color:#ccc;line-height:1.5;'
       sumEl.textContent = trimmed
       tip.insertBefore(sumEl, arrow)
+    }
 
+    const position = (thumbEl: Element) => {
       const rect = thumbEl.getBoundingClientRect()
       const tipW = 280
       const thumbCenterX = rect.left + rect.width / 2
@@ -437,41 +439,92 @@ export default function ResultsPage() {
       tip.style.transform = ''
       tip.style.bottom = (window.innerHeight - rect.top + 12) + 'px'
       arrow.style.left = Math.round(thumbCenterX - clampedLeft) + 'px'
+    }
+
+    const show = (thumbEl: Element, idx: number) => {
+      currentIdx = idx
+      populate(idx)
+      position(thumbEl)
+      tip.style.pointerEvents = 'auto'
       tip.style.opacity = '1'
     }
 
     const hide = () => {
       tip.style.opacity = '0'
+      tip.style.pointerEvents = 'none'
       currentIdx = null
     }
 
+    // --- Desktop: hover ---
     const onOver = (e: MouseEvent) => {
       const thumbEl = (e.target as HTMLElement).closest('[data-thumb-idx]')
       if (thumbEl) {
         const idx = parseInt(thumbEl.getAttribute('data-thumb-idx') || '-1', 10)
-        if (idx >= 0 && idx !== currentIdx) {
-          currentIdx = idx
-          show(thumbEl, idx)
-        }
+        if (idx >= 0 && idx !== currentIdx) show(thumbEl, idx)
       } else if (currentIdx !== null) {
         hide()
       }
     }
-
     const onOut = (e: MouseEvent) => {
       if (!strip.contains(e.relatedTarget as Node)) hide()
     }
-
     strip.addEventListener('mouseover', onOver)
     strip.addEventListener('mouseout', onOut)
+
+    // --- Mobile: tap = select, long-press = tooltip ---
+    const onTouchStart = (e: TouchEvent) => {
+      const thumbEl = (e.target as HTMLElement).closest('[data-thumb-idx]')
+      if (!thumbEl) return
+      const idx = parseInt(thumbEl.getAttribute('data-thumb-idx') || '-1', 10)
+      if (idx < 0) return
+      touchMoved = false
+      touchStartX = e.touches[0].clientX
+      touchStartY = e.touches[0].clientY
+      longPressTimer = setTimeout(() => {
+        if (!touchMoved) {
+          show(thumbEl, idx)
+          // Dismiss on any tap outside
+          const dismiss = (ev: TouchEvent) => {
+            if (!tip.contains(ev.target as Node)) hide()
+            document.removeEventListener('touchstart', dismiss)
+          }
+          document.addEventListener('touchstart', dismiss)
+        }
+      }, 500)
+    }
+    const onTouchMove = (e: TouchEvent) => {
+      const dx = Math.abs(e.touches[0].clientX - touchStartX)
+      const dy = Math.abs(e.touches[0].clientY - touchStartY)
+      if (dx > 6 || dy > 6) {
+        touchMoved = true
+        if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null }
+      }
+    }
+    const onTouchEnd = (e: TouchEvent) => {
+      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null }
+      if (!touchMoved) {
+        const thumbEl = (e.target as HTMLElement).closest('[data-thumb-idx]')
+        if (thumbEl && currentIdx === null) {
+          const idx = parseInt(thumbEl.getAttribute('data-thumb-idx') || '-1', 10)
+          if (idx >= 0) onSelect(idx)
+        }
+      }
+    }
+    strip.addEventListener('touchstart', onTouchStart, { passive: true })
+    strip.addEventListener('touchmove', onTouchMove, { passive: true })
+    strip.addEventListener('touchend', onTouchEnd)
 
     return () => {
       strip.removeEventListener('mouseover', onOver)
       strip.removeEventListener('mouseout', onOut)
+      strip.removeEventListener('touchstart', onTouchStart)
+      strip.removeEventListener('touchmove', onTouchMove)
+      strip.removeEventListener('touchend', onTouchEnd)
+      if (longPressTimer) clearTimeout(longPressTimer)
       if (tip.parentNode) tip.parentNode.removeChild(tip)
       tooltipRef.current = null
     }
-  }, [frames])
+  }, [frames, onSelect])
 
   // Keyboard navigation
   useEffect(() => {
