@@ -2,6 +2,10 @@ import { useState, useRef, useCallback, useEffect } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { useLang } from "../contexts/LanguageContext"
 import { articleUrl, getImageUrl } from "../config"
+
+function isHttpUrl(s?: string | null) {
+  return typeof s === "string" && /^https?:\/\//i.test(s)
+}
 import BookmarkButton from "../components/BookmarkButton"
 import AnnotationButton from "../components/AnnotationButton"
 import { useAuth } from "../components/useAuth"
@@ -333,7 +337,7 @@ export default function DigestPage() {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: 16, borderBottom: "1px solid #222", flexShrink: 0 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <a
-                  href={viewerArticle?.linkToArchive}
+                  href={isHttpUrl(viewerArticle?.linkToArchive) ? viewerArticle!.linkToArchive : "#"}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{ fontSize: 16, fontWeight: 600, color: "#eee", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6, transition: "color 150ms" }}

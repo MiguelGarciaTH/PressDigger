@@ -1066,7 +1066,7 @@ export default function ResultsPage() {
               {article.title ?? "Untitled"}
             </span>
             <a 
-              href={article.linkToArchive} 
+              href={isHttpUrl(article.linkToArchive) ? article.linkToArchive : "#"}
               target="_blank" 
               rel="noopener noreferrer" 
               title="Open in archive"

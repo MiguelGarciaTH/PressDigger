@@ -1,6 +1,10 @@
 import React, { useEffect, useRef, useState, useCallback } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import { SEARCH_URL, annotationByArticleUrl, getImageUrl } from "../config"
+
+function isHttpUrl(s?: string | null) {
+  return typeof s === "string" && /^https?:\/\//i.test(s)
+}
 import SiteFilter from "../components/SiteFilter"
 import { useAuth } from "../components/useAuth"
 import DateRangeFilter, { DEFAULT_START, todayStr } from "../components/DateRangeFilter"
@@ -857,7 +861,7 @@ export default function EditorSearchPage() {
                         }}>
                   <div style={{ marginBottom: 12, paddingBottom: 12, borderBottom: "1px solid #222" }}>
                     <a
-                      href={article.linkToArchive}
+                      href={isHttpUrl(article.linkToArchive) ? article.linkToArchive : "#"}
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{
@@ -997,7 +1001,7 @@ export default function EditorSearchPage() {
                   {t.paragraph} {expandedParagraphIndex + 1}
                 </div>
                 <a
-                  href={selectedArticle.linkToArchive}
+                  href={isHttpUrl(selectedArticle.linkToArchive) ? selectedArticle.linkToArchive : "#"}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{

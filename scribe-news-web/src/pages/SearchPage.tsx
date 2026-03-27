@@ -77,8 +77,7 @@ export default function SearchPage() {
         signal: controller.signal,
       })
       if (!res.ok) {
-        const txt = await res.text()
-        throw new Error(txt || `Request failed: ${res.status}`)
+        throw new Error(`Request failed: ${res.status}`)
       }
       const data = await res.json()
       navigate("/results", { state: { query, results: data, selectedSiteIds, startDate, endDate } })
