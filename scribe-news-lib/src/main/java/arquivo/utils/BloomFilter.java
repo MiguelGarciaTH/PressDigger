@@ -20,6 +20,21 @@ public class BloomFilter {
         this.addedElements = 0;
     }
 
+    /**
+     * Deserialization constructor — reconstructs a filter from persisted state.
+     *
+     * @param bitData          raw bytes from {@link #toByteArray()}
+     * @param size             bit-array length used when the filter was created
+     * @param numHashFunctions number of hash functions used when the filter was created
+     * @param addedElements    number of elements that were added before serialisation
+     */
+    public BloomFilter(byte[] bitData, int size, int numHashFunctions, int addedElements) {
+        this.size = size;
+        this.numHashFunctions = numHashFunctions;
+        this.bitSet = BitSet.valueOf(bitData);
+        this.addedElements = addedElements;
+    }
+
     public void add(String element) {
         for (int i = 0; i < numHashFunctions; i++) {
             int index = hash(element, i);
@@ -43,6 +58,18 @@ public class BloomFilter {
 
     public int getAddedElements() {
         return addedElements;
+    }
+
+    public byte[] toByteArray() {
+        return bitSet.toByteArray();
+    }
+
+    public int getSize() {
+        return size;
+    }
+
+    public int getNumHashFunctions() {
+        return numHashFunctions;
     }
 
     private int hash(String element, int seed) {

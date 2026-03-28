@@ -1,6 +1,7 @@
 package arquivo.processor;
 
 import arquivo.services.MetricService;
+import arquivo.services.DiscardedArticleBloomFilterService;
 import arquivo.utils.KafkaPublisher;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -61,13 +62,17 @@ public class TextProcessorListener {
 
     private final AuthorExtractor authorExtractor;
 
+    private final DiscardedArticleBloomFilterService discardedBloomFilter;
+
     @Autowired
     public TextProcessorListener(Environment environment,
                                  MetricService metricService,
+                                 DiscardedArticleBloomFilterService discardedBloomFilter,
                                  KafkaTemplate<String, String> kafkaTemplate,
                                  @Value("${scribe-ref.arquivo.scribe-news-text-processor.kafka.to-send.topic}") String topic,
                                  @Value("${scribe-ref.arquivo.scribe-news-text-processor.author-extractor-url}") String authorExtractorUrl) {
         this.metricService = metricService;
+        this.discardedBloomFilter = discardedBloomFilter;
         this.authorExtractor = new AuthorExtractor(authorExtractorUrl);
         this.kafkaPublisher = new KafkaPublisher(kafkaTemplate, topic);
         this.objectMapper = new ObjectMapper();
@@ -123,6 +128,7 @@ public class TextProcessorListener {
             if (!passesRelevancePreScreen(rawText, responseItem.get("person").asText())) {
                 LOG.debug("Failed relevance pre-screen, skipping OpenAI summarization");
                 metricService.updateValue(ARQUIVO_TEXT_PROCESSOR_SUMMARY_IS_NOT_RELEVANT, notRelevantTotal.incrementAndGet());
+                discardedBloomFilter.markAsDiscarded(responseItem.get("articleHash").asInt());
                 return;
             }
 
@@ -146,6 +152,7 @@ public class TextProcessorListener {
             if (!openAiIntegrationSummary.isAbout(openAiResponse.get("summary").asText(), personName)) {
                 LOG.debug("Summary is not about: {}", personName);
                 metricService.updateValue(ARQUIVO_TEXT_PROCESSOR_OPEN_IA_RESPONSE_ERRORS_TOTAL, openAiResponseErrorsTotal.incrementAndGet());
+                discardedBloomFilter.markAsDiscarded(responseItem.get("articleHash").asInt());
                 return;
             }
 

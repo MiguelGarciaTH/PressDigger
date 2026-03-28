@@ -4,6 +4,7 @@ import arquivo.model.Person;
 import arquivo.model.Site;
 import arquivo.model.Url;
 import arquivo.repository.*;
+import arquivo.services.DiscardedArticleBloomFilterService;
 import arquivo.services.MetricService;
 import arquivo.services.WebClientService;
 import arquivo.utils.BloomFilter;
@@ -63,6 +64,7 @@ public class ArquivoCrawler {
     private final KafkaPublisher kafkaPublisher;
 
     private final BloomFilter bloomFilter;
+    private final DiscardedArticleBloomFilterService discardedBloomFilter;
 
 
     private long responseItemsCollectedTotal, responseItemsSentToKafkaTotal, responseItemsIncompleteTotal, responseItemsDuplicateTotal,
@@ -75,6 +77,7 @@ public class ArquivoCrawler {
                           UrlRepository urlRepository,
                           RateLimiterRepository rateLimiterRepository,
                           MetricService metricService,
+                          DiscardedArticleBloomFilterService discardedBloomFilter,
                           KafkaTemplate<String, String> kafkaTemplate,
                           @Value("${scribe-ref.arquivo.scribe-news-crawler.kafka.to-send.topic}") String topic) {
 
@@ -85,6 +88,7 @@ public class ArquivoCrawler {
         this.metricService = metricService;
         this.objectMapper = new ObjectMapper();
         this.webClientService = new WebClientService(rateLimiterRepository);
+        this.discardedBloomFilter = discardedBloomFilter;
 
         this.kafkaPublisher = new KafkaPublisher(kafkaTemplate, topic);
         this.bloomFilter = new BloomFilter(250_000, 0.01);
@@ -149,6 +153,23 @@ public class ArquivoCrawler {
 
             // process response items
             for (JsonNode responseItem : uniqueResponseItems) {
+                final String title = responseItem.get("title").asText();
+                final int articleHash = getArticleHash(normalizeTitle(title), url.getSite().getName());
+
+                // Fast-path: skip anything we already know is bad from a previous run
+                if (discardedBloomFilter.mightBeDiscarded(articleHash)) {
+                    LOG.debug("Skipping previously discarded article: {}", title);
+                    continue;
+                }
+
+                // Non-news articles are permanent discards — mark them so we skip on future runs
+                if (!isANewsArticle(title)) {
+                    metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_NOT_NEWS_ARTICLE_TOTAL, responseItemsNotNewsArticleTotal++);
+                    discardedBloomFilter.markAsDiscarded(articleHash);
+                    LOG.debug("Discarding non-news article: {}", title);
+                    continue;
+                }
+
                 if (shouldProcesseResponseItem(responseItem)) {
                     processResponseItem(url.getSite().getId(), url.getPersonName(), url.getSite().getName(), responseItem);
                 }
@@ -210,13 +231,7 @@ public class ArquivoCrawler {
     }
 
     private boolean shouldProcesseResponseItem(JsonNode responseItem) {
-        // check if is a news article (not opinion/editorial)
         final String title = responseItem.get("title").asText();
-        if (!isANewsArticle(title)) {
-            metricService.updateValue(ARQUIVO_CRAWLER_RESPONSE_ITEMS_NOT_NEWS_ARTICLE_TOTAL, responseItemsNotNewsArticleTotal++);
-            LOG.debug("Skipping non-news article: {}", title);
-            return false;
-        }
 
         final String arquivoUrl = responseItem.get("linkToArchive").asText();
         if (!UrlValidator.isValid(arquivoUrl)) {

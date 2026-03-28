@@ -1,6 +1,7 @@
 package arquivo.processor;
 
 import arquivo.services.MetricService;
+import arquivo.services.DiscardedArticleBloomFilterService;
 import arquivo.utils.KafkaPublisher;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -56,6 +57,8 @@ public class ImageProcessorListener {
 
     private final ImageTextDetector imageTextDetector;
 
+    private final DiscardedArticleBloomFilterService discardedBloomFilter;
+
     private final AtomicLong responseItemsReceivedTotal = new AtomicLong(0);
     private final AtomicLong blankImagesTotal = new AtomicLong(0);
     private final AtomicLong noTextImageTotal = new AtomicLong(0);
@@ -90,11 +93,13 @@ public class ImageProcessorListener {
     public ImageProcessorListener(MetricService metricService,
                                   KafkaTemplate<String, String> kafkaTemplate,
                                   ImageTextDetector imageTextDetector,
+                                  DiscardedArticleBloomFilterService discardedBloomFilter,
                                   @Value("${scribe-ref.arquivo.scribe-news-image-processor.image-path-directory}") String imagePathDirectory,
                                   @Value("${scribe-ref.arquivo.scribe-news-image-processor.kafka.to-send.topic}") String topic) {
         this.metricService = metricService;
         this.objectMapper = new ObjectMapper();
         this.imageTextDetector = imageTextDetector;
+        this.discardedBloomFilter = discardedBloomFilter;
         this.kafkaPublisher = new KafkaPublisher(kafkaTemplate, topic);
 
         responseItemsReceivedTotal.set(metricService.loadValue(ARQUIVO_IMAGE_PROCESSOR_RECEIVED_MESSAGES_TOTAL));
@@ -147,7 +152,7 @@ public class ImageProcessorListener {
                 metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_DUPLICATE_FILES_TOTAL, duplicateFilesTotal.incrementAndGet());
             } else {
                 // process only if not duplicate
-                final BufferedImage image = getImage(responseItem.get("linkToScreenshot").asText());
+                final BufferedImage image = getImage(responseItem.get("linkToScreenshot").asText(), articleHash);
                 if (image == null) {
                     return;
                 }
@@ -181,7 +186,7 @@ public class ImageProcessorListener {
         }
     }
 
-    private BufferedImage getImage(String imageUrl) {
+    private BufferedImage getImage(String imageUrl, int articleHash) {
         final URI uri = URI.create(imageUrl);
         final URL url;
         try {
@@ -210,11 +215,15 @@ public class ImageProcessorListener {
         // Check if truly blank (uniform color)
         if (ImageBlankDetector.isBlank(image, 30, 0.20, 5)) {
             metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_BLANK_IMAGES_TOTAL, blankImagesTotal.incrementAndGet());
+            discardedBloomFilter.markAsDiscarded(articleHash);
+            LOG.debug("Blank image discarded, articleHash={}", articleHash);
             return null;
         }
 
         if (!imageTextDetector.hasText(image, 250)) {
             metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_NO_TEXT_IMAGES_TOTAL, noTextImageTotal.incrementAndGet());
+            discardedBloomFilter.markAsDiscarded(articleHash);
+            LOG.debug("No-text image discarded, articleHash={}", articleHash);
             return null;
         }
 
