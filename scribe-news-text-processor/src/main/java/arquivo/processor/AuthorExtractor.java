@@ -7,6 +7,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -24,6 +25,9 @@ public class AuthorExtractor {
 
     private final String nerServiceUrl;
 
+    // Shared, reusable client — creating a new HttpClient per request spawns a new thread pool each time
+    private final HttpClient httpClient;
+
     private static class AuthorCandidate {
         String name;
         int score;
@@ -40,6 +44,9 @@ public class AuthorExtractor {
     AuthorExtractor(String nerServiceUrl) {
         this.mapper = new ObjectMapper();
         this.nerServiceUrl = nerServiceUrl;
+        this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10))
+                .build();
     }
 
     public Optional<String> extractAuthor(String rawText) {
@@ -150,11 +157,12 @@ public class AuthorExtractor {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(nerServiceUrl))
                     .header("Content-Type", "application/json")
+                    .timeout(Duration.ofSeconds(15))   // prevent hanging if spacy is slow
                     .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
                     .build();
 
             HttpResponse<String> response =
-                    HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+                    httpClient.send(request, HttpResponse.BodyHandlers.ofString());  // reuse shared client
 
             return parsePersons(response.body());
 

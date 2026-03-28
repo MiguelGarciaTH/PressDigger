@@ -83,7 +83,7 @@ public class TextProcessorListener {
         this.openAiIntegrationSummary = new OpenAiIntegrationSummary(apiKey);
 
         httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(10))
+                .connectTimeout(Duration.ofSeconds(30))  // increased from 10s — arquivo.pt can be slow
                 .build();
     }
 
@@ -191,21 +191,51 @@ public class TextProcessorListener {
     }
 
     private String fetchExtractedText(String url) throws Exception {
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .timeout(Duration.ofSeconds(20))
-                .GET()
-                .build();
+        final int maxAttempts = 3;
+        long backoffMs = 2_000;
+        Exception lastException = null;
 
-        HttpResponse<String> response =
-                httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(url))
+                        .timeout(Duration.ofSeconds(45))   // increased from 20s
+                        .GET()
+                        .build();
 
-        if (response.statusCode() != 200) {
-            LOG.error("error fetching text from {}: HTTP {}", url, response.statusCode());
-            throw new RuntimeException("Failed to fetch text. HTTP " + response.statusCode());
+                HttpResponse<String> response =
+                        httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+                if (response.statusCode() == 200) {
+                    return response.body();
+                }
+
+                // 4xx = permanent error (bad URL, auth, etc.) — don't waste retries
+                if (response.statusCode() >= 400 && response.statusCode() < 500) {
+                    throw new RuntimeException("Permanent HTTP " + response.statusCode() + " for " + url);
+                }
+
+                // 5xx = transient server error — retry
+                LOG.warn("HTTP {} from {} (attempt {}/{}), retrying...",
+                        response.statusCode(), url, attempt, maxAttempts);
+                lastException = new RuntimeException("HTTP " + response.statusCode());
+
+            } catch (java.net.http.HttpTimeoutException e) {
+                lastException = e;
+                LOG.warn("Timeout fetching {} (attempt {}/{}): {}", url, attempt, maxAttempts, e.getMessage());
+            } catch (RuntimeException e) {
+                throw e; // permanent errors bubble up immediately — no retry
+            }
+
+            if (attempt < maxAttempts) {
+                LOG.info("Waiting {}ms before retry attempt {}/{} for {}", backoffMs, attempt + 1, maxAttempts, url);
+                Thread.sleep(backoffMs);
+                backoffMs *= 2;  // exponential backoff: 2s → 4s → 8s
+            }
         }
 
-        return response.body();
+        throw new RuntimeException(
+                "Failed to fetch text after " + maxAttempts + " attempts: " + url, lastException);
     }
 
     private boolean passesRelevancePreScreen(String rawText, String personName) {
