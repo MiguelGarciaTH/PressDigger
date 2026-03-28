@@ -26,7 +26,7 @@ public class OpenAiEmbeddingClient {
         try {
             var response = client.embeddings().create(
                     EmbeddingCreateParams.builder()
-                            .model(EmbeddingModel.TEXT_EMBEDDING_3_SMALL)
+                            .model(EmbeddingModel.TEXT_EMBEDDING_3_LARGE)
                             .input(EmbeddingCreateParams.Input.ofString(text))
                             .dimensions(DIMENSIONS)
                             .build()
