@@ -9,6 +9,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -56,6 +57,15 @@ public class GlobalExceptionHandler {
                 .body(Map.of("error", "Access denied"));
     }
 
+    // Bots and scanners constantly probe for random paths (Hadoop YARN, etc.).
+    // Return 404 quietly — no stack trace, no ERROR log.
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Map<String, String>> handleNoResource(NoResourceFoundException ex) {
+        log.trace("404 for unknown path: {}", ex.getResourcePath());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("error", "Not found"));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, String>> handleGenericException(Exception ex) {
         // Log the full stack trace internally
@@ -64,5 +74,3 @@ public class GlobalExceptionHandler {
                 .body(Map.of("error", "An internal error occurred"));
     }
 }
-
-
