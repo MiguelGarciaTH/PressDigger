@@ -36,7 +36,7 @@ import java.time.ZoneOffset;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Component
-@ConditionalOnProperty(name = "scribe-ref.arquivo.scribe-news-image-processor.enable", havingValue = "true")
+@ConditionalOnProperty(name = "scribe-ref.arquivo.scribe-image-processor.enable", havingValue = "true")
 public class ImageProcessorListener {
 
     private static final Logger LOG = LoggerFactory.getLogger(ImageProcessorListener.class);
