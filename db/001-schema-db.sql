@@ -80,13 +80,15 @@ CREATE TABLE article_chunk_medium (
     CONSTRAINT article_chunk_medium_fk_article_id FOREIGN KEY (article_id) REFERENCES article(id)
 );
 
-CREATE INDEX idx_chunks_tsv
-ON article_chunk USING GIN (tsv);
+DROP INDEX IF EXISTS idx_chunks_medium_embedding;
 
-DROP INDEX idx_chunks_medium_embedding;
+-- Faster if done after the data is inserted
 CREATE INDEX idx_chunks_medium_embedding
     ON article_chunk_medium USING hnsw (embedding vector_cosine_ops)
     WITH (m = 16, ef_construction = 64);
+
+CREATE INDEX idx_chunks_medium_article_id
+    ON article_chunk_medium (article_id);
 
 CREATE SEQUENCE IF NOT EXISTS keyword_seq START WITH 1 INCREMENT BY 1;
 
