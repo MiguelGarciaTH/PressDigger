@@ -6,6 +6,7 @@ import arquivo.utils.KafkaPublisher;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import jakarta.annotation.PostConstruct;
 import net.coobird.thumbnailator.Thumbnails;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
@@ -22,17 +23,19 @@ import org.springframework.stereotype.Component;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.MalformedURLException;
 import java.net.URI;
-import java.net.URL;
-import java.net.URLConnection;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Component
@@ -89,6 +92,15 @@ public class ImageProcessorListener {
     @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.backoff-multiplier:2.0}")
     private double backoffMultiplier;
 
+    @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.max-concurrent-requests:1}")
+    private int maxConcurrentRequests;
+
+    @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.request-delay-ms:3000}")
+    private long requestDelayMs;
+
+    private HttpClient httpClient;
+    private Semaphore httpSemaphore;
+
     @Autowired
     public ImageProcessorListener(MetricService metricService,
                                   KafkaTemplate<String, String> kafkaTemplate,
@@ -119,6 +131,18 @@ public class ImageProcessorListener {
         } catch (IOException e) {
             LOG.error("Could not create image directories under {}: {}", directory, e.getMessage());
         }
+    }
+
+    @PostConstruct
+    public void initHttpClient() {
+        this.httpClient = HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_2)
+                .followRedirects(HttpClient.Redirect.NORMAL)
+                .connectTimeout(Duration.ofMillis(httpConnectTimeoutMs))
+                .build();
+        this.httpSemaphore = new Semaphore(maxConcurrentRequests);
+        LOG.info("HttpClient initialised (HTTP/2, connectTimeout={}ms, requestTimeout={}ms, maxRetries={}, maxConcurrent={}, requestDelay={}ms)",
+                httpConnectTimeoutMs, httpReadTimeoutMs, maxRetries, maxConcurrentRequests, requestDelayMs);
     }
 
     @KafkaListener(
@@ -187,21 +211,29 @@ public class ImageProcessorListener {
     }
 
     private BufferedImage getImage(String imageUrl, int articleHash) {
-        final URI uri = URI.create(imageUrl);
-        final URL url;
+        final URI uri;
         try {
-            url = uri.toURL();
-        } catch (MalformedURLException e) {
+            uri = URI.create(imageUrl);
+        } catch (IllegalArgumentException e) {
             LOG.error("Invalid url {}", e.getMessage());
             metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL, responseItemsIncompleteTotal.incrementAndGet());
             return null;
         }
 
-        BufferedImage image;
-        try (InputStream in = openUrlStreamWithTimeouts(url)) {
-            image = ImageIO.read(in);
+        final byte[] imageBytes;
+        try {
+            imageBytes = downloadWithRetry(uri);
         } catch (Exception e) {
             LOG.error("Failed to fetch image: {}", e.getMessage());
+            metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL, responseItemsIncompleteTotal.incrementAndGet());
+            return null;
+        }
+
+        BufferedImage image;
+        try {
+            image = ImageIO.read(new ByteArrayInputStream(imageBytes));
+        } catch (IOException e) {
+            LOG.error("Failed to decode image: {}", e.getMessage());
             metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL, responseItemsIncompleteTotal.incrementAndGet());
             return null;
         }
@@ -230,44 +262,57 @@ public class ImageProcessorListener {
         return image;
     }
 
-    // helper to open URL input stream with configured timeouts.
-    // On each retry both the backoff delay AND the timeouts are scaled by backoffMultiplier,
-    // because arquivo can take many seconds to serve an image on the first attempt.
-    private InputStream openUrlStreamWithTimeouts(URL url) throws IOException {
+    // Downloads the full response body as bytes with exponential-backoff retries.
+    // Uses a semaphore to cap concurrent in-flight HTTP requests so we don't overwhelm
+    // the arquivo.pt screenshot service (renders a full webpage per request).
+    private byte[] downloadWithRetry(URI uri) throws IOException, InterruptedException {
+        httpSemaphore.acquire();
+        try {
+            if (requestDelayMs > 0) {
+                Thread.sleep(requestDelayMs);
+            }
+            return doDownloadWithRetry(uri);
+        } finally {
+            httpSemaphore.release();
+        }
+    }
+
+    private byte[] doDownloadWithRetry(URI uri) throws IOException, InterruptedException {
         IOException lastException = null;
         long backoff = initialBackoffMs;
-        int connectTimeout = httpConnectTimeoutMs;
-        int readTimeout = httpReadTimeoutMs;
+        Duration requestTimeout = Duration.ofMillis(httpReadTimeoutMs);
 
         for (int attempt = 1; attempt <= maxRetries; attempt++) {
             try {
-                LOG.debug("Attempt {}/{} for URL {} (connectTimeout={}ms, readTimeout={}ms)",
-                        attempt, maxRetries, url, connectTimeout, readTimeout);
-                URLConnection conn = url.openConnection();
-                conn.setConnectTimeout(connectTimeout);
-                conn.setReadTimeout(readTimeout);
-                return conn.getInputStream();
+                LOG.debug("Attempt {}/{} for URI {} (timeout={}ms)", attempt, maxRetries, uri, requestTimeout.toMillis());
+                final HttpRequest request = HttpRequest.newBuilder()
+                        .uri(uri)
+                        .timeout(requestTimeout)
+                        .GET()
+                        .build();
+
+                final HttpResponse<byte[]> response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
+
+                if (response.statusCode() != 200) {
+                    throw new IOException("HTTP " + response.statusCode() + " for " + uri);
+                }
+
+                return response.body();
             } catch (IOException e) {
                 lastException = e;
-                LOG.warn("Attempt {}/{} failed for URL {}: {}. Retrying in {} ms (next timeouts: connect={}ms read={}ms)...",
-                        attempt, maxRetries, url, e.getMessage(), backoff,
-                        (int) (connectTimeout * backoffMultiplier), (int) (readTimeout * backoffMultiplier));
+                long nextTimeout = (long) (requestTimeout.toMillis() * backoffMultiplier);
+                LOG.warn("Attempt {}/{} failed for URI {}: {}. Retrying in {}ms (next timeout: {}ms)...",
+                        attempt, maxRetries, uri, e.getMessage(), backoff, nextTimeout);
 
                 if (attempt < maxRetries) {
-                    try {
-                        Thread.sleep(backoff);
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        throw new IOException("Interrupted during retry backoff", ie);
-                    }
+                    Thread.sleep(backoff);
                     backoff = (long) (backoff * backoffMultiplier);
-                    connectTimeout = (int) (connectTimeout * backoffMultiplier);
-                    readTimeout = (int) (readTimeout * backoffMultiplier);
+                    requestTimeout = Duration.ofMillis(nextTimeout);
                 }
             }
         }
 
-        throw new IOException("Failed to fetch URL after " + maxRetries + " attempts: " + url, lastException);
+        throw new IOException("Failed to fetch URI after " + maxRetries + " attempts: " + uri, lastException);
     }
 
 
