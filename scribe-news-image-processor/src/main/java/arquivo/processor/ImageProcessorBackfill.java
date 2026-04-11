@@ -4,6 +4,7 @@ package arquivo.processor;
 import arquivo.model.Article;
 import arquivo.repository.ArticleRepository;
 import arquivo.services.MetricService;
+import arquivo.services.DiscardedArticleBloomFilterService;
 import jakarta.annotation.PostConstruct;
 import net.coobird.thumbnailator.Thumbnails;
 import org.slf4j.Logger;
@@ -84,13 +85,19 @@ public class ImageProcessorBackfill {
     private final Path directory;
 
     private final ArticleRepository articleRepository;
+    private final ImageTextDetector imageTextDetector;
+    private final DiscardedArticleBloomFilterService discardedBloomFilter;
     private HttpClient httpClient;
     private Semaphore httpSemaphore;
 
     ImageProcessorBackfill(ArticleRepository articleRepository, MetricService metricService,
+                           ImageTextDetector imageTextDetector,
+                           DiscardedArticleBloomFilterService discardedBloomFilter,
                            @Value("${scribe-ref.arquivo.scribe-news-image-processor.image-path-directory}") String imagePathDirectory) {
         this.metricService = metricService;
         this.articleRepository = articleRepository;
+        this.imageTextDetector = imageTextDetector;
+        this.discardedBloomFilter = discardedBloomFilter;
 
         directory = Paths.get(imagePathDirectory).toAbsolutePath().normalize();
         LOG.info("Configured image directory: {}", directory);
@@ -231,6 +238,15 @@ public class ImageProcessorBackfill {
                 metricService.updateValue("arquivo_images_processor_backfill_discared_articles_total", discaredArticlesTotal.getAndIncrement());
                 return null;
             }
+
+            // Check if the image is a screenshot of an error page (e.g. "Service Unavailable")
+            if (imageTextDetector.isErrorPage(image)) {
+                discardedBloomFilter.markAsDiscarded(articleId);
+                LOG.warn("Error page image discarded for article {}", articleId);
+                metricService.updateValue("arquivo_images_processor_backfill_discared_articles_total", discaredArticlesTotal.getAndIncrement());
+                return null;
+            }
+
             return image;
         } catch (IOException e) {
             LOG.error("Failed to decode screenshot for article {}: {}", articleId, e.getMessage());

@@ -51,6 +51,7 @@ public class ImageProcessorListener {
     public static final String ARQUIVO_IMAGE_PROCESSOR_DUPLICATE_FILES_TOTAL = "arquivo_image_processor_duplicate_files_total";
     public static final String ARQUIVO_IMAGE_PROCESSOR_NO_TEXT_IMAGES_TOTAL = "arquivo_image_processor_no_text_images_total";
     public static final String ARQUIVO_IMAGE_PROCESSOR_RESPONSE_ITEMS_SENT_TO_KAFKA_TOTAL = "arquivo_image_processor_response_items_sent_to_kafka_total";
+    public static final String ARQUIVO_IMAGE_PROCESSOR_ERROR_PAGE_IMAGES_TOTAL = "arquivo_image_processor_error_page_images_total";
 
     private final KafkaPublisher kafkaPublisher;
 
@@ -68,6 +69,7 @@ public class ImageProcessorListener {
     private final AtomicLong responseItemsIncompleteTotal = new AtomicLong(0);
     private final AtomicLong duplicateFilesTotal = new AtomicLong(0);
     private final AtomicLong responseItemsSentToKafkaTotal = new AtomicLong(0);
+    private final AtomicLong errorPageImagesTotal = new AtomicLong(0);
 
     private final LocalDateTime start = LocalDateTime.now(ZoneOffset.UTC);
     private LocalDateTime nextProgressLog = start.plusMinutes(SHOW_STATS_INTERVAL_MINS);
@@ -120,6 +122,7 @@ public class ImageProcessorListener {
         duplicateFilesTotal.set(metricService.loadValue(ARQUIVO_IMAGE_PROCESSOR_DUPLICATE_FILES_TOTAL));
         noTextImageTotal.set(metricService.loadValue(ARQUIVO_IMAGE_PROCESSOR_NO_TEXT_IMAGES_TOTAL));
         responseItemsSentToKafkaTotal.set(metricService.loadValue(ARQUIVO_IMAGE_PROCESSOR_RESPONSE_ITEMS_SENT_TO_KAFKA_TOTAL));
+        errorPageImagesTotal.set(metricService.loadValue(ARQUIVO_IMAGE_PROCESSOR_ERROR_PAGE_IMAGES_TOTAL));
 
         directory = Paths.get(imagePathDirectory).toAbsolutePath().normalize();
         LOG.info("Configured image directory: {}", directory);
@@ -244,6 +247,14 @@ public class ImageProcessorListener {
             return null;
         }
 
+        // Check if the image is a screenshot of an error page (e.g. "Service Unavailable")
+        if (imageTextDetector.isErrorPage(image)) {
+            metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_ERROR_PAGE_IMAGES_TOTAL, errorPageImagesTotal.incrementAndGet());
+            discardedBloomFilter.markAsDiscarded(articleHash);
+            LOG.warn("Error page image discarded, articleHash={}", articleHash);
+            return null;
+        }
+
         // Check if truly blank (uniform color)
         if (ImageBlankDetector.isBlank(image, 30, 0.20, 5)) {
             metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_BLANK_IMAGES_TOTAL, blankImagesTotal.incrementAndGet());
@@ -359,6 +370,7 @@ public class ImageProcessorListener {
             LOG.info("------------------------------------");
             LOG.info("Total received messages: {}", responseItemsReceivedTotal.get());
             LOG.info("Total blank images: {}", blankImagesTotal.get());
+            LOG.info("Total error page images: {}", errorPageImagesTotal.get());
             LOG.info("Total no-text images: {}", noTextImageTotal.get());
             LOG.info("Total response items incomplete: {}", responseItemsIncompleteTotal.get());
             LOG.info("Total duplicate files skipped: {}", duplicateFilesTotal.get());

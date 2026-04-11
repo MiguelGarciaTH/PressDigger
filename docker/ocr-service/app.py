@@ -111,6 +111,53 @@ async def extract_text(
         logger.error(f"Error extracting text: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Text extraction failed: {str(e)}")
 
+
+# Phrases that identify error/unavailable pages (all lowercase for comparison)
+ERROR_PAGE_PHRASES = [
+    "service unavailable",
+    "temporarily unable to service your request",
+    "maintenance downtime",
+    "capacity problems",
+    "please try again later",
+]
+
+
+@app.post("/detect-error-page")
+async def detect_error_page(
+        file: UploadFile = File(...),
+        language: str = "eng"
+):
+    """
+    Detect if an image is a screenshot of an error page (e.g. 'Service Unavailable').
+    Uses English by default since error pages are typically in English.
+    """
+
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+
+        logger.info(f"Checking error page: {file.filename}, size: {image.size}")
+
+        # Extract text with English language (error pages are in English)
+        text = pytesseract.image_to_string(image, lang=language)
+        text_lower = text.lower()
+
+        matched = [phrase for phrase in ERROR_PAGE_PHRASES if phrase in text_lower]
+        is_error = len(matched) >= 2  # require at least 2 phrase matches to reduce false positives
+
+        if is_error:
+            logger.warning(f"Error page detected! Matched phrases: {matched}")
+
+        return {
+            "is_error_page": is_error,
+            "matched_phrases": matched,
+            "extracted_text_preview": text[:300].strip()
+        }
+
+    except Exception as e:
+        logger.error(f"Error detecting error page: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error page detection failed: {str(e)}")
+
 @app.get("/")
 async def root():
     return {
@@ -118,6 +165,7 @@ async def root():
         "endpoints": {
             "/detect-text": "POST - Check if image has text",
             "/extract-text": "POST - Extract all text from image",
+            "/detect-error-page": "POST - Detect error page screenshots (e.g. Service Unavailable)",
             "/health": "GET - Health check"
         }
     }

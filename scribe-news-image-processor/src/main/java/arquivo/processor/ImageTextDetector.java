@@ -93,6 +93,56 @@ public class ImageTextDetector {
     }
 
     /**
+     * Check if the image is a screenshot of an error page (e.g. "Service Unavailable").
+     * Calls the OCR service's /detect-error-page endpoint which extracts text and
+     * looks for known error phrases.
+     *
+     * @param image BufferedImage to check
+     * @return true if the image is an error page screenshot
+     */
+    public boolean isErrorPage(BufferedImage image) {
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ImageIO.write(image, "png", baos);
+            byte[] imageBytes = baos.toByteArray();
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+            MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+            body.add("file", new ByteArrayResource(imageBytes) {
+                @Override
+                public String getFilename() {
+                    return "image.png";
+                }
+            });
+
+            HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+
+            String url = ocrServiceUrl + "/detect-error-page";
+            ResponseEntity<String> response = restTemplate.postForEntity(url, requestEntity, String.class);
+
+            if (response.getStatusCode().is2xxSuccessful()) {
+                JsonNode result = objectMapper.readTree(response.getBody());
+                boolean isError = result.get("is_error_page").asBoolean();
+                if (isError) {
+                    LOG.warn("Error page detected! Matched phrases: {}", result.get("matched_phrases"));
+                }
+                return isError;
+            } else {
+                LOG.warn("OCR error-page detection returned error: {}", response.getStatusCode());
+                return false;
+            }
+        } catch (IOException e) {
+            LOG.error("Failed to convert image to bytes for error page check: {}", e.getMessage());
+            return false;
+        } catch (Exception e) {
+            LOG.error("Error page detection call failed: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Check if OCR service is available.
      */
     public boolean isAvailable() {
