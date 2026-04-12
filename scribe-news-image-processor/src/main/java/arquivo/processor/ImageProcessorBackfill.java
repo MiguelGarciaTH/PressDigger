@@ -222,37 +222,62 @@ public class ImageProcessorBackfill {
             return null;
         }
 
-        final byte[] imageBytes;
-        try {
-            imageBytes = downloadWithRetry(uri);
-        } catch (Exception e) {
-            LOG.error("Failed to fetch screenshot for article {}: {}", articleId, e.getMessage());
-            metricService.updateValue("arquivo_images_processor_backfill_discared_articles_total", discaredArticlesTotal.getAndIncrement());
-            return null;
-        }
+        // Download with retry — if the screenshot service returns a "Service Unavailable"
+        // error page (valid PNG but useless content), we re-download with backoff because
+        // the error is transient (same URL works moments later).
+        BufferedImage image = null;
+        long errorPageBackoff = initialBackoffMs;
 
-        try {
-            final BufferedImage image = ImageIO.read(new ByteArrayInputStream(imageBytes));
-            if (image == null) {
-                LOG.warn("ImageIO.read returned null for article {} (possibly not an image)", articleId);
+        for (int errorPageAttempt = 1; errorPageAttempt <= maxRetries; errorPageAttempt++) {
+            final byte[] imageBytes;
+            try {
+                imageBytes = downloadWithRetry(uri);
+            } catch (Exception e) {
+                LOG.error("Failed to fetch screenshot for article {}: {}", articleId, e.getMessage());
+                metricService.updateValue("arquivo_images_processor_backfill_discared_articles_total", discaredArticlesTotal.getAndIncrement());
+                return null;
+            }
+
+            try {
+                image = ImageIO.read(new ByteArrayInputStream(imageBytes));
+                if (image == null) {
+                    LOG.warn("ImageIO.read returned null for article {} (possibly not an image)", articleId);
+                    metricService.updateValue("arquivo_images_processor_backfill_discared_articles_total", discaredArticlesTotal.getAndIncrement());
+                    return null;
+                }
+            } catch (IOException e) {
+                LOG.error("Failed to decode screenshot for article {}: {}", articleId, e.getMessage());
                 metricService.updateValue("arquivo_images_processor_backfill_discared_articles_total", discaredArticlesTotal.getAndIncrement());
                 return null;
             }
 
             // Check if the image is a screenshot of an error page (e.g. "Service Unavailable")
             if (imageTextDetector.isErrorPage(image)) {
+                if (errorPageAttempt < maxRetries) {
+                    LOG.warn("Error page detected for article {} (attempt {}/{}). Retrying in {}ms...",
+                            articleId, errorPageAttempt, maxRetries, errorPageBackoff);
+                    try {
+                        Thread.sleep(errorPageBackoff);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        return null;
+                    }
+                    errorPageBackoff = (long) (errorPageBackoff * backoffMultiplier);
+                    image = null; // force retry
+                    continue;
+                }
+                // All retries exhausted — permanently discard
+                LOG.warn("Error page persisted after {} attempts, discarding article {}", maxRetries, articleId);
                 discardedBloomFilter.markAsDiscarded(articleId);
-                LOG.warn("Error page image discarded for article {}", articleId);
                 metricService.updateValue("arquivo_images_processor_backfill_discared_articles_total", discaredArticlesTotal.getAndIncrement());
                 return null;
             }
 
-            return image;
-        } catch (IOException e) {
-            LOG.error("Failed to decode screenshot for article {}: {}", articleId, e.getMessage());
-            metricService.updateValue("arquivo_images_processor_backfill_discared_articles_total", discaredArticlesTotal.getAndIncrement());
-            return null;
+            // Not an error page — break out of the retry loop
+            break;
         }
+
+        return image;
     }
 
     // Downloads the full response body as bytes with exponential-backoff retries.
