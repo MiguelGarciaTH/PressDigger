@@ -112,12 +112,13 @@ async def extract_text(
         raise HTTPException(status_code=500, detail=f"Text extraction failed: {str(e)}")
 
 
-# Phrases that identify error/unavailable pages (all lowercase for comparison)
-ERROR_PAGE_PHRASES = [
-    "service unavailable",
+# The mandatory phrase that MUST appear (the actual error page header)
+ERROR_PAGE_MANDATORY_PHRASE = "service unavailable"
+
+# Supporting phrases — at least 1 must also match alongside the mandatory phrase
+ERROR_PAGE_SUPPORTING_PHRASES = [
     "temporarily unable to service your request",
-    "maintenance downtime",
-    "capacity problems",
+    "maintenance downtime or capacity problems",
     "please try again later",
 ]
 
@@ -130,6 +131,11 @@ async def detect_error_page(
     """
     Detect if an image is a screenshot of an error page (e.g. 'Service Unavailable').
     Uses English by default since error pages are typically in English.
+
+    Detection requires:
+      1) The mandatory header phrase "service unavailable" must be present
+      2) At least 1 supporting phrase must also match
+    This avoids false positives from OCR noise on Portuguese article screenshots.
     """
 
     try:
@@ -142,16 +148,22 @@ async def detect_error_page(
         text = pytesseract.image_to_string(image, lang=language)
         text_lower = text.lower()
 
-        matched = [phrase for phrase in ERROR_PAGE_PHRASES if phrase in text_lower]
-        is_error = len(matched) >= 2  # require at least 2 phrase matches to reduce false positives
+        has_mandatory = ERROR_PAGE_MANDATORY_PHRASE in text_lower
+        matched_supporting = [p for p in ERROR_PAGE_SUPPORTING_PHRASES if p in text_lower]
+
+        # Require mandatory phrase + at least 1 supporting phrase
+        is_error = has_mandatory and len(matched_supporting) >= 1
 
         if is_error:
-            logger.warning(f"Error page detected! Matched phrases: {matched}")
+            logger.warning(f"Error page detected! Supporting phrases: {matched_supporting}")
+        else:
+            logger.info(f"Not an error page. mandatory={has_mandatory}, supporting={matched_supporting}")
 
         return {
             "is_error_page": is_error,
-            "matched_phrases": matched,
-            "extracted_text_preview": text[:300].strip()
+            "has_mandatory_phrase": has_mandatory,
+            "matched_supporting_phrases": matched_supporting,
+            "extracted_text_preview": text[:500].strip()
         }
 
     except Exception as e:
