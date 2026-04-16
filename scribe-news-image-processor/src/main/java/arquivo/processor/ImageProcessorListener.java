@@ -223,74 +223,53 @@ public class ImageProcessorListener {
             return null;
         }
 
-        // Download with retry — if the screenshot service returns a "Service Unavailable"
-        // error page (valid PNG but useless content), we re-download with backoff because
-        // the error is transient (same URL works moments later).
-        BufferedImage image = null;
-        long errorPageBackoff = initialBackoffMs;
-
-        for (int errorPageAttempt = 1; errorPageAttempt <= maxRetries; errorPageAttempt++) {
-            final byte[] imageBytes;
-            try {
-                imageBytes = downloadWithRetry(uri);
-            } catch (Exception e) {
-                LOG.error("Failed to fetch image: {}", e.getMessage());
-                metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL, responseItemsIncompleteTotal.incrementAndGet());
-                return null;
-            }
-
-            try {
-                image = ImageIO.read(new ByteArrayInputStream(imageBytes));
-            } catch (IOException e) {
-                LOG.error("Failed to decode image: {}", e.getMessage());
-                metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL, responseItemsIncompleteTotal.incrementAndGet());
-                return null;
-            }
-
-            if (image == null) {
-                LOG.warn("ImageIO.read returned null for URL {}", imageUrl);
-                metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL, responseItemsIncompleteTotal.incrementAndGet());
-                return null;
-            }
-
-            // Check if the image is a screenshot of an error page (e.g. "Service Unavailable")
-            if (imageTextDetector.isErrorPage(image)) {
-                metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_ERROR_PAGE_IMAGES_TOTAL, errorPageImagesTotal.incrementAndGet());
-                if (errorPageAttempt < maxRetries) {
-                    LOG.warn("Error page detected for articleHash={} (attempt {}/{}). Retrying in {}ms...",
-                            articleHash, errorPageAttempt, maxRetries, errorPageBackoff);
-                    try {
-                        Thread.sleep(errorPageBackoff);
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        return null;
-                    }
-                    errorPageBackoff = (long) (errorPageBackoff * backoffMultiplier);
-                    image = null; // force retry
-                    continue;
-                }
-                // All retries exhausted — permanently discard
-                LOG.warn("Error page persisted after {} attempts, discarding articleHash={}", maxRetries, articleHash);
-                discardedBloomFilter.markAsDiscarded(articleHash);
-                return null;
-            }
-
-            // Not an error page — break out of the retry loop
-            break;
+        // Download with retry (exponential backoff handled inside downloadWithRetry).
+        final byte[] imageBytes;
+        try {
+            imageBytes = downloadWithRetry(uri);
+        } catch (Exception e) {
+            LOG.error("Failed to fetch image: {}", e.getMessage());
+            metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL, responseItemsIncompleteTotal.incrementAndGet());
+            return null;
         }
 
-        // Check if truly blank (uniform color)
-        if (ImageBlankDetector.isBlank(image, 30, 0.20, 5)) {
+        BufferedImage image;
+        try {
+            image = ImageIO.read(new ByteArrayInputStream(imageBytes));
+        } catch (IOException e) {
+            LOG.error("Failed to decode image: {}", e.getMessage());
+            metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL, responseItemsIncompleteTotal.incrementAndGet());
+            return null;
+        }
+
+        if (image == null) {
+            LOG.warn("ImageIO.read returned null for URL {}", imageUrl);
+            metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL, responseItemsIncompleteTotal.incrementAndGet());
+            return null;
+        }
+
+        // Check for error page only after all HTTP retries succeeded —
+        // most failures are timeouts, so this avoids expensive OCR on transient issues.
+        if (imageTextDetector.isErrorPage(image)) {
+            metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_ERROR_PAGE_IMAGES_TOTAL, errorPageImagesTotal.incrementAndGet());
+            LOG.warn("Error page detected, discarding articleHash={}", articleHash);
+            discardedBloomFilter.markAsDiscarded(articleHash);
+            return null;
+        }
+
+
+        // Check if truly blank (uniform color — >99% of pixels are the same)
+        if (ImageBlankDetector.isBlank(image, 10, 0.01, 5)) {
             metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_BLANK_IMAGES_TOTAL, blankImagesTotal.incrementAndGet());
             discardedBloomFilter.markAsDiscarded(articleHash);
             LOG.debug("Blank image discarded, articleHash={}", articleHash);
             return null;
         }
 
-        if (!imageTextDetector.hasText(image, 250)) {
+        if (!imageTextDetector.hasText(image, 50)) {
             metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_NO_TEXT_IMAGES_TOTAL, noTextImageTotal.incrementAndGet());
             discardedBloomFilter.markAsDiscarded(articleHash);
-            LOG.debug("No-text image discarded, articleHash={}", articleHash);
+            LOG.debug("No-text image discarded (fewer than 50 words), articleHash={}", articleHash);
             return null;
         }
 
