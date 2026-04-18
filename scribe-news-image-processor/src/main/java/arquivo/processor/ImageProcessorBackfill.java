@@ -59,7 +59,7 @@ public class ImageProcessorBackfill {
     @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.backoff-multiplier:2.0}")
     private double backoffMultiplier;
 
-    @Value("${scribe-ref.arquivo.scribe-news-image-processor.thread-pool-size:2}")
+    @Value("${scribe-ref.arquivo.scribe-news-image-processor.thread-pool-size:1}")
     private int threadPoolSize;
 
     // Maximum number of concurrent HTTP requests to arquivo.pt.
