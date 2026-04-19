@@ -248,16 +248,6 @@ public class ImageProcessorListener {
             return null;
         }
 
-        // Check for error page only after all HTTP retries succeeded —
-        // most failures are timeouts, so this avoids expensive OCR on transient issues.
-        if (imageTextDetector.isErrorPage(image)) {
-            metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_ERROR_PAGE_IMAGES_TOTAL, errorPageImagesTotal.incrementAndGet());
-            LOG.warn("Error page detected, discarding articleHash={}", articleHash);
-            discardedBloomFilter.markAsDiscarded(articleHash);
-            return null;
-        }
-
-
         // Check if truly blank (uniform color — >99% of pixels are the same)
         if (ImageBlankDetector.isBlank(image, 10, 0.01, 5)) {
             metricService.updateValue(ARQUIVO_IMAGE_PROCESSOR_BLANK_IMAGES_TOTAL, blankImagesTotal.incrementAndGet());
