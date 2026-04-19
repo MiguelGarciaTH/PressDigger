@@ -21,6 +21,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import arquivo.filter.RateLimitFilter;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -44,12 +47,14 @@ public class Rest {
 class SecurityConfig {
 
     private final UserRepository userRepository;
+    private final RateLimitFilter rateLimitFilter;
 
     @Value("${app.frontend-url:http://localhost:5173}")
     private String frontendUrl;
 
-    public SecurityConfig(UserRepository userRepository) {
+    public SecurityConfig(UserRepository userRepository, RateLimitFilter rateLimitFilter) {
         this.userRepository = userRepository;
+        this.rateLimitFilter = rateLimitFilter;
     }
 
     @Bean
@@ -72,6 +77,7 @@ class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
+                .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .headers(headers -> headers
@@ -97,6 +103,13 @@ class SecurityConfig {
                         .maximumSessions(1)
                 );
         return http.build();
+    }
+
+    @Bean
+    public FilterRegistrationBean<RateLimitFilter> disableAutoRegistration(RateLimitFilter filter) {
+        FilterRegistrationBean<RateLimitFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
     }
 
     @Bean
