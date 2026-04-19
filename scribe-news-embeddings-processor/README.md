@@ -4,11 +4,11 @@ A Spring Boot application that generates and stores vector embeddings for articl
 
 ## Overview
 
-This module processes article content by generating vector embeddings via OpenAI's `text-embedding-3-small` model. It chunks article text, creates 1024-dimensional semantic embeddings, and stores them in PostgreSQL with pgvector support for efficient similarity search.
+This module processes article content by generating vector embeddings via OpenAI's `text-embedding-3-large` model. It chunks article text, creates 2000-dimensional semantic embeddings, and stores them in PostgreSQL with pgvector support for efficient similarity search.
 
 ## Features
 
-- Generates 1024-dim vector embeddings for article chunks via OpenAI API
+- Generates 2000-dim vector embeddings for article chunks via OpenAI API
 - Stores embeddings in PostgreSQL with pgvector
 - Supports chunk-based processing
 - Backfill mode to process existing articles without embeddings
@@ -18,7 +18,7 @@ This module processes article content by generating vector embeddings via OpenAI
 
 - Spring Boot
 - Spring Kafka
-- OpenAI Java Client (`text-embedding-3-small`)
+- OpenAI Java Client (`text-embedding-3-large`)
 - PostgreSQL with pgvector extension
 - Hypersistence Utils
 
@@ -30,7 +30,7 @@ Configure the application using `application.properties` or environment variable
 - Kafka broker settings
 - `OPEN_IA_API_KEY` — OpenAI API key
 - Chunking parameters
-- Vector dimension settings (1024)
+- Vector dimension settings (2000)
 
 ## Running
 

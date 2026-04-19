@@ -25,10 +25,10 @@ public interface ArticleChunkMediumRepository extends JpaRepository<ArticleChunk
                       INNER JOIN article a ON a.id = ac.article_id
                       WHERE
                         (
-                          ac.embedding <=> CAST(:embedding AS vector) < 0.60
+                          ac.embedding <=> CAST(:embedding AS vector) < 0.55
                           OR
                           (
-                            ac.embedding <=> CAST(:embedding AS vector) < 0.80
+                            ac.embedding <=> CAST(:embedding AS vector) < 0.70
                             AND ac.tsv @@ websearch_to_tsquery('portuguese', :text)
                           )
                         )
@@ -45,10 +45,10 @@ public interface ArticleChunkMediumRepository extends JpaRepository<ArticleChunk
                     INNER JOIN article a ON a.id = ac.article_id
                     WHERE
                       (
-                        ac.embedding <=> CAST(:embedding AS vector) < 0.60
+                        ac.embedding <=> CAST(:embedding AS vector) < 0.55
                         OR
                         (
-                          ac.embedding <=> CAST(:embedding AS vector) < 0.80
+                          ac.embedding <=> CAST(:embedding AS vector) < 0.70
                           AND ac.tsv @@ websearch_to_tsquery('portuguese', :text)
                         )
                       )
@@ -73,10 +73,10 @@ public interface ArticleChunkMediumRepository extends JpaRepository<ArticleChunk
                       INNER JOIN article a ON a.id = ac.article_id
                       WHERE
                         (
-                          ac.embedding <=> CAST(:embedding AS vector) < 0.55
+                          ac.embedding <=> CAST(:embedding AS vector) < 0.50
                           OR
                           (
-                            ac.embedding <=> CAST(:embedding AS vector) < 0.75
+                            ac.embedding <=> CAST(:embedding AS vector) < 0.65
                             AND ac.tsv @@ websearch_to_tsquery('portuguese', :text)
                           )
                         )
@@ -97,10 +97,10 @@ public interface ArticleChunkMediumRepository extends JpaRepository<ArticleChunk
                       CROSS JOIN best_match bm
                       WHERE
                         (
-                          ac.embedding <=> CAST(:embedding AS vector) < 0.60
+                          ac.embedding <=> CAST(:embedding AS vector) < 0.55
                           OR
                           (
-                            ac.embedding <=> CAST(:embedding AS vector) < 0.80
+                            ac.embedding <=> CAST(:embedding AS vector) < 0.70
                             AND ac.tsv @@ websearch_to_tsquery('portuguese', :text)
                           )
                         )
@@ -124,4 +124,3 @@ public interface ArticleChunkMediumRepository extends JpaRepository<ArticleChunk
                                           @Param("dayWindow") int dayWindow,
                                           @Param("limit") int limit);
 }
-

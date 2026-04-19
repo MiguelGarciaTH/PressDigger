@@ -12,7 +12,7 @@ import java.util.List;
 public class OpenAiEmbeddingClient {
 
     private static final Logger LOG = LoggerFactory.getLogger(OpenAiEmbeddingClient.class);
-    private static final int DIMENSIONS = 1024; // matches article_chunk_medium vector(1024)
+    private static final int DIMENSIONS = 2000; // max for pgvector HNSW index
 
     private final OpenAIClient client;
 

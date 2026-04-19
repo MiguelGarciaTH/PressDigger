@@ -10,7 +10,7 @@ This module provides a RESTful API for accessing articles stored in the database
 
 - RESTful endpoints for article retrieval
 - Text-based article search
-- Semantic search using OpenAI vector embeddings (`text-embedding-3-small`)
+- Semantic search using OpenAI vector embeddings (`text-embedding-3-large`)
 - Image content streaming
 - CORS support for cross-origin requests
 - Pagination support
@@ -20,7 +20,7 @@ This module provides a RESTful API for accessing articles stored in the database
 - Spring Boot Web
 - Spring Data JPA
 - PostgreSQL with pgvector
-- OpenAI Java Client (`text-embedding-3-small` for query embeddings, `gpt-4o-mini` for narrative generation)
+- OpenAI Java Client (`text-embedding-3-large` for query embeddings, `gpt-4o-mini` for narrative generation)
 
 
 ## Configuration
