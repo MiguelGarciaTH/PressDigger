@@ -2,7 +2,9 @@ package arquivo.processor;
 
 import arquivo.model.*;
 import arquivo.repository.*;
+import arquivo.services.CohereEmbeddingClient;
 import arquivo.services.MetricService;
+import arquivo.services.EmbeddingClient;
 import arquivo.services.OpenAiEmbeddingClient;
 import arquivo.utils.UrlNormalizer;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -48,7 +50,8 @@ public class TextEmbeddingListener {
 
     private final LocalDateTime start = LocalDateTime.now(ZoneOffset.UTC);
     private LocalDateTime nextProgressLog = start.plusMinutes(SHOW_STATS_INTERVAL_MINS);
-    private final OpenAiEmbeddingClient embeddingClient;
+    private final EmbeddingClient embeddingClient;
+    private final boolean useCohere;
     private final YakeClient yakeClient;
 
     private final ArticleRepository articleRepository;
@@ -66,7 +69,9 @@ public class TextEmbeddingListener {
                                  KeywordRepository keywordRepository,
                                  ArticleKeywordScoreRepository articleKeywordScoreRepository,
                                  AuthorRepository authorRepository,
-                                 @Value("${scribe-ref.arquivo.scribe-news-embeddings-processor.open-ai.api-key}") String apiKey) {
+                                 @Value("${scribe-ref.arquivo.scribe-news-embeddings-processor.open-ai.api-key}") String openAiApiKey,
+                                 @Value("${scribe-ref.arquivo.scribe-news-embeddings-processor.cohere.api-key:}") String cohereApiKey,
+                                 @Value("${scribe-ref.embedding.provider:openai}") String embeddingProvider) {
         this.metricService = metricService;
         this.objectMapper = new ObjectMapper();
         this.articleRepository = articleRepository;
@@ -75,7 +80,12 @@ public class TextEmbeddingListener {
         this.keywordRepository = keywordRepository;
         this.articleKeywordScoreRepository = articleKeywordScoreRepository;
         this.authorRepository = authorRepository;
-        this.embeddingClient = new OpenAiEmbeddingClient(apiKey);
+        this.useCohere = "cohere".equalsIgnoreCase(embeddingProvider);
+        if (this.useCohere) {
+            this.embeddingClient = new CohereEmbeddingClient(cohereApiKey);
+        } else {
+            this.embeddingClient = new OpenAiEmbeddingClient(openAiApiKey);
+        }
         this.yakeClient = new YakeClient("http://localhost:8002");
 
         responseItemsIncompleteTotal.set(metricService.loadValue(ARQUIVO_EMBEDDINGS_PROCESSOR_RESPONSE_ITEMS_INCOMPLETE_TOTAL));
@@ -158,8 +168,14 @@ public class TextEmbeddingListener {
                 String normalizedChunk = chunk.trim().replaceAll("[.,;:!?]+$", "");
                 // Prepend the article title so each chunk carries topic context for the embedding model
                 String textToEmbed = title.isBlank() ? normalizedChunk : title + "\n" + normalizedChunk;
-                float[] vector = embeddingClient.getEmbedding(textToEmbed);
-                articleChunkMediumRepository.save(new ArticleChunkMedium(article, i++, chunk, vector));
+                float[] vector = embeddingClient.getDocumentEmbedding(textToEmbed);
+                if (useCohere) {
+                    ArticleChunkMedium chunkEntity = new ArticleChunkMedium(article, i++, chunk, null);
+                    chunkEntity.setEmbeddingCohere(vector);
+                    articleChunkMediumRepository.save(chunkEntity);
+                } else {
+                    articleChunkMediumRepository.save(new ArticleChunkMedium(article, i++, chunk, vector));
+                }
             }
 
             printStats();

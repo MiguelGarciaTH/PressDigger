@@ -4,6 +4,8 @@ import arquivo.model.Article;
 import arquivo.model.ArticleChunkMedium;
 import arquivo.repository.ArticleChunkMediumRepository;
 import arquivo.repository.ArticleRepository;
+import arquivo.services.CohereEmbeddingClient;
+import arquivo.services.EmbeddingClient;
 import arquivo.services.MetricService;
 import arquivo.services.OpenAiEmbeddingClient;
 import org.slf4j.Logger;
@@ -21,6 +23,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Component
 @ConditionalOnProperty(name = "scribe-ref.arquivo.scribe-news-embeddings-processor-backfill.enable", havingValue = "true")
@@ -34,21 +37,32 @@ public class TextEmbeddingBackfill {
     private long fetchedArticlesWithoutMediumChunksTotal, savedArticlesWithMediumChunksTotal, savedMediumChunksTotal;
     private final LocalDateTime start = LocalDateTime.now(ZoneOffset.UTC);
     private LocalDateTime nextProgressLog = start.plusMinutes(SHOW_STATS_INTERVAL_MINS);
-    private final OpenAiEmbeddingClient embeddingClient;
+    private final EmbeddingClient embeddingClient;
+    private final boolean useCohere;
 
     private final ArticleRepository articleRepository;
     private final ArticleChunkMediumRepository articleChunkRepository;
+    private final TransactionTemplate transactionTemplate;
 
     @Autowired
     public TextEmbeddingBackfill(MetricService metricService,
                                  ArticleRepository articleRepository,
                                  ArticleChunkMediumRepository articleChunkRepository,
-                                 @Value("${scribe-ref.arquivo.scribe-news-embeddings-processor.open-ai.api-key}") String apiKey) {
+                                 TransactionTemplate transactionTemplate,
+                                 @Value("${scribe-ref.arquivo.scribe-news-embeddings-processor.open-ai.api-key}") String openAiApiKey,
+                                 @Value("${scribe-ref.arquivo.scribe-news-embeddings-processor.cohere.api-key:}") String cohereApiKey,
+                                 @Value("${scribe-ref.embedding.provider:openai}") String embeddingProvider) {
 
         this.metricService = metricService;
         this.articleRepository = articleRepository;
         this.articleChunkRepository = articleChunkRepository;
-        this.embeddingClient = new OpenAiEmbeddingClient(apiKey);
+        this.transactionTemplate = transactionTemplate;
+        this.useCohere = "cohere".equalsIgnoreCase(embeddingProvider);
+        if (this.useCohere) {
+            this.embeddingClient = new CohereEmbeddingClient(cohereApiKey);
+        } else {
+            this.embeddingClient = new OpenAiEmbeddingClient(openAiApiKey);
+        }
 
         fetchedArticlesWithoutMediumChunksTotal = metricService.loadValue("arquivo_embeddings_processor_fechted_items_without_medium_chunks_total");
         savedArticlesWithMediumChunksTotal = metricService.loadValue("arquivo_embeddings_processor_saved_items_with_medium_chunks_total");
@@ -57,28 +71,73 @@ public class TextEmbeddingBackfill {
 
     @EventListener(ApplicationReadyEvent.class)
     public void backfill() {
-        LOG.info("Starting backfill process for articles chunks...");
-        final List<Article> articles = articleRepository.findAllWithouChunks();
+        LOG.info("Starting backfill process (provider={})...", useCohere ? "cohere" : "openai");
 
-        LOG.info("Fetched {} articles without medium chunks", articles.size());
-        fetchedArticlesWithoutMediumChunksTotal = fetchedArticlesWithoutMediumChunksTotal + articles.size();
+        // 1. Create chunks for articles that have none yet (only applies when using the primary provider, i.e. OpenAI)
+        if (!useCohere) {
+            final List<Article> articlesWithoutChunks = articleRepository.findAllWithoutChunks();
+            LOG.info("Fetched {} articles without any chunks", articlesWithoutChunks.size());
+            fetchedArticlesWithoutMediumChunksTotal += articlesWithoutChunks.size();
 
-        int j = 0;
-        for (Article article : articles) {
-            final String title = article.getTitle() != null ? article.getTitle().trim() : "";
-            final List<String> chunks = createChunksByThreeSentences(article.getSummary());
-            int i = 0;
-            for (String chunk : chunks) {
-                String normalizedChunk = chunk.trim().replaceAll("[.,;:!?]+$", "");
-                // Prepend the article title so each chunk carries topic context for the embedding model
-                String textToEmbed = title.isBlank() ? normalizedChunk : title + "\n" + normalizedChunk;
-                float[] vector = embeddingClient.getEmbedding(textToEmbed);
-                articleChunkRepository.save(new ArticleChunkMedium(article, i++, chunk, vector));
+            int j = 0;
+            for (Article article : articlesWithoutChunks) {
+                final String title = article.getTitle() != null ? article.getTitle().trim() : "";
+                final List<String> chunks = createChunksByThreeSentences(article.getSummary());
+                int i = 0;
+                for (String chunk : chunks) {
+                    String normalizedChunk = chunk.trim().replaceAll("[.,;:!?]+$", "");
+                    String textToEmbed = title.isBlank() ? normalizedChunk : title + "\n" + normalizedChunk;
+                    float[] vector = embeddingClient.getDocumentEmbedding(textToEmbed);
+                    articleChunkRepository.save(new ArticleChunkMedium(article, i++, chunk, vector));
+                }
+                LOG.info("Created {} chunks for article id {} ( {}/{} )", i, article.getId(), j++, articlesWithoutChunks.size());
             }
-            LOG.info("Saved {} chunks for article id {} ( {}/{} )", i, article.getId(), j++, articles.size());
         }
 
-        metricService.updateValue("arquivo_embeddings_processor_fechted_items_without_medium_chunks_total", articles.size());
+        // 2. Backfill null embeddings on existing chunks for the active provider
+        final List<Article> articlesWithNullEmbedding = transactionTemplate.execute(status -> useCohere
+                ? articleRepository.findAllWithNullEmbeddingCohere()
+                : articleRepository.findAllWithNullEmbedding());
+        LOG.info("Fetched {} articles with null {} embedding on their chunks", articlesWithNullEmbedding.size(), useCohere ? "cohere" : "openai");
+
+        int k = 0;
+        for (Article article : articlesWithNullEmbedding) {
+            final String title = article.getTitle() != null ? article.getTitle().trim() : "";
+
+            // Collect chunks that need backfill and their texts
+            List<ArticleChunkMedium> chunksToBackfill = new ArrayList<>();
+            List<String> textsToEmbed = new ArrayList<>();
+            for (ArticleChunkMedium chunk : article.getArticleChunksMedium()) {
+                boolean needsBackfill = useCohere ? chunk.getEmbeddingCohere() == null : chunk.getEmbedding() == null;
+                if (!needsBackfill) continue;
+                chunksToBackfill.add(chunk);
+                String normalizedContent = chunk.getContent().trim().replaceAll("[.,;:!?]+$", "");
+                textsToEmbed.add(title.isBlank() ? normalizedContent : title + "\n" + normalizedContent);
+            }
+
+            if (textsToEmbed.isEmpty()) continue;
+
+            // Batch embed all chunks for this article in one API call
+            List<float[]> vectors = embeddingClient.getDocumentEmbeddingBatch(textsToEmbed);
+
+            // Save in its own transaction so it commits immediately
+            final List<ArticleChunkMedium> finalChunks = chunksToBackfill;
+            transactionTemplate.executeWithoutResult(status -> {
+                for (int idx = 0; idx < finalChunks.size(); idx++) {
+                    String vectorLiteral = embeddingClient.toPgVectorLiteral(vectors.get(idx));
+                    if (useCohere) {
+                        articleChunkRepository.updateEmbeddingCohereById(finalChunks.get(idx).getId(), vectorLiteral);
+                    } else {
+                        articleChunkRepository.updateEmbeddingById(finalChunks.get(idx).getId(), vectorLiteral);
+                    }
+                }
+            });
+            if (++k % 100 == 0) {
+                LOG.info("Backfilled {}/{} articles", k, articlesWithNullEmbedding.size());
+            }
+        }
+        LOG.info("Backfilled {} articles with {} embeddings", k, useCohere ? "cohere" : "openai");
+
         metricService.updateValue("arquivo_embeddings_processor_saved_items_with_medium_chunks_total", 0);
         metricService.updateValue("arquivo_embeddings_processor_saved_medium_chunks_total", 0);
 

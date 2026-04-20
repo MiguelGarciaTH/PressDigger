@@ -17,8 +17,14 @@ public interface ArticleRepository extends JpaRepository<Article, Integer> {
     @EntityGraph(value = "Article.withArticleChunks")
     Optional<Article> findById(int articleId);
 
+    @Query("SELECT DISTINCT a FROM Article a JOIN FETCH a.articleChunksMedium c WHERE c.embedding IS NULL")
+    List<Article> findAllWithNullEmbedding();
+
+    @Query("SELECT DISTINCT a FROM Article a JOIN FETCH a.articleChunksMedium c WHERE c.embeddingCohere IS NULL")
+    List<Article> findAllWithNullEmbeddingCohere();
+
     @Query("SELECT a FROM Article a WHERE SIZE(a.articleChunksMedium) = 0")
-    List<Article> findAllWithouChunks();
+    List<Article> findAllWithoutChunks();
 
     Page<Article> getArticlesByAuthorId(int authorId, Pageable pageable);
 

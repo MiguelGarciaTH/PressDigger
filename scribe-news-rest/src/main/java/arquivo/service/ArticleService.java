@@ -8,6 +8,8 @@ import arquivo.repository.ArticleChunkMediumRepository;
 import arquivo.repository.ArticleRepository;
 import arquivo.repository.SiteRepository;
 import arquivo.repository.UserRepository;
+import arquivo.services.CohereEmbeddingClient;
+import arquivo.services.EmbeddingClient;
 import arquivo.services.OpenAiEmbeddingClient;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -34,29 +36,37 @@ public class ArticleService {
     private final ArticleRepository articleRepository;
     private final ArticleChunkMediumRepository articleChunkRepository;
     private final UserRepository userRepository;
-    private final OpenAiEmbeddingClient embeddingClient;
+    private final EmbeddingClient embeddingClient;
     private final OpenAiIntegrationNarrative openAiIntegrationNarrative;
     private final SiteRepository siteRepository;
     private final ObjectMapper objectMapper;
+    private final boolean useCohere;
 
-    @Value("${scribe-ref.arquivo.scribe-news-rest.open-ia.max-usage}")
+    @Value("${scribe-ref.arquivo.scribe-news-rest.open-ai.max-usage}")
     private int maxOpenAIUsage;
 
-    @Value("${scribe-ref.arquivo.scribe-news-rest.open-ia.max-usage-period}")
+    @Value("${scribe-ref.arquivo.scribe-news-rest.open-ai.max-usage-period}")
     private Duration maxOpenAIUsagePeriod;
 
     public ArticleService(ArticleRepository articleRepository,
                           UserRepository userRepository,
                           ArticleChunkMediumRepository articleChunkRepository,
                           SiteRepository siteRepository,
-                          @Value("${scribe-ref.arquivo.scribe-news-rest.open-ai.api-key}") String apiKey) {
+                          @Value("${scribe-ref.arquivo.scribe-news-rest.open-ai.api-key}") String openAiApiKey,
+                          @Value("${scribe-ref.arquivo.scribe-news-rest.cohere.api-key:}") String cohereApiKey,
+                          @Value("${scribe-ref.embedding.provider:openai}") String embeddingProvider) {
 
         this.articleRepository = articleRepository;
         this.userRepository = userRepository;
         this.articleChunkRepository = articleChunkRepository;
         this.siteRepository = siteRepository;
-        this.embeddingClient = new OpenAiEmbeddingClient(apiKey);
-        this.openAiIntegrationNarrative = new OpenAiIntegrationNarrative(apiKey);
+        this.useCohere = "cohere".equalsIgnoreCase(embeddingProvider);
+        if (this.useCohere) {
+            this.embeddingClient = new CohereEmbeddingClient(cohereApiKey);
+        } else {
+            this.embeddingClient = new OpenAiEmbeddingClient(openAiApiKey);
+        }
+        this.openAiIntegrationNarrative = new OpenAiIntegrationNarrative(openAiApiKey);
         this.objectMapper = new ObjectMapper();
         this.objectMapper.configure(JsonParser.Feature.ALLOW_UNQUOTED_CONTROL_CHARS, true);
     }
@@ -72,13 +82,14 @@ public class ArticleService {
 
     @Transactional(readOnly = true)
     public Page<Article> search(String inputText, List<Integer> siteIds, LocalDateTime startDate, LocalDateTime endDate, Pageable pageable) {
-        // Normalize input text: trim, remove trailing punctuation
         String normalizedText = inputText.trim().replaceAll("[.,;:!?]+$", "");
 
-        float[] vector = embeddingClient.getEmbedding(normalizedText);
+        float[] vector = embeddingClient.getQueryEmbedding(normalizedText);
         String pgVector = embeddingClient.toPgVectorLiteral(vector);
 
-        // Use original input text for full-text search (it handles punctuation well)
+        if (useCohere) {
+            return articleChunkRepository.searchByTextCohere(siteIds, startDate, endDate, pgVector, inputText, pageable);
+        }
         return articleChunkRepository.searchByText(siteIds, startDate, endDate, pgVector, inputText, pageable);
     }
 
@@ -94,10 +105,15 @@ public class ArticleService {
         }
 
         final String normalizedText = inputText.trim().replaceAll("[.,;:!?]+$", "");
-        float[] vector = embeddingClient.getEmbedding(normalizedText);
+        float[] vector = embeddingClient.getQueryEmbedding(normalizedText);
         String pgVector = embeddingClient.toPgVectorLiteral(vector);
 
-        final List<Article> articles = articleChunkRepository.searchByTextToNarrative(siteIds, startDate, endDate, pgVector, inputText, 7, 20);
+        final List<Article> articles;
+        if (useCohere) {
+            articles = articleChunkRepository.searchByTextToNarrativeCohere(siteIds, startDate, endDate, pgVector, inputText, 7, 20);
+        } else {
+            articles = articleChunkRepository.searchByTextToNarrative(siteIds, startDate, endDate, pgVector, inputText, 7, 20);
+        }
         if (articles.size() < 3) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Not enough relevant articles found to create a narrative. Try broadening your search criteria.");
         }

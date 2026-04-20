@@ -74,18 +74,24 @@ CREATE TABLE article_chunk_medium (
     chunk_index INT NOT NULL,
     content TEXT NOT NULL,
     tsv tsvector GENERATED ALWAYS AS (to_tsvector('portuguese', content)) STORED,
-    embedding vector(2000) NOT NULL,
+    embedding vector(2000),
+    embedding_cohere vector(1024),
 
     CONSTRAINT article_chunk_medium_pk PRIMARY KEY (id),
     CONSTRAINT article_chunk_medium_fk_article_id FOREIGN KEY (article_id) REFERENCES article(id)
 );
 
 DROP INDEX IF EXISTS idx_chunks_medium_embedding;
+DROP INDEX IF EXISTS idx_chunks_medium_embedding_cohere;
 
--- No vector index needed at 3072 dimensions (pgvector limit is 2000 for HNSW/IVFFlat).
--- At ~10k rows, brute-force cosine distance scan is fast enough (<300ms).
+-- OpenAI text-embedding-3-large (2000 dims) – fits HNSW limit
 CREATE INDEX idx_chunks_medium_embedding
     ON article_chunk_medium USING hnsw (embedding vector_cosine_ops)
+    WITH (m = 16, ef_construction = 64);
+
+-- Cohere embed-multilingual-v3.0 (1024 dims)
+CREATE INDEX idx_chunks_medium_embedding_cohere
+    ON article_chunk_medium USING hnsw (embedding_cohere vector_cosine_ops)
     WITH (m = 16, ef_construction = 64);
 
 CREATE INDEX idx_chunks_medium_article_id

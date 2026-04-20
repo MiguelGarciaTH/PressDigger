@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
-public class OpenAiEmbeddingClient {
+public class OpenAiEmbeddingClient implements EmbeddingClient {
 
     private static final Logger LOG = LoggerFactory.getLogger(OpenAiEmbeddingClient.class);
     private static final int DIMENSIONS = 2000; // max for pgvector HNSW index
@@ -20,6 +20,16 @@ public class OpenAiEmbeddingClient {
         this.client = OpenAIOkHttpClient.builder()
                 .apiKey(apiKey)
                 .build();
+    }
+
+    @Override
+    public float[] getDocumentEmbedding(String text) {
+        return getEmbedding(text);
+    }
+
+    @Override
+    public float[] getQueryEmbedding(String text) {
+        return getEmbedding(text);
     }
 
     public float[] getEmbedding(String text) {

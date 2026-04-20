@@ -36,12 +36,20 @@ public class ArticleChunkMedium {
     private String tsv;
 
     /**
-     * pgvector embedding
+     * pgvector embedding (OpenAI text-embedding-3-large, 2000 dims)
      */
     @Column(name = "embedding", columnDefinition = "vector(2000)")
     @Type(VectorType.class)
     @JsonIgnore
     private float[] embedding;
+
+    /**
+     * pgvector embedding (Cohere embed-multilingual-v3.0, 1024 dims)
+     */
+    @Column(name = "embedding_cohere", columnDefinition = "vector(1024)")
+    @Type(VectorType.class)
+    @JsonIgnore
+    private float[] embeddingCohere;
 
     public ArticleChunkMedium() {
 
@@ -58,6 +66,14 @@ public class ArticleChunkMedium {
         this.chunkIndex = chunkIndex;
         this.content = content;
         this.embedding = embedding;
+    }
+
+    public ArticleChunkMedium(Article article, int chunkIndex, String content, float[] embedding, float[] embeddingCohere) {
+        this.article = article;
+        this.chunkIndex = chunkIndex;
+        this.content = content;
+        this.embedding = embedding;
+        this.embeddingCohere = embeddingCohere;
     }
 
     public long getId() {
@@ -99,5 +115,13 @@ public class ArticleChunkMedium {
 
     public void setEmbedding(float[] embedding) {
         this.embedding = embedding;
+    }
+
+    public float[] getEmbeddingCohere() {
+        return embeddingCohere;
+    }
+
+    public void setEmbeddingCohere(float[] embeddingCohere) {
+        this.embeddingCohere = embeddingCohere;
     }
 }
