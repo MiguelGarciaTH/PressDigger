@@ -79,19 +79,19 @@ public class ImageProcessorListener {
     @Value("${scribe-ref.arquivo.scribe-news-image-processor.thumbnail.quality:0.8}")
     private double thumbnailQuality;
 
-    @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.connect-timeout-ms:5000}")
+    @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.connect-timeout-ms:30000}")
     private int httpConnectTimeoutMs;
 
-    @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.read-timeout-ms:10000}")
+    @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.read-timeout-ms:600000}")
     private int httpReadTimeoutMs;
 
-    @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.max-retries:3}")
+    @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.max-retries:2}")
     private int maxRetries;
 
     @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.initial-backoff-ms:1000}")
     private long initialBackoffMs;
 
-    @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.backoff-multiplier:2.0}")
+    @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.backoff-multiplier:4.0}")
     private double backoffMultiplier;
 
     @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.max-concurrent-requests:1}")
@@ -186,7 +186,7 @@ public class ImageProcessorListener {
 
                 processImage(originalOutputPath, image);
                 createSmallImage(smallOutputPath, image.getSubimage(0, 0, image.getWidth(), Math.min(image.getHeight() / 2, (image.getWidth() + (image.getWidth() / 2)))));
-                LOG.trace("Processed image stored {}", originalOutputPath);
+                LOG.debug("Processed image stored {}", originalOutputPath);
             }
 
             final ObjectNode articleToTextSummary = objectMapper.createObjectNode()

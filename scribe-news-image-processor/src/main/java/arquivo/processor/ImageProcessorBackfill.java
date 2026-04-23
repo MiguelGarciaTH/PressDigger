@@ -50,13 +50,13 @@ public class ImageProcessorBackfill {
     @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.read-timeout-ms:600000}")
     private int httpReadTimeoutMs;
 
-    @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.max-retries:5}")
+    @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.max-retries:3}")
     private int maxRetries;
 
     @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.initial-backoff-ms:2000}")
     private long initialBackoffMs;
 
-    @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.backoff-multiplier:2.0}")
+    @Value("${scribe-ref.arquivo.scribe-news-image-processor.http.backoff-multiplier:4.0}")
     private double backoffMultiplier;
 
     @Value("${scribe-ref.arquivo.scribe-news-image-processor.thread-pool-size:1}")
