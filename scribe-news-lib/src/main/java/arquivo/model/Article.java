@@ -73,6 +73,7 @@ public class Article {
 
 
     @OneToMany(mappedBy = "article", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<ArticleKeywordScore> articleKeywordsScore;
 
     public Article() {
