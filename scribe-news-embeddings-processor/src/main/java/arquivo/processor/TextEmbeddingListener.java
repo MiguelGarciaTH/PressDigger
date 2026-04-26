@@ -21,13 +21,11 @@ import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 
-import java.text.BreakIterator;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Component
@@ -55,7 +53,6 @@ public class TextEmbeddingListener {
     private final YakeClient yakeClient;
 
     private final ArticleRepository articleRepository;
-    private final ArticleChunkMediumRepository articleChunkMediumRepository;
     private final SiteRepository siteRepository;
     private final KeywordRepository keywordRepository;
     private final ArticleKeywordScoreRepository articleKeywordScoreRepository;
@@ -64,7 +61,6 @@ public class TextEmbeddingListener {
     @Autowired
     public TextEmbeddingListener(MetricService metricService,
                                  ArticleRepository articleRepository,
-                                 ArticleChunkMediumRepository articleChunkMediumRepository,
                                  SiteRepository siteRepository,
                                  KeywordRepository keywordRepository,
                                  ArticleKeywordScoreRepository articleKeywordScoreRepository,
@@ -75,7 +71,6 @@ public class TextEmbeddingListener {
         this.metricService = metricService;
         this.objectMapper = new ObjectMapper();
         this.articleRepository = articleRepository;
-        this.articleChunkMediumRepository = articleChunkMediumRepository;
         this.siteRepository = siteRepository;
         this.keywordRepository = keywordRepository;
         this.articleKeywordScoreRepository = articleKeywordScoreRepository;
@@ -160,25 +155,8 @@ public class TextEmbeddingListener {
                 articleKeywordScoreRepository.saveAll(articleKeywordScores);
             }
 
-            // Create both chunk lists first
-            final String title = article.getTitle() != null ? article.getTitle().trim() : "";
-            final List<String> chunksMedium = createChunksByThreeSentences(summary);
-            int i = 0;
-            for (String chunk : chunksMedium) {
-                String normalizedChunk = chunk.trim().replaceAll("[.,;:!?]+$", "");
-                // Prepend the article title so each chunk carries topic context for the embedding model
-                String textToEmbed = title.isBlank() ? normalizedChunk : title + "\n" + normalizedChunk;
-                float[] vector = embeddingClient.getDocumentEmbedding(textToEmbed);
-                if (useCohere) {
-                    ArticleChunkMedium chunkEntity = new ArticleChunkMedium(article, i++, chunk, null);
-                    chunkEntity.setEmbeddingCohere(vector);
-                    articleChunkMediumRepository.save(chunkEntity);
-                } else {
-                    articleChunkMediumRepository.save(new ArticleChunkMedium(article, i++, chunk, vector));
-                }
-            }
-
             // Store article-level embedding (title + full summary as a single vector)
+            final String title = article.getTitle() != null ? article.getTitle().trim() : "";
             String normalizedSummary = summary.trim().replaceAll("[.,;:!?]+$", "");
             String articleText = title.isBlank() ? normalizedSummary : title + "\n" + normalizedSummary;
             float[] articleVector = embeddingClient.getDocumentEmbedding(articleText);
@@ -207,40 +185,6 @@ public class TextEmbeddingListener {
             return null;
         }
         return authorRepository.findByName(authorName.trim()).orElseGet(() -> authorRepository.save(new Author(authorName.trim())));
-    }
-
-    public List<String> createChunksByThreeSentences(String summary) {
-        List<String> sentences = new ArrayList<>();
-        BreakIterator iterator = BreakIterator.getSentenceInstance(new Locale("pt", "PT"));
-        iterator.setText(summary);
-
-        int start = iterator.first();
-        for (int end = iterator.next(); end != BreakIterator.DONE; start = end, end = iterator.next()) {
-            String sentence = summary.substring(start, end).trim();
-            if (!sentence.isEmpty()) {
-                sentences.add(sentence);
-            }
-        }
-
-        // Group into chunks of 3 sentences with 1 sentence overlap
-        List<String> chunks = new ArrayList<>();
-        int chunkSize = 3;
-        int overlap = 1;
-
-        for (int i = 0; i < sentences.size(); i += (chunkSize - overlap)) {
-            int endIdx = Math.min(i + chunkSize, sentences.size());
-            String chunk = String.join(" ", sentences.subList(i, endIdx));
-            chunks.add(chunk);
-
-            if (endIdx >= sentences.size()) break;
-        }
-
-        // Handle single sentences as standalone chunks if needed
-        if (chunks.isEmpty() && !sentences.isEmpty()) {
-            chunks.addAll(sentences);
-        }
-
-        return chunks;
     }
 
 

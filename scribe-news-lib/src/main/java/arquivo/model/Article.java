@@ -71,9 +71,6 @@ public class Article {
     @JsonIgnore
     private String tsvSummary;
 
-    @OneToMany(mappedBy = "article", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JsonIgnore
-    List<ArticleChunkMedium> articleChunksMedium;
 
     @OneToMany(mappedBy = "article", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<ArticleKeywordScore> articleKeywordsScore;
@@ -203,13 +200,6 @@ public class Article {
         return articleKeywordsScore;
     }
 
-    public List<ArticleChunkMedium> getArticleChunksMedium() {
-        return articleChunksMedium;
-    }
-
-    public void setArticleChunksMedium(List<ArticleChunkMedium> articleChunksMedium) {
-        this.articleChunksMedium = articleChunksMedium;
-    }
 
     public void setArticleKeywordsScore(List<ArticleKeywordScore> articleKeywordsScore) {
         this.articleKeywordsScore = articleKeywordsScore;

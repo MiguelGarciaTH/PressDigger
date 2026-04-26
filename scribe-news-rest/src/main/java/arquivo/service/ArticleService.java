@@ -4,7 +4,6 @@ import arquivo.exceptions.ResourceNotFoundException;
 import arquivo.model.Article;
 import arquivo.model.Site;
 import arquivo.model.User;
-import arquivo.repository.ArticleChunkMediumRepository;
 import arquivo.repository.ArticleRepository;
 import arquivo.repository.SiteRepository;
 import arquivo.repository.UserRepository;
@@ -42,7 +41,6 @@ public class ArticleService {
     private static final Logger LOG = LoggerFactory.getLogger(ArticleService.class);
 
     private final ArticleRepository articleRepository;
-    private final ArticleChunkMediumRepository articleChunkRepository;
     private final UserRepository userRepository;
     private final EmbeddingClient embeddingClient;
     private final CohereRerankClient cohereRerankClient;
@@ -66,7 +64,6 @@ public class ArticleService {
 
     public ArticleService(ArticleRepository articleRepository,
                           UserRepository userRepository,
-                          ArticleChunkMediumRepository articleChunkRepository,
                           SiteRepository siteRepository,
                           @Value("${scribe-ref.arquivo.scribe-news-rest.open-ai.api-key}") String openAiApiKey,
                           @Value("${scribe-ref.arquivo.scribe-news-rest.cohere.api-key:}") String cohereApiKey,
@@ -75,7 +72,6 @@ public class ArticleService {
 
         this.articleRepository = articleRepository;
         this.userRepository = userRepository;
-        this.articleChunkRepository = articleChunkRepository;
         this.siteRepository = siteRepository;
         this.useCohere = "cohere".equalsIgnoreCase(embeddingProvider);
         this.rerankEnabled = rerankEnabled && this.useCohere;

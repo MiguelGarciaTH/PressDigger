@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 """
-Exports the article and article_chunk_medium tables to Parquet files.
+Exports the article table to a Parquet file.
+
+Embeddings are stored directly on the article row (embedding, embedding_cohere).
+The article_chunk_medium table is no longer used and is not exported.
 
 Prerequisites:
     pip install pandas pyarrow psycopg2-binary sqlalchemy
 
 Usage:
-    # Load env vars first (as other scripts do), then run:
+    # Load env vars first, then run:
     set -a && source ../.env && set +a
-    python export-parquet.py
+    python export-to-parquet.py
 
     # Or override DB connection via env vars:
-    LOCAL_DB_USER=myuser LOCAL_DB_PASSWORD=mypass python export-parquet.py
+    LOCAL_DB_USER=myuser LOCAL_DB_PASSWORD=mypass python export-to-parquet.py
 """
 
 import os
@@ -61,22 +64,18 @@ def main():
 
     export_table(
         engine,
-        query="SELECT * FROM article",
+        # Cast pgvector columns to text; omit generated tsv_summary column
+        query="""
+            SELECT id, site_id, author_id, published_date, published_date_confidence,
+                   title, summary, article_hash,
+                   link_to_archive, link_to_archive_trimmed, link_to_archive_image,
+                   original_image_path, small_image_path,
+                   embedding::text        AS embedding,
+                   embedding_cohere::text AS embedding_cohere
+            FROM article
+        """,
         output_path=os.path.join(OUTPUT_DIR, "article.parquet"),
         label="article",
-    )
-
-    export_table(
-        engine,
-        # Cast pgvector columns to text; omit generated tsv column
-        query="""
-            SELECT id, article_id, chunk_index, content,
-                   embedding::text       AS embedding,
-                   embedding_cohere::text AS embedding_cohere
-            FROM article_chunk_medium
-        """,
-        output_path=os.path.join(OUTPUT_DIR, "article_chunk_medium.parquet"),
-        label="article_chunk_medium",
     )
 
     print("\nAll done!")
