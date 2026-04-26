@@ -9,14 +9,18 @@ import arquivo.repository.ArticleRepository;
 import arquivo.repository.SiteRepository;
 import arquivo.repository.UserRepository;
 import arquivo.services.CohereEmbeddingClient;
+import arquivo.services.CohereRerankClient;
 import arquivo.services.EmbeddingClient;
 import arquivo.services.OpenAiEmbeddingClient;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -28,19 +32,25 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class ArticleService {
+
+    private static final Logger LOG = LoggerFactory.getLogger(ArticleService.class);
 
     private final ArticleRepository articleRepository;
     private final ArticleChunkMediumRepository articleChunkRepository;
     private final UserRepository userRepository;
     private final EmbeddingClient embeddingClient;
+    private final CohereRerankClient cohereRerankClient;
     private final OpenAiIntegrationNarrative openAiIntegrationNarrative;
     private final SiteRepository siteRepository;
     private final ObjectMapper objectMapper;
     private final boolean useCohere;
+    private final boolean rerankEnabled;
 
     @Value("${scribe-ref.arquivo.scribe-news-rest.open-ai.max-usage}")
     private int maxOpenAIUsage;
@@ -48,23 +58,33 @@ public class ArticleService {
     @Value("${scribe-ref.arquivo.scribe-news-rest.open-ai.max-usage-period}")
     private Duration maxOpenAIUsagePeriod;
 
+    @Value("${scribe-ref.rerank.candidates:100}")
+    private int rerankCandidates;
+
+    @Value("${scribe-ref.rerank.min-score:0.0}")
+    private double rerankMinScore;
+
     public ArticleService(ArticleRepository articleRepository,
                           UserRepository userRepository,
                           ArticleChunkMediumRepository articleChunkRepository,
                           SiteRepository siteRepository,
                           @Value("${scribe-ref.arquivo.scribe-news-rest.open-ai.api-key}") String openAiApiKey,
                           @Value("${scribe-ref.arquivo.scribe-news-rest.cohere.api-key:}") String cohereApiKey,
-                          @Value("${scribe-ref.embedding.provider:openai}") String embeddingProvider) {
+                          @Value("${scribe-ref.embedding.provider:openai}") String embeddingProvider,
+                          @Value("${scribe-ref.rerank.enabled:false}") boolean rerankEnabled) {
 
         this.articleRepository = articleRepository;
         this.userRepository = userRepository;
         this.articleChunkRepository = articleChunkRepository;
         this.siteRepository = siteRepository;
         this.useCohere = "cohere".equalsIgnoreCase(embeddingProvider);
+        this.rerankEnabled = rerankEnabled && this.useCohere;
         if (this.useCohere) {
             this.embeddingClient = new CohereEmbeddingClient(cohereApiKey);
+            this.cohereRerankClient = rerankEnabled ? new CohereRerankClient(cohereApiKey) : null;
         } else {
             this.embeddingClient = new OpenAiEmbeddingClient(openAiApiKey);
+            this.cohereRerankClient = null;
         }
         this.openAiIntegrationNarrative = new OpenAiIntegrationNarrative(openAiApiKey);
         this.objectMapper = new ObjectMapper();
@@ -87,10 +107,39 @@ public class ArticleService {
         float[] vector = embeddingClient.getQueryEmbedding(normalizedText);
         String pgVector = embeddingClient.toPgVectorLiteral(vector);
 
-        if (useCohere) {
-            return articleChunkRepository.searchByTextCohere(siteIds, startDate, endDate, pgVector, inputText, pageable);
+        if (rerankEnabled) {
+            // Fetch a broader candidate pool, rerank with Cohere cross-encoder, then paginate
+            int candidateLimit = Math.max(rerankCandidates, (pageable.getPageNumber() + 1) * pageable.getPageSize() * 2);
+            candidateLimit = Math.min(candidateLimit, 100);
+
+            LOG.info("[Search] Using rerank path: fetching {} candidates for query '{}'",
+                    candidateLimit, inputText.substring(0, Math.min(60, inputText.length())));
+
+            List<Article> candidates = articleRepository.findTopCandidatesCohere(
+                    siteIds, startDate, endDate, pgVector, inputText, candidateLimit);
+
+            LOG.info("[Search] Retrieved {} candidates from DB", candidates.size());
+
+            if (candidates.isEmpty()) {
+                return Page.empty(pageable);
+            }
+
+            List<Article> reranked = applyRerank(inputText, candidates);
+
+            int pageStart = (int) pageable.getOffset();
+            int pageEnd = Math.min(pageStart + pageable.getPageSize(), reranked.size());
+            if (pageStart >= reranked.size()) {
+                return new PageImpl<>(List.of(), pageable, reranked.size());
+            }
+            return new PageImpl<>(reranked.subList(pageStart, pageEnd), pageable, reranked.size());
         }
-        return articleChunkRepository.searchByText(siteIds, startDate, endDate, pgVector, inputText, pageable);
+
+        LOG.info("[Search] Using direct vector search path (rerank disabled or not Cohere)");
+
+        if (useCohere) {
+            return articleRepository.searchByTextCohere(siteIds, startDate, endDate, pgVector, inputText, pageable);
+        }
+        return articleRepository.searchByText(siteIds, startDate, endDate, pgVector, inputText, pageable);
     }
 
     @Transactional
@@ -108,14 +157,20 @@ public class ArticleService {
         float[] vector = embeddingClient.getQueryEmbedding(normalizedText);
         String pgVector = embeddingClient.toPgVectorLiteral(vector);
 
-        final List<Article> articles;
+        List<Article> articles;
         if (useCohere) {
-            articles = articleChunkRepository.searchByTextToNarrativeCohere(siteIds, startDate, endDate, pgVector, inputText, 7, 20);
+            articles = new ArrayList<>(articleRepository.searchByTextToNarrativeCohere(siteIds, startDate, endDate, pgVector, inputText, 7, 20));
         } else {
-            articles = articleChunkRepository.searchByTextToNarrative(siteIds, startDate, endDate, pgVector, inputText, 7, 20);
+            articles = new ArrayList<>(articleRepository.searchByTextToNarrative(siteIds, startDate, endDate, pgVector, inputText, 7, 20));
         }
+
         if (articles.size() < 3) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Not enough relevant articles found to create a narrative. Try broadening your search criteria.");
+        }
+
+        // Rerank narrative candidates so the most relevant articles are fed to the LLM first
+        if (rerankEnabled && articles.size() > 3) {
+            articles = applyRerank(inputText, articles);
         }
 
         String articlesJsonText = "";
@@ -167,6 +222,40 @@ public class ArticleService {
         return new NarrativeResult(text, references);
     }
 
+    /**
+     * Re-ranks a list of candidate articles against the original query using the
+     * Cohere cross-encoder (rerank-multilingual-v3.0). Documents are scored on
+     * title + summary so the ranker sees the full article context.
+     * Falls back to the original order if reranking fails.
+     */
+    private List<Article> applyRerank(String query, List<Article> candidates) {
+        List<String> documents = candidates.stream()
+                .map(a -> {
+                    String title = a.getTitle() != null ? a.getTitle().trim() : "";
+                    String summary = a.getSummary() != null ? a.getSummary().trim() : "";
+                    return title.isBlank() ? summary : title + "\n" + summary;
+                })
+                .collect(Collectors.toList());
+
+        List<CohereRerankClient.RerankResult> results;
+        try {
+            results = cohereRerankClient.rerank(query, documents, candidates.size());
+        } catch (Exception e) {
+            LOG.warn("[Rerank] Reranking failed, falling back to original vector order: {}", e.getMessage());
+            return candidates;
+        }
+
+        List<Article> reranked = results.stream()
+                .filter(r -> r.relevanceScore() >= rerankMinScore)
+                .map(r -> candidates.get(r.index()))
+                .collect(Collectors.toList());
+
+        LOG.info("[Rerank] After min-score filter (>= {}): {}/{} articles kept",
+                rerankMinScore, reranked.size(), candidates.size());
+
+        return reranked;
+    }
+
     @Transactional(readOnly = true)
     public NarrativeUsageResult getNarrativeUsage(String googleId) {
         User user = userRepository.findByGoogleId(googleId)
@@ -177,7 +266,6 @@ public class ArticleService {
         final boolean canUse = canUseOpenAI(user);
         final LocalDateTime resetOn = windowStart != null ? windowStart.plus(maxOpenAIUsagePeriod) : LocalDateTime.now(ZoneOffset.UTC);
         return new NarrativeUsageResult(usageCount, windowStart, canUse, resetOn);
-
     }
 
     @Transactional(readOnly = true)
@@ -186,11 +274,9 @@ public class ArticleService {
     }
 
     public record NarrativeUsageResult(int usageCount, LocalDateTime windowStart, boolean canUse, LocalDateTime resetOn) {
-
     }
 
     public record NarrativeResult(String text, List<ArticleReference> references) {
-
     }
 
     record ArticleReference(String marker, String title, int articleId, String author, LocalDate publishedDate,
@@ -202,27 +288,20 @@ public class ArticleService {
 
     private boolean canUseOpenAI(User user) {
         final LocalDateTime windowStart = user.getOpenaiUsageLastTimestamp();
-
-        // No usage yet, or the window has expired → new window, always allowed
         if (windowStart == null || LocalDateTime.now(ZoneOffset.UTC).isAfter(windowStart.plus(maxOpenAIUsagePeriod))) {
             return true;
         }
-
-        // Within the active window → check against the limit
         return user.getOpenaiUsageCount() < maxOpenAIUsage;
     }
-
 
     private void recordOpenAIUsage(User user) {
         final LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
         final LocalDateTime windowStart = user.getOpenaiUsageLastTimestamp();
 
         if (windowStart == null || now.isAfter(windowStart.plus(maxOpenAIUsagePeriod))) {
-            // Window expired or first use ever → start a fresh window
             user.setOpenaiUsageCount(1);
             user.setOpenaiUsageLastTimestamp(now);
         } else {
-            // Within the active window → just increment
             user.setOpenaiUsageCount(user.getOpenaiUsageCount() + 1);
         }
 

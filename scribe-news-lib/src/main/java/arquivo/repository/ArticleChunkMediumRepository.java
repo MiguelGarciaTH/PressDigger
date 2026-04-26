@@ -21,28 +21,34 @@ public interface ArticleChunkMediumRepository extends JpaRepository<ArticleChunk
 
     @Query(
             value = """
-                    SELECT t.*
+                    SELECT final.*
                     FROM (
-                      SELECT DISTINCT ON (a.id)
-                        a.*,
-                        (ac.embedding <=> CAST(:embedding AS vector)) AS distance
-                      FROM article_chunk_medium ac
-                      INNER JOIN article a ON a.id = ac.article_id
-                      WHERE
-                        (
-                          ac.embedding <=> CAST(:embedding AS vector) < 0.55
-                          OR
+                      SELECT t.*,
+                        (1.0 / (60.0 + RANK() OVER (ORDER BY t.distance ASC))
+                         + 1.0 / (60.0 + RANK() OVER (ORDER BY t.bm25_score DESC))) AS rrf_score
+                      FROM (
+                        SELECT DISTINCT ON (a.id)
+                          a.*,
+                          (ac.embedding <=> CAST(:embedding AS vector)) AS distance,
+                          ts_rank_cd(ac.tsv, websearch_to_tsquery('portuguese', :text)) AS bm25_score
+                        FROM article_chunk_medium ac
+                        INNER JOIN article a ON a.id = ac.article_id
+                        WHERE
                           (
-                            ac.embedding <=> CAST(:embedding AS vector) < 0.70
-                            AND ac.tsv @@ websearch_to_tsquery('portuguese', :text)
+                            ac.embedding <=> CAST(:embedding AS vector) < 0.45
+                            OR
+                            (
+                              ac.embedding <=> CAST(:embedding AS vector) < 0.58
+                              AND ac.tsv @@ phraseto_tsquery('portuguese', :text)
+                            )
                           )
-                        )
-                        AND a.site_id IN :siteIds
-                        AND a.published_date >= :startDate
-                        AND a.published_date <= :endDate
-                      ORDER BY a.id, distance ASC
-                    ) t
-                    ORDER BY t.distance ASC
+                          AND a.site_id IN :siteIds
+                          AND a.published_date >= :startDate
+                          AND a.published_date <= :endDate
+                        ORDER BY a.id, distance ASC
+                      ) t
+                    ) final
+                    ORDER BY final.rrf_score DESC
                     """,
             countQuery = """
                     SELECT COUNT(DISTINCT a.id)
@@ -50,11 +56,11 @@ public interface ArticleChunkMediumRepository extends JpaRepository<ArticleChunk
                     INNER JOIN article a ON a.id = ac.article_id
                     WHERE
                       (
-                        ac.embedding <=> CAST(:embedding AS vector) < 0.55
+                        ac.embedding <=> CAST(:embedding AS vector) < 0.45
                         OR
                         (
-                          ac.embedding <=> CAST(:embedding AS vector) < 0.70
-                          AND ac.tsv @@ websearch_to_tsquery('portuguese', :text)
+                          ac.embedding <=> CAST(:embedding AS vector) < 0.58
+                          AND ac.tsv @@ phraseto_tsquery('portuguese', :text)
                         )
                       )
                       AND a.site_id IN :siteIds
@@ -78,11 +84,11 @@ public interface ArticleChunkMediumRepository extends JpaRepository<ArticleChunk
                       INNER JOIN article a ON a.id = ac.article_id
                       WHERE
                         (
-                          ac.embedding <=> CAST(:embedding AS vector) < 0.50
+                          ac.embedding <=> CAST(:embedding AS vector) < 0.40
                           OR
                           (
-                            ac.embedding <=> CAST(:embedding AS vector) < 0.65
-                            AND ac.tsv @@ websearch_to_tsquery('portuguese', :text)
+                            ac.embedding <=> CAST(:embedding AS vector) < 0.55
+                            AND ac.tsv @@ phraseto_tsquery('portuguese', :text)
                           )
                         )
                         AND a.published_date IS NOT NULL
@@ -102,11 +108,11 @@ public interface ArticleChunkMediumRepository extends JpaRepository<ArticleChunk
                       CROSS JOIN best_match bm
                       WHERE
                         (
-                          ac.embedding <=> CAST(:embedding AS vector) < 0.55
+                          ac.embedding <=> CAST(:embedding AS vector) < 0.45
                           OR
                           (
-                            ac.embedding <=> CAST(:embedding AS vector) < 0.70
-                            AND ac.tsv @@ websearch_to_tsquery('portuguese', :text)
+                            ac.embedding <=> CAST(:embedding AS vector) < 0.58
+                            AND ac.tsv @@ phraseto_tsquery('portuguese', :text)
                           )
                         )
                         AND a.published_date IS NOT NULL
@@ -135,29 +141,35 @@ public interface ArticleChunkMediumRepository extends JpaRepository<ArticleChunk
 
     @Query(
             value = """
-                    SELECT t.*
+                    SELECT final.*
                     FROM (
-                      SELECT DISTINCT ON (a.id)
-                        a.*,
-                        (ac.embedding_cohere <=> CAST(:embedding AS vector)) AS distance
-                      FROM article_chunk_medium ac
-                      INNER JOIN article a ON a.id = ac.article_id
-                      WHERE
-                        (
-                          ac.embedding_cohere <=> CAST(:embedding AS vector) < 0.40
-                          OR
+                      SELECT t.*,
+                        (1.0 / (60.0 + RANK() OVER (ORDER BY t.distance ASC))
+                         + 1.0 / (60.0 + RANK() OVER (ORDER BY t.bm25_score DESC))) AS rrf_score
+                      FROM (
+                        SELECT DISTINCT ON (a.id)
+                          a.*,
+                          (ac.embedding_cohere <=> CAST(:embedding AS vector)) AS distance,
+                          ts_rank_cd(ac.tsv, websearch_to_tsquery('portuguese', :text)) AS bm25_score
+                        FROM article_chunk_medium ac
+                        INNER JOIN article a ON a.id = ac.article_id
+                        WHERE
                           (
-                            ac.embedding_cohere <=> CAST(:embedding AS vector) < 0.55
-                            AND ac.tsv @@ websearch_to_tsquery('portuguese', :text)
+                            ac.embedding_cohere <=> CAST(:embedding AS vector) < 0.25
+                            OR
+                            (
+                              ac.embedding_cohere <=> CAST(:embedding AS vector) < 0.38
+                              AND ac.tsv @@ phraseto_tsquery('portuguese', :text)
+                            )
                           )
-                        )
-                        AND ac.embedding_cohere IS NOT NULL
-                        AND a.site_id IN :siteIds
-                        AND a.published_date >= :startDate
-                        AND a.published_date <= :endDate
-                      ORDER BY a.id, distance ASC
-                    ) t
-                    ORDER BY t.distance ASC
+                          AND ac.embedding_cohere IS NOT NULL
+                          AND a.site_id IN :siteIds
+                          AND a.published_date >= :startDate
+                          AND a.published_date <= :endDate
+                        ORDER BY a.id, distance ASC
+                      ) t
+                    ) final
+                    ORDER BY final.rrf_score DESC
                     """,
             countQuery = """
                     SELECT COUNT(DISTINCT a.id)
@@ -165,11 +177,11 @@ public interface ArticleChunkMediumRepository extends JpaRepository<ArticleChunk
                     INNER JOIN article a ON a.id = ac.article_id
                     WHERE
                       (
-                        ac.embedding_cohere <=> CAST(:embedding AS vector) < 0.40
+                        ac.embedding_cohere <=> CAST(:embedding AS vector) < 0.25
                         OR
                         (
-                          ac.embedding_cohere <=> CAST(:embedding AS vector) < 0.55
-                          AND ac.tsv @@ websearch_to_tsquery('portuguese', :text)
+                          ac.embedding_cohere <=> CAST(:embedding AS vector) < 0.38
+                          AND ac.tsv @@ phraseto_tsquery('portuguese', :text)
                         )
                       )
                       AND ac.embedding_cohere IS NOT NULL
@@ -194,11 +206,11 @@ public interface ArticleChunkMediumRepository extends JpaRepository<ArticleChunk
                       INNER JOIN article a ON a.id = ac.article_id
                       WHERE
                         (
-                          ac.embedding_cohere <=> CAST(:embedding AS vector) < 0.35
+                          ac.embedding_cohere <=> CAST(:embedding AS vector) < 0.22
                           OR
                           (
-                            ac.embedding_cohere <=> CAST(:embedding AS vector) < 0.50
-                            AND ac.tsv @@ websearch_to_tsquery('portuguese', :text)
+                            ac.embedding_cohere <=> CAST(:embedding AS vector) < 0.35
+                            AND ac.tsv @@ phraseto_tsquery('portuguese', :text)
                           )
                         )
                         AND ac.embedding_cohere IS NOT NULL
@@ -219,11 +231,11 @@ public interface ArticleChunkMediumRepository extends JpaRepository<ArticleChunk
                       CROSS JOIN best_match bm
                       WHERE
                         (
-                          ac.embedding_cohere <=> CAST(:embedding AS vector) < 0.40
+                          ac.embedding_cohere <=> CAST(:embedding AS vector) < 0.25
                           OR
                           (
-                            ac.embedding_cohere <=> CAST(:embedding AS vector) < 0.55
-                            AND ac.tsv @@ websearch_to_tsquery('portuguese', :text)
+                            ac.embedding_cohere <=> CAST(:embedding AS vector) < 0.38
+                            AND ac.tsv @@ phraseto_tsquery('portuguese', :text)
                           )
                         )
                         AND ac.embedding_cohere IS NOT NULL
@@ -246,6 +258,47 @@ public interface ArticleChunkMediumRepository extends JpaRepository<ArticleChunk
                                                 @Param("text") String text,
                                                 @Param("dayWindow") int dayWindow,
                                                 @Param("limit") int limit);
+
+    /**
+     * Fetches top N candidate articles for Cohere reranking.
+     * Uses slightly more permissive thresholds than direct serving so the
+     * reranker has a richer candidate pool to work with.
+     */
+    @Query(
+            value = """
+                    SELECT t.*
+                    FROM (
+                      SELECT DISTINCT ON (a.id)
+                        a.*,
+                        (ac.embedding_cohere <=> CAST(:embedding AS vector)) AS distance
+                      FROM article_chunk_medium ac
+                      INNER JOIN article a ON a.id = ac.article_id
+                      WHERE
+                        (
+                          ac.embedding_cohere <=> CAST(:embedding AS vector) < 0.35
+                          OR
+                          (
+                            ac.embedding_cohere <=> CAST(:embedding AS vector) < 0.50
+                            AND ac.tsv @@ phraseto_tsquery('portuguese', :text)
+                          )
+                        )
+                        AND ac.embedding_cohere IS NOT NULL
+                        AND a.site_id IN :siteIds
+                        AND a.published_date >= :startDate
+                        AND a.published_date <= :endDate
+                      ORDER BY a.id, distance ASC
+                    ) t
+                    ORDER BY t.distance ASC
+                    LIMIT :limit
+                    """,
+            nativeQuery = true
+    )
+    List<Article> findTopCandidatesCohere(@Param("siteIds") List<Integer> siteIds,
+                                          @Param("startDate") LocalDateTime startDate,
+                                          @Param("endDate") LocalDateTime endDate,
+                                          @Param("embedding") String embedding,
+                                          @Param("text") String text,
+                                          @Param("limit") int limit);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(value = "UPDATE article_chunk_medium SET embedding = CAST(:embedding AS vector) WHERE id = :id", nativeQuery = true)

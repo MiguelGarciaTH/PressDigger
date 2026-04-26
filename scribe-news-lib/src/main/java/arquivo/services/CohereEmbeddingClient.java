@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
+import org.springframework.http.codec.ClientCodecConfigurer;
+import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.ArrayList;
@@ -27,10 +29,16 @@ public class CohereEmbeddingClient implements EmbeddingClient {
     private final ObjectMapper objectMapper;
 
     public CohereEmbeddingClient(String apiKey) {
+        // 96 embeddings × 1024 dims × ~7 chars/float in JSON ≈ 5–6 MB; set 16MB to be safe
+        ExchangeStrategies strategies = ExchangeStrategies.builder()
+                .codecs(ClientCodecConfigurer::defaultCodecs)
+                .codecs(cfg -> cfg.defaultCodecs().maxInMemorySize(16 * 1024 * 1024))
+                .build();
         this.webClient = WebClient.builder()
                 .baseUrl(BASE_URL)
                 .defaultHeader("Authorization", "Bearer " + apiKey)
                 .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                .exchangeStrategies(strategies)
                 .build();
         this.objectMapper = new ObjectMapper();
     }

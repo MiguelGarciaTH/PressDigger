@@ -1,7 +1,9 @@
 package arquivo.model;
 
+import arquivo.utils.VectorType;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import org.hibernate.annotations.Type;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -45,6 +47,29 @@ public class Article {
 
     @Column(columnDefinition = "text")
     private String smallImagePath;
+
+    /**
+     * Article-level OpenAI embedding (title + full summary, text-embedding-3-large 2000 dims).
+     */
+    @Column(name = "embedding", columnDefinition = "vector(2000)")
+    @Type(VectorType.class)
+    @JsonIgnore
+    private float[] embedding;
+
+    /**
+     * Article-level Cohere embedding (title + full summary, embed-multilingual-v3.0 1024 dims).
+     */
+    @Column(name = "embedding_cohere", columnDefinition = "vector(1024)")
+    @Type(VectorType.class)
+    @JsonIgnore
+    private float[] embeddingCohere;
+
+    /**
+     * PostgreSQL tsvector generated column over title + summary (read-only from Hibernate).
+     */
+    @Column(name = "tsv_summary", insertable = false, updatable = false, columnDefinition = "tsvector")
+    @JsonIgnore
+    private String tsvSummary;
 
     @OneToMany(mappedBy = "article", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnore
@@ -188,5 +213,25 @@ public class Article {
 
     public void setArticleKeywordsScore(List<ArticleKeywordScore> articleKeywordsScore) {
         this.articleKeywordsScore = articleKeywordsScore;
+    }
+
+    public float[] getEmbedding() {
+        return embedding;
+    }
+
+    public void setEmbedding(float[] embedding) {
+        this.embedding = embedding;
+    }
+
+    public float[] getEmbeddingCohere() {
+        return embeddingCohere;
+    }
+
+    public void setEmbeddingCohere(float[] embeddingCohere) {
+        this.embeddingCohere = embeddingCohere;
+    }
+
+    public String getTsvSummary() {
+        return tsvSummary;
     }
 }

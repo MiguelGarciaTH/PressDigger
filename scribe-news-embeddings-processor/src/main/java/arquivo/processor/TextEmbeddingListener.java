@@ -178,6 +178,17 @@ public class TextEmbeddingListener {
                 }
             }
 
+            // Store article-level embedding (title + full summary as a single vector)
+            String normalizedSummary = summary.trim().replaceAll("[.,;:!?]+$", "");
+            String articleText = title.isBlank() ? normalizedSummary : title + "\n" + normalizedSummary;
+            float[] articleVector = embeddingClient.getDocumentEmbedding(articleText);
+            String articleVectorLiteral = embeddingClient.toPgVectorLiteral(articleVector);
+            if (useCohere) {
+                articleRepository.updateEmbeddingCohereById(article.getId(), articleVectorLiteral);
+            } else {
+                articleRepository.updateEmbeddingById(article.getId(), articleVectorLiteral);
+            }
+
             printStats();
         } catch (Exception e) {
             LOG.error("Failed to parse record as JSON or process image", e);

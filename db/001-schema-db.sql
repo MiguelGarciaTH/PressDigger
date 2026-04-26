@@ -61,10 +61,37 @@ CREATE TABLE IF NOT EXISTS article (
     original_image_path text NOT NULL,
     small_image_path text NOT NULL,
 
+    -- Article-level embeddings (title + full summary, single vector per article)
+    embedding vector(2000),                  -- OpenAI text-embedding-3-large (2000 dims)
+    embedding_cohere vector(1024),           -- Cohere embed-multilingual-v3.0 (1024 dims)
+
+    -- Full-text search over title + summary
+    tsv_summary tsvector GENERATED ALWAYS AS (
+        to_tsvector('portuguese', coalesce(title, '') || ' ' || coalesce(summary, ''))
+    ) STORED,
+
     CONSTRAINT article_pk PRIMARY KEY (id),
     CONSTRAINT article_fk_site_id FOREIGN KEY (site_id) REFERENCES site(id),
     CONSTRAINT article_fk_author_id FOREIGN KEY (author_id) REFERENCES author(id)
 );
+
+DROP INDEX IF EXISTS idx_article_embedding;
+DROP INDEX IF EXISTS idx_article_embedding_cohere;
+DROP INDEX IF EXISTS idx_article_tsv_summary;
+
+-- OpenAI text-embedding-3-large (2000 dims)
+CREATE INDEX idx_article_embedding
+    ON article USING hnsw (embedding vector_cosine_ops)
+    WITH (m = 16, ef_construction = 64);
+
+-- Cohere embed-multilingual-v3.0 (1024 dims)
+CREATE INDEX idx_article_embedding_cohere
+    ON article USING hnsw (embedding_cohere vector_cosine_ops)
+    WITH (m = 16, ef_construction = 64);
+
+-- GIN index for full-text search on article title + summary
+CREATE INDEX idx_article_tsv_summary
+    ON article USING gin (tsv_summary);
 
 CREATE SEQUENCE IF NOT EXISTS article_chunk_medium_seq START WITH 1 INCREMENT BY 1;
 
