@@ -1,9 +1,8 @@
-#!/usr/bin/env python3
+#!/home/miguel/github/ScribeRef/db/scripts/.venv/bin/python3
 """
 Exports the article table to a Parquet file.
 
 Embeddings are stored directly on the article row (embedding, embedding_cohere).
-The article_chunk_medium table is no longer used and is not exported.
 
 Prerequisites:
     pip install pandas pyarrow psycopg2-binary sqlalchemy
@@ -36,7 +35,7 @@ DB_NAME     = os.getenv("LOCAL_DB_NAME", "scribe-ref-db")
 DB_USER     = os.getenv("LOCAL_DB_USER", "postgres")
 DB_PASSWORD = os.getenv("LOCAL_DB_PASSWORD", "postgres")
 
-OUTPUT_DIR  = os.getenv("PARQUET_OUTPUT_DIR", os.path.dirname(os.path.abspath(__file__)))
+OUTPUT_DIR  = os.getenv("PARQUET_OUTPUT_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "datasets"))
 
 CHUNK_SIZE  = 10_000
 
