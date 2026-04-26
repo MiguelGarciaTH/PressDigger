@@ -172,10 +172,10 @@ public interface ArticleRepository extends JpaRepository<Article, Integer> {
                         FROM article a
                         WHERE
                           (
-                            a.embedding_cohere <=> CAST(:embedding AS vector) < 0.25
+                            a.embedding_cohere <=> CAST(:embedding AS vector) < 0.28
                             OR
                             (
-                              a.embedding_cohere <=> CAST(:embedding AS vector) < 0.38
+                              a.embedding_cohere <=> CAST(:embedding AS vector) < 0.42
                               AND a.tsv_summary @@ phraseto_tsquery('portuguese', :text)
                             )
                           )
@@ -192,10 +192,10 @@ public interface ArticleRepository extends JpaRepository<Article, Integer> {
                     FROM article a
                     WHERE
                       (
-                        a.embedding_cohere <=> CAST(:embedding AS vector) < 0.25
+                        a.embedding_cohere <=> CAST(:embedding AS vector) < 0.28
                         OR
                         (
-                          a.embedding_cohere <=> CAST(:embedding AS vector) < 0.38
+                          a.embedding_cohere <=> CAST(:embedding AS vector) < 0.42
                           AND a.tsv_summary @@ phraseto_tsquery('portuguese', :text)
                         )
                       )
@@ -220,10 +220,10 @@ public interface ArticleRepository extends JpaRepository<Article, Integer> {
                       FROM article a
                       WHERE
                         (
-                          a.embedding_cohere <=> CAST(:embedding AS vector) < 0.22
+                          a.embedding_cohere <=> CAST(:embedding AS vector) < 0.25
                           OR
                           (
-                            a.embedding_cohere <=> CAST(:embedding AS vector) < 0.35
+                            a.embedding_cohere <=> CAST(:embedding AS vector) < 0.40
                             AND a.tsv_summary @@ phraseto_tsquery('portuguese', :text)
                           )
                         )
@@ -240,10 +240,10 @@ public interface ArticleRepository extends JpaRepository<Article, Integer> {
                     CROSS JOIN best_match bm
                     WHERE
                       (
-                        a.embedding_cohere <=> CAST(:embedding AS vector) < 0.25
+                        a.embedding_cohere <=> CAST(:embedding AS vector) < 0.28
                         OR
                         (
-                          a.embedding_cohere <=> CAST(:embedding AS vector) < 0.38
+                          a.embedding_cohere <=> CAST(:embedding AS vector) < 0.42
                           AND a.tsv_summary @@ phraseto_tsquery('portuguese', :text)
                         )
                       )
@@ -277,10 +277,10 @@ public interface ArticleRepository extends JpaRepository<Article, Integer> {
                     FROM article a
                     WHERE
                       (
-                        a.embedding_cohere <=> CAST(:embedding AS vector) < 0.35
+                        a.embedding_cohere <=> CAST(:embedding AS vector) < 0.38
                         OR
                         (
-                          a.embedding_cohere <=> CAST(:embedding AS vector) < 0.50
+                          a.embedding_cohere <=> CAST(:embedding AS vector) < 0.55
                           AND a.tsv_summary @@ phraseto_tsquery('portuguese', :text)
                         )
                       )
