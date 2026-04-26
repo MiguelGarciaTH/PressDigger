@@ -25,6 +25,8 @@ public interface CollectionRepository extends JpaRepository<Collection, Integer>
              select new arquivo.repository.CollectionRepository$CollectionPreview(c.id, c.name, c.description, size(c.articles))
              from Collection c
              where c.isPublic = true
+             group by c.id, c.name, c.description
+             order by size(c.articles) desc
             """)
     Page<CollectionPreview> findPublicCollections(Pageable pageable);
 
