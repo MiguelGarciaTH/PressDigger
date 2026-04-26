@@ -103,7 +103,7 @@ ScribeRef/
 | 3 | **scribe-news-text-processor** | Uses OpenAI's API to summarize article content, extract published dates and filter irrelevant articles. | Spring Boot, Kafka, OpenAI API | — | [README](scribe-news-text-processor/README.md) |
 | 4 | **scribe-news-embeddings-processor** | Generates and stores 1024-dim vector embeddings for article chunks to enable semantic similarity search via pgvector. | Spring Boot, Kafka, Cohere API, PostgreSQL + pgvector | — | [README](scribe-news-embeddings-processor/README.md) |
 | 5 | **scribe-news-rest** | RESTful API for text search, semantic search, image streaming, collections and user management. | Spring Boot, Spring Data JPA, Cohere API, OpenAI API, pgvector | 8085 | [README](scribe-news-rest/README.md) |
-| 6 | **scribe-news-lib** | Shared library with common domain models, repositories, Kafka publishers, rate limiting and OpenAI integration. | Spring Data JPA, Spring Kafka, OpenAI Java Client | — | [README](scribe-news-lib/README.md) |
+| 6 | **scribe-news-lib** | Shared library with common domain models, repositories, Kafka publishers, rate limiting, OpenAI and Cohere integration. | Spring Data JPA, Spring Kafka, OpenAI Java Client, Cohere Java Client | — | [README](scribe-news-lib/README.md) |
 
 ### Auxiliary Python Services (Docker)
 
@@ -194,7 +194,7 @@ Each component has its own `application.properties` or configuration file. Commo
 
 - **Database connection**: PostgreSQL connection settings
 - **Kafka broker**: Kafka connection and topic configuration
-- **OpenAI API**: API key for text summarization and vector embeddings
+- **OpenAI API**: API key for text summarization and narrative generation
 - **Arquivo.pt API**: Endpoints and search parameters
 
 Add an `.env` file in the project root with the following environment variables (replace placeholders with actual values):
