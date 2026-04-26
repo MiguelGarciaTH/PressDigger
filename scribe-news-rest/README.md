@@ -10,7 +10,7 @@ This module provides a RESTful API for accessing articles stored in the database
 
 - RESTful endpoints for article retrieval
 - Text-based article search
-- Semantic search using OpenAI vector embeddings (`text-embedding-3-large`)
+- Semantic search using Cohere vector embeddings (`embed-multilingual-v3.0`)
 - Image content streaming
 - CORS support for cross-origin requests
 - Pagination support
@@ -20,7 +20,8 @@ This module provides a RESTful API for accessing articles stored in the database
 - Spring Boot Web
 - Spring Data JPA
 - PostgreSQL with pgvector
-- OpenAI Java Client (`text-embedding-3-large` for query embeddings, `gpt-4o-mini` for narrative generation)
+- Cohere Java Client (`embed-multilingual-v3.0` for query embeddings)
+- OpenAI Java Client (`gpt-4o-mini` for narrative generation)
 
 
 ## Configuration
@@ -30,7 +31,8 @@ Configure the application using `application.properties` or environment variable
 - Database connection settings (inherited from parent)
 - Server port and context path
 - CORS allowed origins
-- `OPEN_IA_API_KEY` — OpenAI API key (used for both narrative generation and query embeddings)
+- `COHERE_API_KEY` — Cohere API key (used for query embeddings)
+- `OPEN_AI_API_KEY` — OpenAI API key (used for narrative generation)
 - Pagination defaults
 
 ## Running

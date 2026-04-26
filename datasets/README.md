@@ -50,7 +50,6 @@ One row per text chunk of an article. Each article is split into overlapping chu
 | `article_id` | int | Foreign key → `article.id` |
 | `chunk_index` | int | Zero-based position of this chunk within the article |
 | `content` | text | Raw text content of the chunk |
-| `embedding` | text | OpenAI `text-embedding-3-large` vector (2000 dims), serialised as a string `[f1,f2,...]`. Nullable — may be absent if only Cohere embeddings were generated. |
 | `embedding_cohere` | text | Cohere `embed-multilingual-v3.0` vector (1024 dims), serialised as a string `[f1,f2,...]`. Nullable. |
 
 #### Parsing embeddings

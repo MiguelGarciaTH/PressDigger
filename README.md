@@ -24,7 +24,7 @@ Main features:
 
 The features 3, 6 and 7 required login (supported by google login);
 
-PressDigger is a modular microservices-based system designed to crawl, process, analyze, and serve news articles from Portugal's web archive (Arquivo.pt). It leverages modern NLP techniques, including text embeddings and OpenAI's API, to enable intelligent article summarization and semantic search, through multiple Spring Boot microservices that communicate via Apache Kafka, along with Python-based auxiliary services for OCR, keyword extraction and named entity recognition, and a React-based web interface for end users.
+PressDigger is a modular microservices-based system designed to crawl, process, analyze, and serve news articles from Portugal's web archive (Arquivo.pt). It leverages modern NLP techniques, including text embeddings and Cohere's API, to enable intelligent article summarization and semantic search, through multiple Spring Boot microservices that communicate via Apache Kafka, along with Python-based auxiliary services for OCR, keyword extraction and named entity recognition, and a React-based web interface for end users.
 
 NOTE: There are multiple references to "ScribeRef" in the codebase and documentation. This was the original project name during development, but the final product is branded as "PressDigger". The name "ScribeRef" may still appear in module names, package names, and some documentation, but it refers to the same system now called PressDigger.
 
@@ -50,7 +50,8 @@ NOTE: There are multiple references to "ScribeRef" in the codebase and documenta
 - **Python 3** (auxiliary services)
 
 ### AI/ML
-- **OpenAI API** (text summarization via `gpt-4o-mini` + vector embeddings via `text-embedding-3-small`, 1024-dim)
+- **OpenAI API** (text summarization via `gpt-4o-mini`)
+- **Cohere API** (vector embeddings via `embed-multilingual-v3.0`, 1024-dim)
 - **OCR** — Tesseract (`por`) (image text extraction)
 - **YAKE** (unsupervised keyword extraction)
 - **spaCy** — `pt_core_news_lg` + `en_core_web_sm` (named entity recognition)
@@ -100,8 +101,8 @@ ScribeRef/
 | 1 | **scribe-news-crawler** | Discovers news articles from Arquivo.pt using keyword and site-based searches. Publishes discovered articles to Kafka for downstream processing. | Spring Boot, Kafka, Arquivo.pt API | — | [README](scribe-news-crawler/README.md) |
 | 2 | **scribe-news-image-processor** | Processes article screenshots: blank page detection, OCR text filtering, auto-cropping and thumbnail generation. | Spring Boot, Kafka, Thumbnailator | — | [README](scribe-news-image-processor/README.md) |
 | 3 | **scribe-news-text-processor** | Uses OpenAI's API to summarize article content, extract published dates and filter irrelevant articles. | Spring Boot, Kafka, OpenAI API | — | [README](scribe-news-text-processor/README.md) |
-| 4 | **scribe-news-embeddings-processor** | Generates and stores 1024-dim vector embeddings for article chunks to enable semantic similarity search via pgvector. | Spring Boot, Kafka, OpenAI API, PostgreSQL + pgvector | — | [README](scribe-news-embeddings-processor/README.md) |
-| 5 | **scribe-news-rest** | RESTful API for text search, semantic search, image streaming, collections and user management. | Spring Boot, Spring Data JPA, OpenAI API, pgvector | 8085 | [README](scribe-news-rest/README.md) |
+| 4 | **scribe-news-embeddings-processor** | Generates and stores 1024-dim vector embeddings for article chunks to enable semantic similarity search via pgvector. | Spring Boot, Kafka, Cohere API, PostgreSQL + pgvector | — | [README](scribe-news-embeddings-processor/README.md) |
+| 5 | **scribe-news-rest** | RESTful API for text search, semantic search, image streaming, collections and user management. | Spring Boot, Spring Data JPA, Cohere API, OpenAI API, pgvector | 8085 | [README](scribe-news-rest/README.md) |
 | 6 | **scribe-news-lib** | Shared library with common domain models, repositories, Kafka publishers, rate limiting and OpenAI integration. | Spring Data JPA, Spring Kafka, OpenAI Java Client | — | [README](scribe-news-lib/README.md) |
 
 ### Auxiliary Python Services (Docker)
