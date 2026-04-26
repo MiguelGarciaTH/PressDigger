@@ -20,6 +20,7 @@ import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -57,6 +58,7 @@ public class TextEmbeddingListener {
     private final KeywordRepository keywordRepository;
     private final ArticleKeywordScoreRepository articleKeywordScoreRepository;
     private final AuthorRepository authorRepository;
+    private final TransactionTemplate transactionTemplate;
 
     @Autowired
     public TextEmbeddingListener(MetricService metricService,
@@ -65,6 +67,7 @@ public class TextEmbeddingListener {
                                  KeywordRepository keywordRepository,
                                  ArticleKeywordScoreRepository articleKeywordScoreRepository,
                                  AuthorRepository authorRepository,
+                                 TransactionTemplate transactionTemplate,
                                  @Value("${scribe-ref.arquivo.scribe-news-embeddings-processor.open-ai.api-key}") String openAiApiKey,
                                  @Value("${scribe-ref.arquivo.scribe-news-embeddings-processor.cohere.api-key:}") String cohereApiKey,
                                  @Value("${scribe-ref.embedding.provider:openai}") String embeddingProvider) {
@@ -75,6 +78,7 @@ public class TextEmbeddingListener {
         this.keywordRepository = keywordRepository;
         this.articleKeywordScoreRepository = articleKeywordScoreRepository;
         this.authorRepository = authorRepository;
+        this.transactionTemplate = transactionTemplate;
         this.useCohere = "cohere".equalsIgnoreCase(embeddingProvider);
         if (this.useCohere) {
             this.embeddingClient = new CohereEmbeddingClient(cohereApiKey);
@@ -160,12 +164,15 @@ public class TextEmbeddingListener {
             String normalizedSummary = summary.trim().replaceAll("[.,;:!?]+$", "");
             String articleText = title.isBlank() ? normalizedSummary : title + "\n" + normalizedSummary;
             float[] articleVector = embeddingClient.getDocumentEmbedding(articleText);
-            String articleVectorLiteral = embeddingClient.toPgVectorLiteral(articleVector);
-            if (useCohere) {
-                articleRepository.updateEmbeddingCohereById(article.getId(), articleVectorLiteral);
-            } else {
-                articleRepository.updateEmbeddingById(article.getId(), articleVectorLiteral);
-            }
+            final String articleVectorLiteral = embeddingClient.toPgVectorLiteral(articleVector);
+            final int articleId = article.getId();
+            transactionTemplate.executeWithoutResult(status -> {
+                if (useCohere) {
+                    articleRepository.updateEmbeddingCohereById(articleId, articleVectorLiteral);
+                } else {
+                    articleRepository.updateEmbeddingById(articleId, articleVectorLiteral);
+                }
+            });
 
             printStats();
         } catch (Exception e) {
