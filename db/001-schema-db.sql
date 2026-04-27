@@ -93,37 +93,6 @@ CREATE INDEX idx_article_embedding_cohere
 CREATE INDEX idx_article_tsv_summary
     ON article USING gin (tsv_summary);
 
-CREATE SEQUENCE IF NOT EXISTS article_chunk_medium_seq START WITH 1 INCREMENT BY 1;
-
-CREATE TABLE article_chunk_medium (
-    id BIGINT NOT NULL DEFAULT nextval('article_chunk_medium_seq'),
-    article_id BIGINT NOT NULL,
-    chunk_index INT NOT NULL,
-    content TEXT NOT NULL,
-    tsv tsvector GENERATED ALWAYS AS (to_tsvector('portuguese', content)) STORED,
-    embedding vector(2000),
-    embedding_cohere vector(1024),
-
-    CONSTRAINT article_chunk_medium_pk PRIMARY KEY (id),
-    CONSTRAINT article_chunk_medium_fk_article_id FOREIGN KEY (article_id) REFERENCES article(id)
-);
-
-DROP INDEX IF EXISTS idx_chunks_medium_embedding;
-DROP INDEX IF EXISTS idx_chunks_medium_embedding_cohere;
-
--- OpenAI text-embedding-3-large (2000 dims) – fits HNSW limit
-CREATE INDEX idx_chunks_medium_embedding
-    ON article_chunk_medium USING hnsw (embedding vector_cosine_ops)
-    WITH (m = 16, ef_construction = 64);
-
--- Cohere embed-multilingual-v3.0 (1024 dims)
-CREATE INDEX idx_chunks_medium_embedding_cohere
-    ON article_chunk_medium USING hnsw (embedding_cohere vector_cosine_ops)
-    WITH (m = 16, ef_construction = 64);
-
-CREATE INDEX idx_chunks_medium_article_id
-    ON article_chunk_medium (article_id);
-
 CREATE SEQUENCE IF NOT EXISTS keyword_seq START WITH 1 INCREMENT BY 1;
 
 CREATE TABLE IF NOT EXISTS keyword (
