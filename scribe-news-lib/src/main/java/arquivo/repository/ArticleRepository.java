@@ -67,8 +67,8 @@ public interface ArticleRepository extends JpaRepository<Article, Integer> {
                         LIMIT 1000
                       ) t
                       -- Stage 2: in-memory threshold filter on the small set
-                      WHERE t.distance < 0.39
-                         OR (t.distance < 0.51 AND t.bm25_score > 0)
+                      WHERE t.distance < 0.28
+                         OR (t.distance < 0.48 AND t.bm25_score > 0)
                     ) final
                     ORDER BY final.rrf_score DESC
                     """,
@@ -86,8 +86,8 @@ public interface ArticleRepository extends JpaRepository<Article, Integer> {
                       ORDER BY a.embedding <=> CAST(:embedding AS vector) ASC
                       LIMIT 1000
                     ) t
-                    WHERE t.distance < 0.39
-                       OR (t.distance < 0.51 AND t.bm25_score > 0)
+                    WHERE t.distance < 0.28
+                       OR (t.distance < 0.48 AND t.bm25_score > 0)
                     """,
             nativeQuery = true
     )
@@ -160,8 +160,8 @@ public interface ArticleRepository extends JpaRepository<Article, Integer> {
                         LIMIT 1000
                       ) t
                       -- Stage 2: cheap in-memory threshold filter on the small candidate set
-                      WHERE t.distance < 0.25
-                         OR (t.distance < 0.39 AND t.bm25_score > 0)
+                      WHERE t.distance < 0.15
+                         OR (t.distance < 0.32 AND t.bm25_score > 0.02)
                     ) final
                     ORDER BY final.rrf_score DESC
                     """,
@@ -178,8 +178,8 @@ public interface ArticleRepository extends JpaRepository<Article, Integer> {
                       ORDER BY a.embedding_cohere <=> CAST(:embedding AS vector) ASC
                       LIMIT 1000
                     ) t
-                    WHERE t.distance < 0.25
-                       OR (t.distance < 0.39 AND t.bm25_score > 0)
+                    WHERE t.distance < 0.15
+                       OR (t.distance < 0.32 AND t.bm25_score > 0.02)
                     """,
             nativeQuery = true
     )
