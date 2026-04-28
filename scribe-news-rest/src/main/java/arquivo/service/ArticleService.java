@@ -153,15 +153,32 @@ public class ArticleService {
         float[] vector = embeddingClient.getQueryEmbedding(normalizedText);
         String pgVector = embeddingClient.toPgVectorLiteral(vector);
 
+        LOG.info("[Narrative] query='{}' sites={} start={} end={}",
+                normalizedText, siteIds, startDate, endDate);
+
         List<Article> articles;
         if (useCohere) {
-            articles = new ArrayList<>(articleRepository.searchByTextToNarrativeCohere(siteIds, startDate, endDate, pgVector, inputText, 7, 20));
+            articles = new ArrayList<>(articleRepository.searchByTextToNarrativeCohere(siteIds, startDate, endDate, pgVector, inputText, 30, 20));
+            if (articles.size() < 3) {
+                LOG.info("[Narrative] Day-window returned only {} articles, falling back to top-K cosine", articles.size());
+                articles = new ArrayList<>(articleRepository.searchByTextToNarrativeCohereNoWindow(siteIds, startDate, endDate, pgVector, 20));
+            }
         } else {
-            articles = new ArrayList<>(articleRepository.searchByTextToNarrative(siteIds, startDate, endDate, pgVector, inputText, 7, 20));
+            articles = new ArrayList<>(articleRepository.searchByTextToNarrative(siteIds, startDate, endDate, pgVector, inputText, 30, 20));
+            if (articles.size() < 3) {
+                LOG.info("[Narrative] Day-window returned only {} articles, falling back to top-K cosine", articles.size());
+                articles = new ArrayList<>(articleRepository.searchByTextToNarrativeNoWindow(siteIds, startDate, endDate, pgVector, 20));
+            }
         }
 
+        LOG.info("[Narrative] Found {} articles (need >= 3)", articles.size());
+        articles.forEach(a -> LOG.info("[Narrative]   id={} date={} distance_title='{}'",
+                a.getId(), a.getPublishedDate(), a.getTitle()));
+
         if (articles.size() < 3) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Not enough relevant articles found to create a narrative. Try broadening your search criteria.");
+            LOG.warn("[Narrative] Not enough articles: {} found for query='{}' sites={} start={} end={}",
+                    articles.size(), normalizedText, siteIds, startDate, endDate);
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Not enough relevant articles found to create a narrative. Try broadening your search criteria or date range.");
         }
 
         // Rerank narrative candidates so the most relevant articles are fed to the LLM first

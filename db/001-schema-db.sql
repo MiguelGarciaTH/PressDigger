@@ -65,9 +65,11 @@ CREATE TABLE IF NOT EXISTS article (
     embedding vector(2000),                  -- OpenAI text-embedding-3-large (2000 dims)
     embedding_cohere vector(1024),           -- Cohere embed-multilingual-v3.0 (1024 dims)
 
-    -- Full-text search over title + summary
+    -- Full-text search over title + summary, with title weighted higher (A) than summary (B).
+    -- ts_rank_cd applies these weights via its 'weights' parameter at query time.
     tsv_summary tsvector GENERATED ALWAYS AS (
-        to_tsvector('portuguese', coalesce(title, '') || ' ' || coalesce(summary, ''))
+        setweight(to_tsvector('portuguese', coalesce(title, '')), 'A') ||
+        setweight(to_tsvector('portuguese', coalesce(summary, '')), 'B')
     ) STORED,
 
     CONSTRAINT article_pk PRIMARY KEY (id),

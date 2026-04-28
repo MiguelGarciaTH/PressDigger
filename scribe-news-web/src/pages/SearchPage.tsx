@@ -77,7 +77,12 @@ export default function SearchPage() {
         signal: controller.signal,
       })
       if (!res.ok) {
-        throw new Error(`Request failed: ${res.status}`)
+        let msg = t.searchGeneralError
+        try {
+          const body = await res.json()
+          if (body?.message) msg = body.message
+        } catch { /* ignore parse error */ }
+        throw new Error(msg)
       }
       const data = await res.json()
       navigate("/results", { state: { query, results: data, selectedSiteIds, startDate, endDate } })
@@ -115,13 +120,15 @@ export default function SearchPage() {
           .catch(() => {})
         return
       }
+      if (res.status === 422) {
+        setError(t.digestNotEnoughArticles)
+        return
+      }
       if (!res.ok) {
-        let msg = `Request failed: ${res.status}`
+        let msg = t.digestGeneralError
         try {
           const body = await res.json()
-          if (body?.message?.toLowerCase().includes("not enough")) {
-            msg = t.digestNotEnoughArticles
-          } else if (body?.message) {
+          if (body?.message) {
             msg = body.message
           }
         } catch { /* ignore parse error */ }

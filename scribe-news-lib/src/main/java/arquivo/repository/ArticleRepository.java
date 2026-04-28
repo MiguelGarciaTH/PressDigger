@@ -52,44 +52,42 @@ public interface ArticleRepository extends JpaRepository<Article, Integer> {
                         (1.0 / (60.0 + RANK() OVER (ORDER BY t.distance ASC))
                          + 1.0 / (60.0 + RANK() OVER (ORDER BY t.bm25_score DESC))) AS rrf_score
                       FROM (
+                        -- Stage 1: HNSW-indexed top-500 by vector distance
                         SELECT
                           a.*,
                           (a.embedding <=> CAST(:embedding AS vector)) AS distance,
-                          ts_rank_cd(a.tsv_summary, websearch_to_tsquery('portuguese', :text)) AS bm25_score
+                          ts_rank_cd('{0.1, 0.2, 0.6, 1.0}', a.tsv_summary,
+                                     websearch_to_tsquery('portuguese', :text)) AS bm25_score
                         FROM article a
-                        WHERE
-                          (
-                            a.embedding <=> CAST(:embedding AS vector) < 0.45
-                            OR
-                            (
-                              a.embedding <=> CAST(:embedding AS vector) < 0.58
-                              AND a.tsv_summary @@ phraseto_tsquery('portuguese', :text)
-                            )
-                          )
-                          AND a.embedding IS NOT NULL
+                        WHERE a.embedding IS NOT NULL
                           AND a.site_id IN :siteIds
                           AND a.published_date >= :startDate
                           AND a.published_date <= :endDate
+                        ORDER BY a.embedding <=> CAST(:embedding AS vector) ASC
+                        LIMIT 1000
                       ) t
+                      -- Stage 2: in-memory threshold filter on the small set
+                      WHERE t.distance < 0.39
+                         OR (t.distance < 0.51 AND t.bm25_score > 0)
                     ) final
                     ORDER BY final.rrf_score DESC
                     """,
             countQuery = """
-                    SELECT COUNT(*)
-                    FROM article a
-                    WHERE
-                      (
-                        a.embedding <=> CAST(:embedding AS vector) < 0.45
-                        OR
-                        (
-                          a.embedding <=> CAST(:embedding AS vector) < 0.58
-                          AND a.tsv_summary @@ phraseto_tsquery('portuguese', :text)
-                        )
-                      )
-                      AND a.embedding IS NOT NULL
-                      AND a.site_id IN :siteIds
-                      AND a.published_date >= :startDate
-                      AND a.published_date <= :endDate
+                    SELECT COUNT(*) FROM (
+                      SELECT
+                        (a.embedding <=> CAST(:embedding AS vector)) AS distance,
+                        ts_rank_cd('{0.1, 0.2, 0.6, 1.0}', a.tsv_summary,
+                                   websearch_to_tsquery('portuguese', :text)) AS bm25_score
+                      FROM article a
+                      WHERE a.embedding IS NOT NULL
+                        AND a.site_id IN :siteIds
+                        AND a.published_date >= :startDate
+                        AND a.published_date <= :endDate
+                      ORDER BY a.embedding <=> CAST(:embedding AS vector) ASC
+                      LIMIT 1000
+                    ) t
+                    WHERE t.distance < 0.39
+                       OR (t.distance < 0.51 AND t.bm25_score > 0)
                     """,
             nativeQuery = true
     )
@@ -105,16 +103,7 @@ public interface ArticleRepository extends JpaRepository<Article, Integer> {
                     WITH best_match AS (
                       SELECT a.published_date AS best_date
                       FROM article a
-                      WHERE
-                        (
-                          a.embedding <=> CAST(:embedding AS vector) < 0.40
-                          OR
-                          (
-                            a.embedding <=> CAST(:embedding AS vector) < 0.55
-                            AND a.tsv_summary @@ phraseto_tsquery('portuguese', :text)
-                          )
-                        )
-                        AND a.embedding IS NOT NULL
+                      WHERE a.embedding IS NOT NULL
                         AND a.published_date IS NOT NULL
                         AND a.site_id IN :siteIds
                         AND a.published_date >= :startDate
@@ -125,16 +114,7 @@ public interface ArticleRepository extends JpaRepository<Article, Integer> {
                     SELECT a.*
                     FROM article a
                     CROSS JOIN best_match bm
-                    WHERE
-                      (
-                        a.embedding <=> CAST(:embedding AS vector) < 0.45
-                        OR
-                        (
-                          a.embedding <=> CAST(:embedding AS vector) < 0.58
-                          AND a.tsv_summary @@ phraseto_tsquery('portuguese', :text)
-                        )
-                      )
-                      AND a.embedding IS NOT NULL
+                    WHERE a.embedding IS NOT NULL
                       AND a.published_date IS NOT NULL
                       AND ABS(EXTRACT(EPOCH FROM (a.published_date - bm.best_date)) / 86400.0) <= :dayWindow
                       AND a.site_id IN :siteIds
@@ -165,44 +145,41 @@ public interface ArticleRepository extends JpaRepository<Article, Integer> {
                         (1.0 / (60.0 + RANK() OVER (ORDER BY t.distance ASC))
                          + 1.0 / (60.0 + RANK() OVER (ORDER BY t.bm25_score DESC))) AS rrf_score
                       FROM (
+                        -- Stage 1: HNSW-indexed top-500 by vector distance.
+                        -- Filters that match indexes (site_id, published_date) are applied here.
                         SELECT
                           a.*,
                           (a.embedding_cohere <=> CAST(:embedding AS vector)) AS distance,
                           ts_rank_cd(a.tsv_summary, websearch_to_tsquery('portuguese', :text)) AS bm25_score
                         FROM article a
-                        WHERE
-                          (
-                            a.embedding_cohere <=> CAST(:embedding AS vector) < 0.28
-                            OR
-                            (
-                              a.embedding_cohere <=> CAST(:embedding AS vector) < 0.42
-                              AND a.tsv_summary @@ phraseto_tsquery('portuguese', :text)
-                            )
-                          )
-                          AND a.embedding_cohere IS NOT NULL
+                        WHERE a.embedding_cohere IS NOT NULL
                           AND a.site_id IN :siteIds
                           AND a.published_date >= :startDate
                           AND a.published_date <= :endDate
+                        ORDER BY a.embedding_cohere <=> CAST(:embedding AS vector) ASC
+                        LIMIT 1000
                       ) t
+                      -- Stage 2: cheap in-memory threshold filter on the small candidate set
+                      WHERE t.distance < 0.25
+                         OR (t.distance < 0.39 AND t.bm25_score > 0)
                     ) final
                     ORDER BY final.rrf_score DESC
                     """,
             countQuery = """
-                    SELECT COUNT(*)
-                    FROM article a
-                    WHERE
-                      (
-                        a.embedding_cohere <=> CAST(:embedding AS vector) < 0.28
-                        OR
-                        (
-                          a.embedding_cohere <=> CAST(:embedding AS vector) < 0.42
-                          AND a.tsv_summary @@ phraseto_tsquery('portuguese', :text)
-                        )
-                      )
-                      AND a.embedding_cohere IS NOT NULL
-                      AND a.site_id IN :siteIds
-                      AND a.published_date >= :startDate
-                      AND a.published_date <= :endDate
+                    SELECT COUNT(*) FROM (
+                      SELECT
+                        (a.embedding_cohere <=> CAST(:embedding AS vector)) AS distance,
+                        ts_rank_cd(a.tsv_summary, websearch_to_tsquery('portuguese', :text)) AS bm25_score
+                      FROM article a
+                      WHERE a.embedding_cohere IS NOT NULL
+                        AND a.site_id IN :siteIds
+                        AND a.published_date >= :startDate
+                        AND a.published_date <= :endDate
+                      ORDER BY a.embedding_cohere <=> CAST(:embedding AS vector) ASC
+                      LIMIT 1000
+                    ) t
+                    WHERE t.distance < 0.25
+                       OR (t.distance < 0.39 AND t.bm25_score > 0)
                     """,
             nativeQuery = true
     )
@@ -218,16 +195,7 @@ public interface ArticleRepository extends JpaRepository<Article, Integer> {
                     WITH best_match AS (
                       SELECT a.published_date AS best_date
                       FROM article a
-                      WHERE
-                        (
-                          a.embedding_cohere <=> CAST(:embedding AS vector) < 0.25
-                          OR
-                          (
-                            a.embedding_cohere <=> CAST(:embedding AS vector) < 0.40
-                            AND a.tsv_summary @@ phraseto_tsquery('portuguese', :text)
-                          )
-                        )
-                        AND a.embedding_cohere IS NOT NULL
+                      WHERE a.embedding_cohere IS NOT NULL
                         AND a.published_date IS NOT NULL
                         AND a.site_id IN :siteIds
                         AND a.published_date >= :startDate
@@ -238,16 +206,7 @@ public interface ArticleRepository extends JpaRepository<Article, Integer> {
                     SELECT a.*
                     FROM article a
                     CROSS JOIN best_match bm
-                    WHERE
-                      (
-                        a.embedding_cohere <=> CAST(:embedding AS vector) < 0.28
-                        OR
-                        (
-                          a.embedding_cohere <=> CAST(:embedding AS vector) < 0.42
-                          AND a.tsv_summary @@ phraseto_tsquery('portuguese', :text)
-                        )
-                      )
-                      AND a.embedding_cohere IS NOT NULL
+                    WHERE a.embedding_cohere IS NOT NULL
                       AND a.published_date IS NOT NULL
                       AND ABS(EXTRACT(EPOCH FROM (a.published_date - bm.best_date)) / 86400.0) <= :dayWindow
                       AND a.site_id IN :siteIds
@@ -268,23 +227,15 @@ public interface ArticleRepository extends JpaRepository<Article, Integer> {
 
     /**
      * Fetches top N candidate articles for Cohere reranking.
-     * Uses slightly more permissive thresholds than direct serving so the
-     * reranker has a richer candidate pool to work with.
+     * Pure HNSW top-N — no threshold pre-filter, since the cross-encoder
+     * reranker is responsible for relevance filtering downstream.
+     * This keeps the query fast (uses the HNSW index directly).
      */
     @Query(
             value = """
                     SELECT a.*
                     FROM article a
-                    WHERE
-                      (
-                        a.embedding_cohere <=> CAST(:embedding AS vector) < 0.38
-                        OR
-                        (
-                          a.embedding_cohere <=> CAST(:embedding AS vector) < 0.55
-                          AND a.tsv_summary @@ phraseto_tsquery('portuguese', :text)
-                        )
-                      )
-                      AND a.embedding_cohere IS NOT NULL
+                    WHERE a.embedding_cohere IS NOT NULL
                       AND a.site_id IN :siteIds
                       AND a.published_date >= :startDate
                       AND a.published_date <= :endDate
@@ -299,6 +250,50 @@ public interface ArticleRepository extends JpaRepository<Article, Integer> {
                                           @Param("embedding") String embedding,
                                           @Param("text") String text,
                                           @Param("limit") int limit);
+
+    /**
+     * Narrative fallback: pure HNSW top-K with no day-window constraint.
+     * Used when the day-window query does not return enough articles.
+     */
+    @Query(
+            value = """
+                    SELECT a.*
+                    FROM article a
+                    WHERE a.embedding_cohere IS NOT NULL
+                      AND a.published_date IS NOT NULL
+                      AND a.site_id IN :siteIds
+                      AND a.published_date >= :startDate
+                      AND a.published_date <= :endDate
+                    ORDER BY a.embedding_cohere <=> CAST(:embedding AS vector) ASC
+                    LIMIT :limit
+                    """,
+            nativeQuery = true
+    )
+    List<Article> searchByTextToNarrativeCohereNoWindow(@Param("siteIds") List<Integer> siteIds,
+                                                        @Param("startDate") LocalDateTime startDate,
+                                                        @Param("endDate") LocalDateTime endDate,
+                                                        @Param("embedding") String embedding,
+                                                        @Param("limit") int limit);
+
+    @Query(
+            value = """
+                    SELECT a.*
+                    FROM article a
+                    WHERE a.embedding IS NOT NULL
+                      AND a.published_date IS NOT NULL
+                      AND a.site_id IN :siteIds
+                      AND a.published_date >= :startDate
+                      AND a.published_date <= :endDate
+                    ORDER BY a.embedding <=> CAST(:embedding AS vector) ASC
+                    LIMIT :limit
+                    """,
+            nativeQuery = true
+    )
+    List<Article> searchByTextToNarrativeNoWindow(@Param("siteIds") List<Integer> siteIds,
+                                                  @Param("startDate") LocalDateTime startDate,
+                                                  @Param("endDate") LocalDateTime endDate,
+                                                  @Param("embedding") String embedding,
+                                                  @Param("limit") int limit);
 
     Page<Article> getArticlesByAuthorId(int authorId, Pageable pageable);
 

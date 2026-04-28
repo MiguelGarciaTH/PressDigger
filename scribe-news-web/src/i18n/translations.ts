@@ -37,6 +37,7 @@ export const translations = {
     searching: "Searching…",
     textEditor: "Text Editor",
     selectAtLeastOneSite: "You need to select at least one site",
+    searchGeneralError: "Search failed. Please try again.",
 
     // AI Narrative
     articleSearch: "Article Search",
@@ -48,7 +49,8 @@ export const translations = {
     digestLimitReached: "Weekly limit reached",
     digestResetsOn: (d: string) => `Available again on ${d}`,
     digestLoginRequired: "Sign in to use AI Digest",
-    digestNotEnoughArticles: "Not enough relevant articles found. Try broadening your search or date range.",
+    digestNotEnoughArticles: "Not enough articles found for this topic. Try a broader query, a wider date range, or select more news sites.",
+    digestGeneralError: "The narrative could not be generated due to an unexpected error. Please try again later.",
     digestReferences: "References",
     digestNoResult: "No narrative was generated.",
 
@@ -186,6 +188,7 @@ export const translations = {
     searching: "A pesquisar…",
     textEditor: "Editor de Texto",
     selectAtLeastOneSite: "Precisa de selecionar pelo menos um site",
+    searchGeneralError: "A pesquisa falhou. Por favor, tente novamente.",
 
     // AI Narrative
     articleSearch: "Pesquisa de Artigos",
@@ -197,7 +200,8 @@ export const translations = {
     digestLimitReached: "Limite semanal atingido",
     digestResetsOn: (d: string) => `Disponível novamente em ${d}`,
     digestLoginRequired: "Inicie sessão para usar o AI Digest",
-    digestNotEnoughArticles: "Não foram encontrados artigos suficientes. Tente alargar a pesquisa ou o intervalo de datas.",
+    digestNotEnoughArticles: "Não foram encontrados artigos suficientes sobre este tema. Tente uma pesquisa mais abrangente, um intervalo de datas mais alargado ou selecione mais sites de notícias.",
+    digestGeneralError: "Não foi possível gerar a narrativa devido a um erro inesperado. Por favor, tente mais tarde.",
     digestReferences: "Referências",
     digestNoResult: "Nenhuma narrativa foi gerada.",
 
