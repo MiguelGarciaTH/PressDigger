@@ -135,17 +135,27 @@ public class ImageProcessorBackfill {
         LOG.info("Fetched {} articles from database", articles.size());
         fetchedArticlesTotal.addAndGet(articles.size());
 
-        // Partition articles into those that already have images and those that need fetching
+        // Partition articles into three buckets:
+        //  1. both original and small already exist → skip entirely
+        //  2. original exists but small is missing → only generate the small thumbnail
+        //  3. neither exists → full download + save original + create small
         final List<Article> articlesToFetch = new java.util.ArrayList<>();
+        final List<Article> articlesNeedingSmallOnly = new java.util.ArrayList<>();
         int alreadyExistCount = 0;
 
         for (Article article : articles) {
             final String fileName = article.getArticleHash() + ".png";
             final Path originalOutputPath = directory.resolve("original").resolve(fileName);
+            final Path smallOutputPath = directory.resolve("small").resolve(fileName);
 
-            if (Files.exists(originalOutputPath)) {
+            final boolean originalExists = Files.exists(originalOutputPath);
+            final boolean smallExists = Files.exists(smallOutputPath);
+
+            if (originalExists && smallExists) {
                 alreadyExistCount++;
                 fetchedArticlesWithImageAlreadyTotal.getAndIncrement();
+            } else if (originalExists) {
+                articlesNeedingSmallOnly.add(article);
             } else {
                 articlesToFetch.add(article);
             }
@@ -154,24 +164,27 @@ public class ImageProcessorBackfill {
         metricService.updateValue("arquivo_images_processor_backfill_articles_with_image_already_total",
                 fetchedArticlesWithImageAlreadyTotal.get());
 
-        LOG.info("Image check complete: {} already stored, {} missing — will fetch missing images now",
-                alreadyExistCount, articlesToFetch.size());
+        LOG.info("Image check complete: {} already complete, {} missing small only, {} missing entirely",
+                alreadyExistCount, articlesNeedingSmallOnly.size(), articlesToFetch.size());
 
-        if (articlesToFetch.isEmpty()) {
+        if (articlesToFetch.isEmpty() && articlesNeedingSmallOnly.isEmpty()) {
             LOG.info("Nothing to do, all articles already have images.");
             return;
         }
 
-        final int total = articlesToFetch.size();
+        final int total = articlesToFetch.size() + articlesNeedingSmallOnly.size();
         final AtomicInteger processed = new AtomicInteger(0);
 
         LOG.info("Processing {} articles with thread pool of size {}", total, threadPoolSize);
         final ExecutorService executor = Executors.newFixedThreadPool(threadPoolSize);
         try {
-            final List<CompletableFuture<Void>> futures = articlesToFetch.stream()
-                    .map(article -> CompletableFuture.runAsync(
-                            () -> processArticle(article, processed, total), executor))
-                    .toList();
+            final List<CompletableFuture<Void>> futures = new java.util.ArrayList<>();
+
+            articlesNeedingSmallOnly.forEach(article -> futures.add(
+                    CompletableFuture.runAsync(() -> processArticleSmallOnly(article, processed, total), executor)));
+
+            articlesToFetch.forEach(article -> futures.add(
+                    CompletableFuture.runAsync(() -> processArticle(article, processed, total), executor)));
 
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
         } finally {
@@ -179,6 +192,25 @@ public class ImageProcessorBackfill {
         }
 
         LOG.info("Backfill complete. Processed {}/{} articles.", processed.get(), total);
+    }
+
+    private void processArticleSmallOnly(Article article, AtomicInteger processed, int total) {
+        final String fileName = article.getArticleHash() + ".png";
+        final Path originalOutputPath = directory.resolve("original").resolve(fileName);
+        final Path smallOutputPath = directory.resolve("small").resolve(fileName);
+
+        try {
+            final BufferedImage original = ImageIO.read(originalOutputPath.toFile());
+            if (original == null) {
+                LOG.warn("Could not read original image for article {}, skipping small generation", article.getId());
+                return;
+            }
+            createSmallImage(smallOutputPath, original.getSubimage(0, 0, original.getWidth(),
+                    Math.min(original.getHeight() / 2, (original.getWidth() + (original.getWidth() / 2)))));
+            LOG.info("Generated missing small image for article id {} ( {}/{} )", article.getId(), processed.incrementAndGet(), total);
+        } catch (Exception e) {
+            LOG.error("Failed to create small image for article {}: {}", article.getId(), e.getMessage());
+        }
     }
 
     private void processArticle(Article article, AtomicInteger processed, int total) {
