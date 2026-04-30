@@ -42,6 +42,8 @@ export default function ResultsPage() {
   const [page, setPage] = useState<number>(0)
   const [last, setLast] = useState<boolean>((state.results as any)?.last ?? false)
   const [loading, setLoading] = useState(false)
+  const [fetchError, setFetchError] = useState(false)
+  const [retryKey, setRetryKey] = useState(0)
   const [selectedIndex, setSelectedIndex] = useState<number>(0)
   const [scale, setScale] = useState<number>(1)
   const [translate, setTranslate] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
@@ -679,6 +681,7 @@ export default function ResultsPage() {
     if (frames.length > 0 || loading) return
     if (isAuthorMode) {
       setLoading(true)
+      setFetchError(false)
       fetch(authorArticlesUrl(authorId!, 0))
         .then((r) => { if (!r.ok) throw new Error(`${r.status}`); return r.json() })
         .then((data) => {
@@ -686,13 +689,14 @@ export default function ResultsPage() {
           setPage(0)
           setLast(!!data.last)
         })
-        .catch((err) => console.error("Author load error:", err))
+        .catch((err) => { console.error("Author load error:", err); setFetchError(true) })
         .finally(() => setLoading(false))
       return
     }
     if (isCollectionMode) {
       // Fetch first page of collection articles
       setLoading(true)
+      setFetchError(false)
       const url = collectionType === "private"
         ? privateCollectionArticlesUrl(collectionId!, 0)
         : publicCollectionArticlesUrl(collectionId!, 0)
@@ -703,13 +707,13 @@ export default function ResultsPage() {
           setPage(0)
           setLast(!!data.last)
         })
-        .catch((err) => console.error("Collection load error:", err))
+        .catch((err) => { console.error("Collection load error:", err); setFetchError(true) })
         .finally(() => setLoading(false))
       return
     }
     if (!query) return
     loadMore()
-  }, [query, isCollectionMode, isAuthorMode])
+  }, [query, isCollectionMode, isAuthorMode, retryKey])
 
   // Load more on scroll
   useEffect(() => {
@@ -755,7 +759,14 @@ export default function ResultsPage() {
   if (!isCollectionMode && !isAuthorMode && !query) return <div className="max-w-3xl mx-auto p-6"><h2 className="text-xl font-semibold mb-4">Microfilm</h2><p className="text-gray-500">No query provided.</p></div>
   if (frames.length === 0 && !loading) return (
     <div style={{ position: "fixed", inset: 0, background: "linear-gradient(180deg,#070707 0%,#0f0f0f 100%)", color: "#eee", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
-      <p style={{ color: "#888", fontSize: 15 }}>{isCollectionMode || isAuthorMode ? t.noArticlesInCollection : t.noResultsFor(query)}</p>
+      <p style={{ color: fetchError ? "#e55" : "#888", fontSize: 15 }}>
+        {fetchError && (isCollectionMode || isAuthorMode) ? t.failedToLoad : isCollectionMode || isAuthorMode ? t.noArticlesInCollection : t.noResultsFor(query)}
+      </p>
+      {fetchError && (isCollectionMode || isAuthorMode) && (
+        <button onClick={() => { setFetchError(false); setRetryKey(k => k + 1) }} style={{ marginTop: 8, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "8px 16px", color: "#eee", cursor: "pointer", fontSize: 14 }}>
+          {t.retry}
+        </button>
+      )}
       <button onClick={() => isAuthorMode ? navigate(-1) : navigate(isCollectionMode ? `/collections/${collectionType}` : "/")} style={{ marginTop: 16, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "8px 16px", color: "#eee", cursor: "pointer", fontSize: 14 }}>
         <span style={{ fontSize: 18, fontWeight: 900 }}>←</span> {t.back}
       </button>
@@ -915,7 +926,7 @@ export default function ResultsPage() {
         <div style={{ flex: 1, display: !isMobile || mobileTab === "image" ? "flex" : "none", justifyContent: "center" }}>
           <div ref={paperRef} style={{ width: "100%", height: "100%", background: "#1a1a1a", padding: isMobile ? 0 : 12, borderRadius: 6, boxShadow: "0 8px 30px rgba(0,0,0,0.5)", overflow: "hidden", position: "relative", touchAction: "none" }}>
             {viewerSrc ? (
-              <img ref={imgRef} src={viewerSrc} alt={article.title ?? "article"} onLoad={onViewerImgLoad} onDoubleClick={onImageDoubleClick} draggable={false}
+              <img ref={imgRef} src={viewerSrc} alt={article.title ?? "article"} onLoad={onViewerImgLoad} onError={(e) => { const img = e.currentTarget; if (img.dataset.retried) return; img.dataset.retried = '1'; const s = img.src; setTimeout(() => { if (img.isConnected) img.src = s.includes('?') ? s + '&_r=1' : s + '?_r=1' }, 2000) }} onDoubleClick={onImageDoubleClick} draggable={false}
                 style={{ 
                   transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale})`, 
                   transition: isMobile ? "none" : "transform 120ms", 
@@ -1200,7 +1211,7 @@ export default function ResultsPage() {
             <div key={idx} ref={el => { thumbRefs.current[idx] = el }} 
               data-thumb-idx={idx}
               style={{ flexShrink: 0, width: isMobile ? 110 : 200, height: isMobile ? 74 : 136, background: "#111", borderRadius: 6, overflow: "hidden", border: selectedIndex === idx ? "2px solid #3aa" : "1px solid #222", cursor: "pointer", position: "relative", transform: selectedIndex === idx ? "scale(1.03)" : "none", transition: "transform 120ms" }}>
-              {thumbUrl && <img src={thumbUrl} alt={it.title ?? "thumb"} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top", filter: "grayscale(1)", pointerEvents: "none" }} />}
+              {thumbUrl && <img src={thumbUrl} alt={it.title ?? "thumb"} onError={(e) => { const img = e.currentTarget; if (img.dataset.retried) return; img.dataset.retried = '1'; const s = img.src; setTimeout(() => { if (img.isConnected) img.src = s.includes('?') ? s + '&_r=1' : s + '?_r=1' }, 2000) }} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top", filter: "grayscale(1)", pointerEvents: "none" }} />}
               <div style={{ position: "absolute", left: 6, top: 6, fontSize: 11, color: "#fff", background: "rgba(0,0,0,0.6)", padding: "2px 6px", borderRadius: 4, fontWeight: 500, pointerEvents: "none" }}>{idx + 1}</div>
             </div>
           )

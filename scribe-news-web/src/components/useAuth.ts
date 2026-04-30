@@ -15,7 +15,13 @@ export function useAuth() {
   const checkSession = useCallback(() => {
     fetch(AUTH_USER_URL, { credentials: 'include' })
       .then(r => r.ok ? r.json() : null)
-      .then(data => setUser(data))
+      .then(data => setUser(prev => {
+        // Keep the same object reference when the user hasn't changed to avoid
+        // triggering dependent effects (e.g. re-fetching collections on focus).
+        if (!data && !prev) return prev
+        if (data && prev && data.googleId === prev.googleId) return prev
+        return data
+      }))
       .catch(() => setUser(null))
       .finally(() => setLoading(false))
   }, [])

@@ -24,6 +24,7 @@ export default function PrivateCollectionsPage() {
   const [newDesc, setNewDesc] = useState("")
   const [creating, setCreating] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [retryKey, setRetryKey] = useState(0)
   const nameInputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
 
@@ -42,6 +43,7 @@ export default function PrivateCollectionsPage() {
   useEffect(() => {
     if (!user) return
     setLoading(true)
+    setError(null)
     fetch(PRIVATE_COLLECTIONS_URL, { credentials: "include" })
       .then((r) => {
         if (!r.ok) throw new Error(`${r.status}`)
@@ -50,7 +52,7 @@ export default function PrivateCollectionsPage() {
       .then((data) => setCollections(data))
       .catch((err) => setError(err.message ?? "Failed to load"))
       .finally(() => setLoading(false))
-  }, [user])
+  }, [user, retryKey])
 
   // Focus name input when create form opens
   useEffect(() => {
@@ -134,14 +136,22 @@ export default function PrivateCollectionsPage() {
       {/* Content */}
       <div style={{ flex: 1, overflowY: "auto", padding: "32px 24px", display: "flex", justifyContent: "center" }}>
         <div style={{ width: "100%", maxWidth: 900 }}>
-          {loading && (
+          {loading && collections.length === 0 && (
             <p style={{ color: "#888", fontSize: 14, textAlign: "center", padding: 40 }}>{t.loading}</p>
           )}
 
           {error && (
-            <p style={{ color: "#e55", fontSize: 14, textAlign: "center", padding: 40 }}>
-              {t.failedToLoad}
-            </p>
+            <div style={{ textAlign: "center", padding: 40 }}>
+              <p style={{ color: "#e55", fontSize: 14, margin: "0 0 16px" }}>
+                {t.failedToLoad}
+              </p>
+              <button
+                onClick={() => setRetryKey(k => k + 1)}
+                style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "8px 16px", color: "#eee", cursor: "pointer", fontSize: 14 }}
+              >
+                {t.retry}
+              </button>
+            </div>
           )}
 
           {!loading && !error && collections.length === 0 && !showCreateForm && (
