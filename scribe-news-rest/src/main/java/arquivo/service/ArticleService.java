@@ -213,9 +213,6 @@ public class ArticleService {
             openIaResult = objectMapper.readTree(narrativeJson);
             // Only count usage when the API call actually succeeded
             recordOpenAIUsage(user);
-        } catch (com.openai.errors.RateLimitException e) {
-            // Quota exhausted — bubble up so GlobalExceptionHandler returns 503 (not 500)
-            throw e;
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }

@@ -2,10 +2,26 @@ package arquivo.service;
 
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
+import com.openai.errors.RateLimitException;
 import com.openai.models.responses.Response;
 import com.openai.models.responses.ResponseCreateParams;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.Random;
 
 public class OpenAiIntegrationNarrative {
+
+    private static final Logger LOG = LoggerFactory.getLogger(OpenAiIntegrationNarrative.class);
+
+    /** Maximum number of retry attempts on a 429 before giving up. */
+    private static final int MAX_RETRIES = 4;
+    /** Base delay in milliseconds for the first retry. Doubles each attempt. */
+    private static final long BASE_DELAY_MS = 1_000;
+    /** Cap on the calculated backoff delay, regardless of attempt number. */
+    private static final long MAX_DELAY_MS = 32_000;
+
+    private static final Random JITTER = new Random();
 
     private final OpenAIClient client;
 
@@ -91,9 +107,57 @@ public class OpenAiIntegrationNarrative {
                 .input(sb.toString())
                 .build();
 
-        final Response response = client.responses().create(params);
+        RateLimitException lastException = null;
+        for (int attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                final Response response = client.responses().create(params);
+                return response.output().getFirst().message().get().content().getFirst().asOutputText().text()
+                        .replaceAll("^```json\\s*|```\\s*$", "").trim();
+            } catch (RateLimitException e) {
+                lastException = e;
+                if (attempt == MAX_RETRIES) {
+                    LOG.warn("[Narrative] OpenAI rate limit hit after {} retries, giving up.", attempt);
+                    break;
+                }
+                long delayMs = retryDelayMs(e, attempt);
+                LOG.warn("[Narrative] OpenAI rate limit hit (attempt {}/{}), retrying in {} ms...",
+                        attempt + 1, MAX_RETRIES, delayMs);
+                try {
+                    Thread.sleep(delayMs);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw e;
+                }
+            }
+        }
+        throw lastException;
+    }
 
-        return response.output().getFirst().message().get().content().getFirst().asOutputText().text().replaceAll("^```json\\s*|```\\s*$", "").trim();
+    /**
+     * Computes the delay before the next retry.
+     * Honours the {@code Retry-After} header when OpenAI provides one;
+     * otherwise falls back to truncated exponential backoff with jitter.
+     */
+    private long retryDelayMs(RateLimitException e, int attempt) {
+        // OpenAI sometimes embeds "Please try again in Xs." in the message
+        try {
+            String msg = e.getMessage();
+            if (msg != null) {
+                java.util.regex.Matcher m = java.util.regex.Pattern
+                        .compile("try again in (\\d+(?:\\.\\d+)?)s")
+                        .matcher(msg);
+                if (m.find()) {
+                    long serverMs = (long) (Double.parseDouble(m.group(1)) * 1_000);
+                    // Add a small jitter on top of the server hint
+                    return serverMs + JITTER.nextInt(500);
+                }
+            }
+        } catch (Exception ignored) { }
+
+        // Truncated exponential backoff: BASE * 2^attempt, capped at MAX_DELAY, plus ±25% jitter
+        long backoff = Math.min(BASE_DELAY_MS * (1L << attempt), MAX_DELAY_MS);
+        long jitter   = (long) (backoff * 0.25 * (JITTER.nextDouble() * 2 - 1)); // ±25%
+        return Math.max(BASE_DELAY_MS, backoff + jitter);
     }
 
 }
