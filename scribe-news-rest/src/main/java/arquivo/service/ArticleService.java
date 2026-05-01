@@ -19,7 +19,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -55,9 +54,6 @@ public class ArticleService {
 
     @Value("${scribe-ref.arquivo.scribe-news-rest.open-ai.max-usage-period}")
     private Duration maxOpenAIUsagePeriod;
-
-    @Value("${scribe-ref.rerank.candidates:100}")
-    private int rerankCandidates;
 
     @Value("${scribe-ref.rerank.min-score:0.0}")
     private double rerankMinScore;
@@ -103,34 +99,9 @@ public class ArticleService {
         float[] vector = embeddingClient.getQueryEmbedding(normalizedText);
         String pgVector = embeddingClient.toPgVectorLiteral(vector);
 
-        if (rerankEnabled) {
-            // Fetch a broader candidate pool, rerank with Cohere cross-encoder, then paginate
-            int candidateLimit = Math.max(rerankCandidates, (pageable.getPageNumber() + 1) * pageable.getPageSize() * 2);
-            candidateLimit = Math.min(candidateLimit, 100);
-
-            LOG.info("[Search] Using rerank path: fetching {} candidates for query '{}'",
-                    candidateLimit, inputText.substring(0, Math.min(60, inputText.length())));
-
-            List<Article> candidates = articleRepository.findTopCandidatesCohere(
-                    siteIds, startDate, endDate, pgVector, inputText, candidateLimit);
-
-            LOG.info("[Search] Retrieved {} candidates from DB", candidates.size());
-
-            if (candidates.isEmpty()) {
-                return Page.empty(pageable);
-            }
-
-            List<Article> reranked = applyRerank(inputText, candidates);
-
-            int pageStart = (int) pageable.getOffset();
-            int pageEnd = Math.min(pageStart + pageable.getPageSize(), reranked.size());
-            if (pageStart >= reranked.size()) {
-                return new PageImpl<>(List.of(), pageable, reranked.size());
-            }
-            return new PageImpl<>(reranked.subList(pageStart, pageEnd), pageable, reranked.size());
-        }
-
-        LOG.info("[Search] Using direct vector search path (rerank disabled or not Cohere)");
+        // Search always uses the RRF hybrid query (vector + BM25) — rerank is reserved for
+        // narrative generation where result ordering directly affects LLM output quality.
+        LOG.info("[Search] Using hybrid RRF search path (Cohere={})", useCohere);
 
         if (useCohere) {
             return articleRepository.searchByTextCohere(siteIds, startDate, endDate, pgVector, inputText, pageable);
