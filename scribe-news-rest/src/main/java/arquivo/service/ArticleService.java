@@ -209,8 +209,13 @@ public class ArticleService {
 
         JsonNode openIaResult = null;
         try {
-            openIaResult = objectMapper.readTree(openAiIntegrationNarrative.createNarrative(articlesJsonText));
+            String narrativeJson = openAiIntegrationNarrative.createNarrative(articlesJsonText);
+            openIaResult = objectMapper.readTree(narrativeJson);
+            // Only count usage when the API call actually succeeded
             recordOpenAIUsage(user);
+        } catch (com.openai.errors.RateLimitException e) {
+            // Quota exhausted — bubble up so GlobalExceptionHandler returns 503 (not 500)
+            throw e;
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }

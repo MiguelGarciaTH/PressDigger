@@ -1,5 +1,6 @@
 package arquivo.controller;
 
+import com.openai.errors.RateLimitException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -64,6 +65,14 @@ public class GlobalExceptionHandler {
         log.trace("404 for unknown path: {}", ex.getResourcePath());
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(Map.of("error", "Not found"));
+    }
+
+    // OpenAI quota exhausted — not our fault, log as WARN and tell the client to retry later.
+    @ExceptionHandler(RateLimitException.class)
+    public ResponseEntity<Map<String, String>> handleOpenAiRateLimit(RateLimitException ex) {
+        log.warn("OpenAI rate limit reached (429): {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(Map.of("error", "The narrative service is temporarily unavailable due to API quota limits. Please try again later."));
     }
 
     @ExceptionHandler(Exception.class)
