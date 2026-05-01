@@ -208,7 +208,8 @@ public interface ArticleRepository extends JpaRepository<Article, Integer> {
                     CROSS JOIN best_match bm
                     WHERE a.embedding_cohere IS NOT NULL
                       AND a.published_date IS NOT NULL
-                      AND ABS(EXTRACT(EPOCH FROM (a.published_date - bm.best_date)) / 86400.0) <= :dayWindow
+                      AND a.published_date >= bm.best_date - ((:dayWindow / 2.0) * INTERVAL '1 day')
+                      AND a.published_date <= bm.best_date + ((:dayWindow / 2.0) * INTERVAL '1 day')
                       AND a.site_id IN :siteIds
                       AND a.published_date >= :startDate
                       AND a.published_date <= :endDate
