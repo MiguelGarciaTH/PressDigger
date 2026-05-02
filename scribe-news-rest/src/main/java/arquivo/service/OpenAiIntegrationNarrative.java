@@ -115,6 +115,14 @@ public class OpenAiIntegrationNarrative {
                         .replaceAll("^```json\\s*|```\\s*$", "").trim();
             } catch (RateLimitException e) {
                 lastException = e;
+
+                // "insufficient_quota" means the account has no credits — retrying is pointless.
+                // "rate_limit_exceeded" means too many requests/tokens per minute — worth retrying.
+                if (isQuotaExhausted(e)) {
+                    LOG.warn("[Narrative] OpenAI quota exhausted (billing limit). No point retrying.");
+                    break;
+                }
+
                 if (attempt == MAX_RETRIES) {
                     LOG.warn("[Narrative] OpenAI rate limit hit after {} retries, giving up.", attempt);
                     break;
@@ -131,6 +139,16 @@ public class OpenAiIntegrationNarrative {
             }
         }
         throw lastException;
+    }
+
+    /**
+     * Returns true when the 429 is a hard billing quota error (insufficient_quota),
+     * meaning retrying will never succeed until the account is topped up.
+     * Transient rate limits (rate_limit_exceeded) are safe to retry.
+     */
+    private boolean isQuotaExhausted(RateLimitException e) {
+        String msg = e.getMessage();
+        return msg != null && (msg.contains("insufficient_quota") || msg.contains("exceeded your current quota"));
     }
 
     /**
