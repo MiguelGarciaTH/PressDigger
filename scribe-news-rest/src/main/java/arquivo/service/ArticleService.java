@@ -129,16 +129,16 @@ public class ArticleService {
 
         List<Article> articles;
         if (useCohere) {
-            articles = new ArrayList<>(articleRepository.searchByTextToNarrativeCohere(siteIds, startDate, endDate, pgVector, inputText, 30, 20));
+            articles = new ArrayList<>(articleRepository.searchByTextToNarrativeCohere(siteIds, startDate, endDate, pgVector, inputText, 30, 5));
             if (articles.size() < 3) {
                 LOG.info("[Narrative] Day-window returned only {} articles, falling back to top-K cosine", articles.size());
                 articles = new ArrayList<>(articleRepository.searchByTextToNarrativeCohereNoWindow(siteIds, startDate, endDate, pgVector, 20));
             }
         } else {
-            articles = new ArrayList<>(articleRepository.searchByTextToNarrative(siteIds, startDate, endDate, pgVector, inputText, 30, 20));
+            articles = new ArrayList<>(articleRepository.searchByTextToNarrative(siteIds, startDate, endDate, pgVector, inputText, 30, 5));
             if (articles.size() < 3) {
                 LOG.info("[Narrative] Day-window returned only {} articles, falling back to top-K cosine", articles.size());
-                articles = new ArrayList<>(articleRepository.searchByTextToNarrativeNoWindow(siteIds, startDate, endDate, pgVector, 20));
+                articles = new ArrayList<>(articleRepository.searchByTextToNarrativeNoWindow(siteIds, startDate, endDate, pgVector, 5));
             }
         }
 

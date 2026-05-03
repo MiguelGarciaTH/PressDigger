@@ -50,9 +50,10 @@ public interface ArticleRepository extends JpaRepository<Article, Integer> {
                     FROM (
                       SELECT t.*,
                         (1.0 / (60.0 + RANK() OVER (ORDER BY t.distance ASC))
-                         + 1.0 / (60.0 + RANK() OVER (ORDER BY t.bm25_score DESC))) AS rrf_score
+                         + 1.0 / (60.0 + RANK() OVER (ORDER BY t.bm25_score DESC))) AS rrf_score,
+                        ROW_NUMBER() OVER (ORDER BY t.distance ASC) AS rn
                       FROM (
-                        -- Stage 1: HNSW-indexed top-500 by vector distance
+                        -- Stage 1: HNSW-indexed top-1000 by vector distance
                         SELECT
                           a.*,
                           (a.embedding <=> CAST(:embedding AS vector)) AS distance,
@@ -66,10 +67,11 @@ public interface ArticleRepository extends JpaRepository<Article, Integer> {
                         ORDER BY a.embedding <=> CAST(:embedding AS vector) ASC
                         LIMIT 1000
                       ) t
-                      -- Stage 2: in-memory threshold filter on the small set
-                      WHERE t.distance < 0.28
-                         OR (t.distance < 0.48 AND t.bm25_score > 0)
                     ) final
+                    -- Stage 2: relaxed threshold filter + top-5 fallback to avoid empty results
+                    WHERE final.distance < 0.35
+                       OR (final.distance < 0.55 AND final.bm25_score > 0)
+                       OR final.rn <= 5
                     ORDER BY final.rrf_score DESC
                     """,
             countQuery = """
@@ -77,7 +79,8 @@ public interface ArticleRepository extends JpaRepository<Article, Integer> {
                       SELECT
                         (a.embedding <=> CAST(:embedding AS vector)) AS distance,
                         ts_rank_cd('{0.1, 0.2, 0.6, 1.0}', a.tsv_summary,
-                                   websearch_to_tsquery('portuguese', :text)) AS bm25_score
+                                   websearch_to_tsquery('portuguese', :text)) AS bm25_score,
+                        ROW_NUMBER() OVER (ORDER BY a.embedding <=> CAST(:embedding AS vector) ASC) AS rn
                       FROM article a
                       WHERE a.embedding IS NOT NULL
                         AND a.site_id IN :siteIds
@@ -86,8 +89,9 @@ public interface ArticleRepository extends JpaRepository<Article, Integer> {
                       ORDER BY a.embedding <=> CAST(:embedding AS vector) ASC
                       LIMIT 1000
                     ) t
-                    WHERE t.distance < 0.28
-                       OR (t.distance < 0.48 AND t.bm25_score > 0)
+                    WHERE t.distance < 0.35
+                       OR (t.distance < 0.55 AND t.bm25_score > 0)
+                       OR t.rn <= 5
                     """,
             nativeQuery = true
     )
@@ -143,9 +147,10 @@ public interface ArticleRepository extends JpaRepository<Article, Integer> {
                     FROM (
                       SELECT t.*,
                         (1.0 / (60.0 + RANK() OVER (ORDER BY t.distance ASC))
-                         + 1.0 / (60.0 + RANK() OVER (ORDER BY t.bm25_score DESC))) AS rrf_score
+                         + 1.0 / (60.0 + RANK() OVER (ORDER BY t.bm25_score DESC))) AS rrf_score,
+                        ROW_NUMBER() OVER (ORDER BY t.distance ASC) AS rn
                       FROM (
-                        -- Stage 1: HNSW-indexed top-500 by vector distance.
+                        -- Stage 1: HNSW-indexed top-1000 by vector distance.
                         -- Filters that match indexes (site_id, published_date) are applied here.
                         SELECT
                           a.*,
@@ -159,17 +164,19 @@ public interface ArticleRepository extends JpaRepository<Article, Integer> {
                         ORDER BY a.embedding_cohere <=> CAST(:embedding AS vector) ASC
                         LIMIT 1000
                       ) t
-                      -- Stage 2: cheap in-memory threshold filter on the small candidate set
-                      WHERE t.distance < 0.15
-                         OR (t.distance < 0.32 AND t.bm25_score > 0.02)
                     ) final
+                    -- Stage 2: relaxed threshold filter + top-5 fallback to avoid empty results
+                    WHERE final.distance < 0.25
+                       OR (final.distance < 0.45 AND final.bm25_score > 0)
+                       OR final.rn <= 5
                     ORDER BY final.rrf_score DESC
                     """,
             countQuery = """
                     SELECT COUNT(*) FROM (
                       SELECT
                         (a.embedding_cohere <=> CAST(:embedding AS vector)) AS distance,
-                        ts_rank_cd(a.tsv_summary, websearch_to_tsquery('portuguese', :text)) AS bm25_score
+                        ts_rank_cd(a.tsv_summary, websearch_to_tsquery('portuguese', :text)) AS bm25_score,
+                        ROW_NUMBER() OVER (ORDER BY a.embedding_cohere <=> CAST(:embedding AS vector) ASC) AS rn
                       FROM article a
                       WHERE a.embedding_cohere IS NOT NULL
                         AND a.site_id IN :siteIds
@@ -178,8 +185,9 @@ public interface ArticleRepository extends JpaRepository<Article, Integer> {
                       ORDER BY a.embedding_cohere <=> CAST(:embedding AS vector) ASC
                       LIMIT 1000
                     ) t
-                    WHERE t.distance < 0.15
-                       OR (t.distance < 0.32 AND t.bm25_score > 0.02)
+                    WHERE t.distance < 0.25
+                       OR (t.distance < 0.45 AND t.bm25_score > 0)
+                       OR t.rn <= 5
                     """,
             nativeQuery = true
     )
